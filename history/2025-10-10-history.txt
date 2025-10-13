@@ -1,0 +1,1000 @@
+   84  more harald-desktop:5901.log
+   85  tail -f harald-desktop:5901.log
+   86  grdctl status
+   87  grdctl rdp enable
+   88  grdctl status
+   89  ps -ef | grep vnc
+   90  grdctl rdp disable
+   91  grdctl status
+   92  kill 2731
+   93  ps -ef | grep vnc
+   94  grdctl rdp enable
+   95  grdctl status
+   96  sudo shutdown now
+   97  ps -ef | grep vnc
+   98  lsusb
+   99  sudo apt-get install cheese
+  100  cheese
+  101  ls /dev/video*
+  102  sudo apt install v4l-utils
+  103  v4l2-ctl --list-devices
+  104  sudo apt install policycoreutils
+  105  sudo chown -R $USER:$USER ~/snap
+  106  snap remove firefox
+  107  sudo snap remove firefox
+  108  sudo add-apt-repository ppa:mozillateam/ppa
+  109  sudo apt update
+  110  sudo apt install firefox
+  111  snap remove firefox
+  112  sudo snap remove firefox
+  113  snap install firefox
+  114  sudo snap install firefox
+  115  journalctl -xe
+  116  sudo apt remove --purge firefox
+  117  sudo apt autoremove
+  118  sudo apt clean
+  119  sudo snap remove firefox
+  120  sudo apt purge snapd
+  121  sudo apt install firefox
+  122  sudo apt remove --purge firefox -y && sudo apt autoremove -y && sudo apt clean && sudo rm -f /var/cache/apt/archives/firefox_*.deb && sudo snap remove firefox --purge || true && sudo apt purge snapd -y || true && sudo add-apt-repository -y ppa:mozillateam/ppa && sudo apt update && sudo apt install -y firefox
+  123  sudo systemctl stop snapd
+  124  sudo systemctl stop snapd.socket
+  125  sudo systemctl stop snapd.seeded.service
+  126  sudo snap list
+  127  sudo apt install -y firefox
+  128  history
+  129  history < grep snap
+  130  history | grep snap
+  131  sudo snap install firefox
+  132  sudo apt purge snapd -y
+  133  sudo rm -rf /var/cache/snapd/
+  134  sudo rm -rf ~/snap
+  135  sudo apt install -y firefox
+  136  sudo add-apt-repository -y ppa:mozillateam/ppa
+  137  sudo apt install -y firefox
+  138  sudo apt install snapd -y
+  139  sudo systemctl enable snapd
+  140  sudo systemctl start snapd
+  141  sudo systemctl status snapd
+  142  sudo snap install firefox
+  143  grep -i squash /proc/filesystems
+  144  sudo apt install squashfs-tools
+  145  sudo modprobe squashfs
+  146  ls /dev/loop*
+  147  sudo snap install firefox
+  148  grep -i squash /proc/filesystems
+  149  ls /dev/loop*
+  150  sudo rm -rf /var/lib/snapd/state /var/lib/snapd/snaps /var/cache/snapd/
+  151  rm -rf ~/snap
+  152  sudo apt install --reinstall snapd -y
+  153  sudo systemctl enable --now snapd
+  154  sudo snap install core
+  155  df -Th /tmp /
+  156  sudo apt install squashfs-tools util-linux mount -y
+  157  sudo systemctl stop snapd
+  158  sudo rm -rf /var/lib/snapd/state /var/lib/snapd/snaps /var/cache/snapd/
+  159  rm -rf ~/snap
+  160  sudo systemctl start snapd
+  161  sudo systemctl status apparmor
+  162  sudo systemctl enable apparmor
+  163  sudo systemctl start apparmor
+  164  sudo systemctl status apparmor
+  165  sudo reboot
+  166  cheese
+  167  cheese --device=/dev/video1
+  168  cheese --device=/dev/video2
+  169  cheese --device=/dev/video3
+  170  cheese --device=/dev/video0
+  171  cheese --device=/dev/video2
+  172  firefox
+  173  sudo snap install firefox
+  174  passwd
+  175  sudo snap install firefox
+  176  which firefox
+  177  firefox
+  178  sudo apt install policycoreutils
+  179  y
+  180  sudo apt install firefox
+  181  firefox &
+  182  sudo apt install chromium-browser
+  183  which chromium-browser
+  184  chromium-browser --version
+  185  chromium-browser --no-sandbox --version
+  186  chromium-browser --no-sandbox
+  187  sudo apt install firefox
+  188  sudo snap remove firefox
+  189  sudo apt purge firefox
+  190  sudo add-apt-repository ppa:mozillateam/ppa
+  191  sudo apt update
+  192  echo '
+  193  Package: *
+  194  Pin: release o=LP-PPA-mozillateam
+  195  Pin-Priority: 501
+  196  ' | sudo tee /etc/apt/preferences.d/mozilla-firefox
+  197  cat /etc/apt/preferences.d/mozilla-firefox
+  198  sudo apt install firefox
+  199  firefox --version
+  200  firefox &
+  201  sudo apt install gnome-control-center gnome-language-selector ibus ibus-gtk ibus-gtk3
+  202  sudo dpkg-reconfigure keyboard-configuration
+  203  sudo setupcon
+  204  sudo nano /etc/default/keyboard
+  205  sudo dpkg-reconfigure keyboard-configuration
+  206  sudo systemctl status lightdm
+  207  sudo systemctl status gnome
+  208  mkdir -p ~/.config/autostart
+  209  nano ~/.config/autostart/set-keyboard.desktop
+  210  sudo reboot
+  211  sudo setupcon
+  212  setxkbmap de
+  213  setxkbmap -query
+  214  head -n 1 /etc/nv_tegra_release
+  215  dpkg -l | grep nvidia
+  216  head -n 1 /etc/nv_tegra_release
+  217  sudo apt install deepstream-6.4
+  218  sudo apt install deepstream-6.2
+  219  wget https://developer.download.nvidia.com/assets/Deepstream/Deepstream_6.2/Deepstream_6.2.0/Deepstream_6.2.0_jetson.tbz2
+  220  wget --content-disposition 'https://api.ngc.nvidia.com/v2/resources/org/nvidia/deepstream/8.0/files?redirect=true&path=deepstream_sdk_v8.0.0_jetson.tbz2' --output-document 'deepstream_sdk_v8.0.0_jetson.tbz2'
+  221  ls
+  222  pwd
+  223  ls
+  224  cd Downloads
+  225  ls
+  226  rm 'sdkmanager_2.3.0-12626_amd64(1).deb' 
+  227  sudo pip3 install -U jetson-stats
+  228  sudo apt install python3-pip
+  229  sudo pip3 install -U jetson-stats
+  230  jtop
+  231  sudo systemctl restart jtop.service
+  232  jtop
+  233  sudo reboot
+  234  setxkbmap de
+  235  setxkbmap -query
+  236  jtop
+  237  nvcc --version
+  238  nvidia-smi
+  239  nvcc --version
+  240  cat /usr/local/cuda/version.txt
+  241  history
+  242  harald@harald-desktop:~$ history
+  243  head -n 1 /etc/nv_tegra_release
+  244  sudo shutdown now
+  245  jtop
+  246  df -h
+  247  sudo shutdown now
+  248  ls
+  249  pwd
+  250  jtop
+  251  ls /opt/nvidia/deepstream/
+  252  ls /opt/nvidia/deepstream/deepstream/samples/
+  253  ls -l /opt/nvidia/deepstream/deepstream/samples/
+  254  df -h
+  255  sudo pip3 install -U jetson-stats
+  256  which jetson-stats
+  257  sudo systemctl status xrdp
+  258  sudo apt install vino -y
+  259  vino-preferences
+  260  sudo systemctl status xrdp
+  261  systemctl --user status gnome-remote-desktop
+  262  cat /etc/os-release 
+  263  cat /etc/nv_tegra_release
+  264  head -n 1 /etc/nv_tegra_release
+  265  nvcc --version
+  266  vtop
+  267  pip3 install jetson-stats
+  268  jetson_release
+  269  mkdir hb
+  270  cd hb
+  271  nano check_jetson_env.sh
+  272  chmod +x check_jetson_env.sh 
+  273  ./check_jetson_env.sh 
+  274  nano check_jetson_env.sh
+  275  ./check_jetson_env.sh 
+  276  nano check_jetson_env.sh
+  277  ./check_jetson_env.sh 
+  278  exit
+  279  setxkbmap -print -verbose 10
+  280  nano ~/.config/keyboard/config
+  281  cd .config
+  282  ls
+  283  ls /l
+  284  ls -l
+  285  wmctrl -l
+  286  cd
+  287  cd /opt/nvidia/deepstream/deepstream-8.0/samples/configs/deepstream-app
+  288  ls
+  289  more INSTALL 
+  290  which meson
+  291  sudo apt install gnome-commander
+  292  cd ..
+  293  rm -rf gnome-commander-1.18.4/
+  294  exit
+  295  sudo find / -name "libgstrtspserver-1.0.so*" 2>/dev/null
+  296  sudo apt update
+  297  sudo apt install libgstrtspserver-1.0-0
+  298  sudo apt install libgstrtspserver-1.0-dev
+  299  sudo apt install libgstrtspserver-1.0-0
+  300  cd hb
+  301  nano source1_1080p_dec_infer_resnet.txt
+  302  ls
+  303  nano source1_1080p_dec_infer_resnet.txt
+  304  ls -l /opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4
+  305  deepstream-app --help
+  306  deepstream-app --help-all
+  307  ls -l
+  308  sudo shutdown now
+  309  history
+  310  which deepstream-app
+  311  deepstream-app -c source2_1080p_dec_infer-resnet_demux_int8.txt 
+  312  sudo deepstream-app -c source2_1080p_dec_infer-resnet_demux_int8.txt 
+  313  nano  source2_1080p_dec_infer-resnet_demux_int8.txt 
+  314  v4l2-ctl --list-devices
+  315  v4l2-ctl --device=/dev/videoX --all
+  316  v4l2-ctl --device=/dev/video1 --all
+  317  cheese --device=/dev/video3
+  318  cheese --device=/dev/video2
+  319  cheese --device=/dev/video1
+  320  v4l2-ctl --list-devices
+  321  cheese --device=/dev/video0
+  322  v4l2-ctl --device=/dev/video0 --list-formats-ext
+  323  v4l2-ctl --device=/dev/video1 --list-formats-ext
+  324  v4l2-ctl --device=/dev/video2 --list-formats-ext
+  325  v4l2-ctl --device=/dev/video3 --list-formats-ext
+  326  history
+  327  v4l2-ctl --device=/dev/video0 --list-formats-ext
+  328  gst-launch-1.0 v4l2src device=/dev/video0 ! videoconvert ! autovideosink
+  329  cheese --device=/dev/video0
+  330  echo $LD_LIBRARY_PATH
+  331  sudo apt install guvcview
+  332  guvcview --help
+  333  guvcview --device=/dev/video0
+  334  guvcview -d /dev/video0 -f 640x480 -r 30
+  335  guvcview -d /dev/video0 -f 320x240 -r 30
+  336  v4l2-ctl --device=/dev/video1 --list-formats-ext
+  337  v4l2-ctl --device=/dev/video0 --list-formats-ext
+  338  v4l2-ctl --device=/dev/video1 --list-formats-ext
+  339  v4l2-ctl --device=/dev/video0 --list-formats-ext
+  340  guvcview -d /dev/video0 -f 320x240 -r 30
+  341  guvcview -d /dev/video0 -f 320x240 -r 5
+  342  guvcview -d /dev/video2 
+  343  history 
+  344  v4l2-ctl --device=/dev/video2 --list-formats-ext
+  345  gst-launch-1.0 v4l2src device=/dev/video2 ! image/jpeg,width=640,height=480,framerate=30/1 ! nvjpegdec ! nvvidconv ! nveglglessink
+  346  guvcview -d /dev/video2 
+  347  guvcview -d /dev/video2 -f 320x240 -r 5
+  348  guvcview -d /dev/video2 
+  349  guvcview -d /dev/video0
+  350  guvcview -d /dev/video2
+  351  guvcview -d /dev/video3
+  352  guvcview -d /dev/video1
+  353  ls /dev/vi*
+  354  guvcview -d /dev/video2
+  355  guvcview --help
+  356  man guvcview
+  357  history
+  358  4l2-ctl -d /dev/video2 --list-ctrls
+  359  v4l2-ctl -d /dev/video2 --list-ctrls
+  360  v4l2-ctl --help
+  361  v4l2-ctl -d /dev/video2 --all
+  362  v4l2-ctl -d /dev/video3 --all
+  363  v4l2-ctl -d /dev/video0 --all
+  364  guvcview -d /dev/video0
+  365  history
+  366  ls -l
+  367  nano source1_usb_dec_infer_resnet_int8.txt
+  368  deepstream-app -c <pre>source1_usb_dec_infer_resnet_int8.txt</pre>
+  369  deepstream-app -c source1_usb_dec_infer_resnet_int8.txt
+  370  grep device *txt
+  371  grep video *txt
+  372  cp  source1_usb_dec_infer_resnet_int8.txt ~/hb/
+  373  nano ~/hb/source1_usb_dec_infer_resnet_int8.txt 
+  374  deepstream-app -c ~/hb/source1_usb_dec_infer_resnet_int8.txt
+  375  nano ~/hb/source1_usb_dec_infer_resnet_int8.txt 
+  376  deepstream-app -c ~/hb/source1_usb_dec_infer_resnet_int8.txt
+  377  nano ~/hb/source1_usb_dec_infer_resnet_int8.txt 
+  378  deepstream-app -c ~/hb/source1_usb_dec_infer_resnet_int8.txt
+  379  sudo nano source1_usb_dec_infer_resnet_int8.txt 
+  380  deepstream-app -c source1_usb_dec_infer_resnet_int8.txt
+  381  deepstream-app -c source1_usb_dec_infer_resnet_int8.txt -i file:///dev/video0
+  382  history
+  383  ls /tmp/
+  384  nano source1_usb_dec_infer_resnet_int8.txt 
+  385  sudo nano source1_usb_dec_infer_resnet_int8.txt 
+  386  deepstream-app -c hb_usb_dec_infer_resnet_int8.txt 
+  387  jtop
+  388  deepstream-app -c source30_1080p_dec_infer-resnet_tiled_display.txt
+  389  ls source30_1080p_dec_infer-resnet_tiled_display.txt
+  390  ls
+  391  deepstream-app -c source30_1080p_dec_infer-resnet_tiled_display_int8.txt
+  392  ls -l
+  393  deepstream-app -c source2_1080p_dec_infer-resnet_demux_int8.txt 
+  394  echo test >test
+  395  deepstream-app --help
+  396  deepstream-app --help-all
+  397  sudo deepstream-app -c source2_1080p_dec_infer-resnet_demux_int8.txt 
+  398  ls -l
+  399  ls out*
+  400  sudo rm out*
+  401  history 
+  402  cp source30_1080p_dec_infer-resnet_tiled_display_int8.* ~/hb/
+  403  cd
+  404  cd hb
+  405  ls
+  406  which deepstream-app
+  407  deepstream-app source1_1080p_dec_infer_resnet.txt 
+  408  deepstream-app -c source1_1080p_dec_infer_resnet.txt 
+  409  sh run.sh 
+  410  history
+  411  ls
+  412  sh run.sh 
+  413  systemctl --user restart gnome-remote-desktop.service
+  414  rm ~/.local/share/keyrings/login.keyring
+  415  seahorse
+  416  ls ~/.local/share/keyrings/login.keyring
+  417  ls -l ~/.local/share/keyrings
+  418  history
+  419  rm ~/.local/share/keyrings/Login.keyring
+  420  mkdir -p ~/.local/share/keyrings
+  421  echo 'default=login' > ~/.local/share/keyrings/default
+  422  ls ~/.local/share/keyrings
+  423  cat ~/.local/share/keyrings/default 
+  424  seahorse
+  425  rm ~/.local/share/keyrings/default 
+  426  rm ~/.local/share/keyrings/Default_keyring.keyring 
+  427  ls
+  428  exit
+  429  ls ~/.local/share/keyrings/
+  430  ls -l ~/.local/share/keyrings/
+  431  ls -l ~/.local/share/keyrings/login.keyring 
+  432  cat ~/.local/share/keyrings/login.keyring 
+  433  mkdir -p ~/.config/systemd/user
+  434  nano ~/.config/systemd/user/gnome-remote-desktop.service.d/override.conf
+  435  mkdir ~/.config/systemd/user/gnome-remote-desktop.service.d
+  436  nano ~/.config/systemd/user/gnome-remote-desktop.service.d/override.conf
+  437  sudo reboot
+  438  exit
+  439  history 
+  440  rm -rf  ~/.config/systemd/user/gnome-remote-desktop.service.d
+  441  ls  ~/.config/systemd/user/
+  442  cat  ~/.config/systemd/user/gnome-session.target.wants/
+  443  ls -l  ~/.config/systemd/user/gnome-session.target.wants/
+  444  echo 'default=login' > ~/.local/share/keyrings/default
+  445  cat  ~/.local/share/keyrings/default
+  446  ls -l ~/.local/share/keyrings/
+  447  sudo reboot
+  448  history 
+  449  ls -l ~/.local/share/keyrings/
+  450  sudo systemctl stop brltty.service
+  451  sudo systemctl stop brltty-udev.service
+  452  sudo reboot
+  453  cd hb
+  454  nano disable-brltty.sh
+  455  sh disable-brltty.sh 
+  456  cd ..
+  457  history 
+  458  ls -l ~/.local/share/keyrings/
+  459  rm  ~/.local/share/keyrings/default 
+  460  rm  ~/.local/share/keyrings/login.keyring 
+  461  sudo reboot
+  462  ls -l ~/.local/share/keyrings/
+  463  cd  ~/.local/share/keyrings/
+  464  ls
+  465  cd de
+  466  cat default 
+  467  free -h
+  468  journalctl --user -xe | grep -i "gnome-remote-desktop\|gnome-shell" -B 20
+  469  ps aux | grep britty
+  470  cd
+  471  cd hb
+  472  cat disable-brltty.sh 
+  473  systemctl --user restart gnome-remote-desktop.service
+  474  ps aux | grep britty
+  475  ls ~/.local/share/keyrings
+  476  cat ~/.local/share/keyrings/default 
+  477  mv ~/.local/share/keyrings/Default_keyring.keyring ~/.local/share/keyrings/login.keyring
+  478  echo 'default=login' > ~/.local/share/keyrings/default
+  479  ls ~/.local/share/keyrings
+  480  cat ~/.local/share/keyrings/default 
+  481  chmod 600 ~/.local/share/keyrings/login.keyring
+  482  systemctl --user restart gnome-keyring-daemon.service
+  483  systemctl --user restart gnome-remote-desktop.service
+  484  sudo reboot
+  485  history 
+  486  ls ~/.local/share/keyrings
+  487  cd ~/.local/share/keyrings
+  488  ls -l
+  489  cat default
+  490  echo login >defualt
+  491  cat default
+  492  echo login >default
+  493  cat default
+  494  ls
+  495  rm defualt 
+  496  ls -l
+  497  rm Default_keyring.keyring 
+  498  ls -l
+  499  sudo reboot
+  500  history 
+  501  cd ~/.local/share/keyrings
+  502  ls -l
+  503  cat default 
+  504  ls
+  505  ps aux | grep britty
+  506  nan0 x.sh
+  507  nano x.sh
+  508  sh x.sh 
+  509  ls
+  510  cat default 
+  511  cat login.keyring 
+  512  sudo reboot
+  513  history
+  514  ps aux | grep britty
+  515  cd ~/.local/share/keyrings
+  516  ls -l
+  517  chmod 600 login.keyring
+  518  ls -l
+  519  journalctl --user -u gnome-remote-desktop.service -f
+  520  systemctl --user list-units | grep remote
+  521  journalctl --user -xe
+  522  systemctl --user stop gnome-remote-desktop.service
+  523  systemctl --user start gnome-remote-desktop.service
+  524  ps aux | grep britty
+  525  echo $XDG_SESSION_TYPE
+  526  sudo apt install tigervnc-standalone-server tigervnc-common
+  527  vncpasswd
+  528  vncserver :1
+  529  cd
+  530  cd .vnc
+  531  ls
+  532  cat xstartup 
+  533  mv ~/.vnc/xstartup ~/.vnc/xstartup.bak
+  534  nano ~/.vnc/xstartup
+  535  chmod +x ~/.vnc/xstartup
+  536  vncserver -kill :1  
+  537  vncserver :1
+  538  [i
+  539  [Xv2[xrXec
+  540  ifconfig
+  541  echo $XDG_SESSION_TYPE
+  542  systemctl --user stop gnome-remote-desktop.service 
+  543  systemctl --user start gnome-remote-desktop.service 
+  544  ps aux | grep britty
+  545  vncserver :1
+  546  ps aux | grep vnc
+  547  vncserver -kill :1
+  548  ps aux | grep vnc
+  549  vncserver  :1
+  550  ps aux | grep Xtigervnc
+  551  ps aux | grep vnc
+  552  history
+  553  vncserver -kill :1  
+  554  vncserver :1
+  555  [
+  556  history
+  557  ps aux | grep vnc
+  558  vncserver :1
+  559  sudo journalctl -b -p 3
+  560  nano ~/.vnc/xstartup
+  561  tigervnc :1
+  562  history 
+  563  vncserver :1
+  564  nano ~/.vnc/xstartup
+  565  sudo journalctl -b
+  566  sudo journalctl -b -p 3
+  567  cd /opt/nvidia/
+  568  LS
+  569  ls
+  570  cd deepstream/
+  571  ls
+  572  cd deepstream-7.1
+  573  cd samples/
+  574  cd configs/
+  575  cd deepstream-app
+  576  deepstream-app -c hb_usb_dec_infer_resnet_int8.txt 
+  577  sudo apt update
+  578  x11vnc -storepasswd
+  579  x11vnc -display :0 -nopw -forever -shared -auth guess -rfbport 5900 &
+  580  history
+  581  sudo apt install x11vnc -y
+  582  x11vnc -storepasswd
+  583  x11vnc -display :0 -rfbauth ~/.vnc/passwd -forever -auth guess
+  584  sudo nano /etc/systemd/system/x11vnc.service
+  585  sudo systemctl daemon-reload
+  586  sudo systemctl enable x11vnc.service
+  587  sudo systemctl start x11vnc.service
+  588  sudo systemctl status x11vnc.service
+  589  sudo reboot now
+  590  systemd-analyze blame | head -20
+  591  systemd-analyze blame | head -60
+  592  history | grep install
+  593  cd /opt/nvidia/deepstream/deepstream-7.1/samples/configs/deepstream-app
+  594  deepstream-app hb_usb_dec_infer_resnet_int8.txt 
+  595  deepstream-app -c hb_usb_dec_infer_resnet_int8.txt 
+  596  sudo deepstream-app -c hb_usb_dec_infer_resnet_int8.txt 
+  597  cd ~/hb/
+  598  deepstream-app -c hb_usb_dec_infer_resnet_int8.txt 
+  599  nano ~/.config/systemd/user/x11vnc.service
+  600  cd
+  601  cd .config/systemd/
+  602  ls
+  603  cd user/
+  604  ls
+  605  sudo nano /etc/systemd/system/x11vnc.service
+  606  sudo systemctl daemon-reload
+  607  sudo systemctl restart x11vnc.service
+  608  sudo systemctl status x11vnc.service
+  609  sudo nano /etc/systemd/system/x11vnc.service
+  610  sudo systemctl daemon-reload
+  611  sudo systemctl restart x11vnc.service
+  612  sudo systemctl status x11vnc.service
+  613  journalctl --user -u x11vnc.service -e | tail -20
+  614  sudo apt install autocutsel
+  615  autocutsel -fork
+  616  ps aux | grep autocutsel
+  617  kill 15067
+  618  ps aux | grep autocutsel
+  619  DISPLAY=:0 autocutsel -fork -selection PRIMARY &
+  620  DISPLAY=:0 autocutsel -fork -selection CLIPBOARD &
+  621  ps aux | grep autocutsel
+  622  mkdir -p ~/.config/autostart
+  623  nano ~/.config/autostart/autocutsel.desktop
+  624  sudo reboot
+  625  cd hb
+  626  ls
+  627  deepstream-app -c hb_usb_dec_infer_resnet_int8.txt 
+  628  cd /opt/nvidia/deepstream/deepstream-7.1/samples/configs/deepstream-app/
+  629  deepstream-app -c hb_usb_dec_infer_resnet_int8.txt 
+  630  autocutsel -fork
+  631  DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus gnome-control-center &
+  632  DISPLAY=:0  gnome-control-center &
+  633  nano ~/.bashrc
+  634  exit
+  635  gnome-control-center &
+  636  nano ~/.bashrc
+  637  exit
+  638  gnome-control-center &
+  639  history
+  640  nano ~/.bashrc
+  641  cd hb
+  642  deepstream-app -c hb_usb_dec_infer_resnet_int8.txt 
+  643  top -p $(pgrep x11vnc)
+  644  pgrep x11vnc
+  645  ps -ef | grep x11vnc
+  646  cd
+  647  cd .vnc/
+  648  ls
+  649  cat passwd 
+  650  cat *log
+  651  more *log
+  652  v4l2-ctl -d /dev/video2 --all
+  653  v4l2-ctl -d /dev/video0 --all
+  654  v4l2-ctl -d /dev/video0 --all | grep pixel
+  655  v4l2-ctl -d /dev/video0 --all | grep -i pixel
+  656  v4l2-ctl -d /dev/video2 --all | grep -i pixel
+  657  v4l2-ctl -d /dev/video1 --all | grep -i pixel
+  658  v4l2-ctl -d /dev/video1 --all 
+  659  guvcview -d /dev/video2
+  660  cd
+  661  cd hb
+  662  deepstream-app -c hb_usb_dec_infer_resnet_int8.txt 
+  663  grep -i "error" /var/log/apt/term.log
+  664  journalctl --user -xe | grep gnome-software
+  665  grep -i "error" /var/log/apt/term.log | tail -20
+  666  clear
+  667  grep -i "error" /var/log/apt/term.log | tail -20
+  668  sudo apt install squashfs-tools
+  669  grep squashfs /proc/filesystems
+  670  sudo apt remove firefox
+  671  sudo apt install firefox-esr
+  672  firefox &
+  673  firefox-esr
+  674  sudo apt autoremove --dry-run
+  675  sudo apt autoremove
+  676  guvcview --help
+  677  deepstream-app -c hb_usb_dec_infer_resnet_int8.txt 
+  678  nano deepstream_detect.py
+  679  python deepstream_detect.py 
+  680  ls /opt/nvidia/deepstream/deepstream*/lib/
+  681  sudo apt update
+  682  sudo apt install deepstream-7.1-python
+  683  sudo apt install -y python3-pip python3-gi python3-dev git cmake build-essential
+  684  cd
+  685  git clone https://github.com/NVIDIA-AI-IOT/deepstream_python_apps.git
+  686  cd deepstream_python_apps/bindings
+  687  sudo pip3 install .
+  688  cd ..
+  689  git fetch --all
+  690  git checkout v1.1.11
+  691  cd bindings
+  692  sudo pip3 install .
+  693  cd
+  694  history
+  695  cd deepstream_python_apps/
+  696  git status
+  697  cd bindings/
+  698  ls
+  699  sudo pip3 install .
+  700  sudo apt install python3-dev python3-pip cmake build-essential
+  701  mkdir build
+  702  cd build
+  703  cmake ..
+  704  make
+  705  sudo apt install -y pybind11-dev
+  706  rm -rf *
+  707  cmake ..
+  708  make
+  709  sudo apt install -y pybind11-dev
+  710  ls /usr/include/pybind11
+  711  cd ..
+  712  rm -rf build/
+  713  mkdir build
+  714  cd build
+  715  cmake .. -DPYBIND11_INCLUDE_DIR=/usr/include/pybind11
+  716  history
+  717  cmake --find-package -DNAME=pybind11 -DCOMPILER_ID=GNU -DLANGUAGE=CXX -DMODE=EXIST
+  718  rm -rf *
+  719  cmake ..
+  720  make
+  721  nano ~/deepstream_python_apps/bindings/include/pyds.hpp
+  722  make
+  723  nano ~/deepstream_python_apps/bindings/include/pyds.hpp
+  724  nano /home/harald/deepstream_python_apps/bindings/include/pyds.hpp
+  725  make
+  726  nano /home/harald/deepstream_python_apps/bindings/include/utils.hpp
+  727  make
+  728  cd ../bindings/python/pyds/dist
+  729  cd ..
+  730  ls
+  731  cd build/
+  732  cd ../bindings/python/pyds/dist
+  733  ls
+  734  sudo pip3 install pyds-1.1.11-py3-none-linux_x86_64.whl 
+  735  python3 -c "import platform; print(platform.machine())"
+  736  cd ..
+  737  rm -rf build/
+  738  mkdir build
+  739  cd build/
+  740  cmake ..
+  741  make
+  742  ls
+  743  cd ..
+  744  ls -l
+  745  cd build
+  746  cd build/
+  747  ls
+  748  cd bdist.linux-aarch64/
+  749  ls
+  750  cd ..
+  751  cd lib
+  752  ls
+  753  sudo shutdown now
+  754  ps aux | grep autocutsel
+  755  history | grep clone
+  756  history | grep checkout
+  757  cd deepstream_python_apps/
+  758  history | grep checkout
+  759  git checkout v1.2.0
+  760  git stash
+  761  git checkout v1.2.0
+  762  cd bindings/
+  763  ls
+  764  rm -rf build
+  765  mkdir build
+  766  cd build/
+  767  cmake ..
+  768  ls
+  769  make
+  770  nano /home/harald/deepstream_python_apps/bindings/include/pyds.hpp
+  771  make
+  772  nano /home/harald/deepstream_python_apps/bindings/include/utils.hpp
+  773  make
+  774  ls
+  775  sudo pip3 install pyds-1.2.0-cp310-cp310-linux_aarch64.whl
+  776  sudo pip3 install ~/Downloads/pyds-1.2.0-cp310-cp310-linux_aarch64.whl
+  777  python3 -c "import pyds; print('pyds loaded OK')"
+  778  cd
+  779  cd hb
+  780  python deepstream_detect.py
+  781  cd hb
+  782  ls
+  783  ls -l source*
+  784  rm source*
+  785  ls
+  786  cat run.sh 
+  787  grep hb *txt
+  788  cd
+  789  mv hb deepstream_detect
+  790  cd deepstream_
+  791  cd deepstream_detect/
+  792  python deepstream_detect.py
+  793  ls -l
+  794  sh run.sh 
+  795  cd ..
+  796  mv deepstream_detect/ hb
+  797  cd hb
+  798  sh run
+  799  sh run.sh 
+  800  deepstream-app -c hb_usb_dec_infer_resnet_int8.txt 
+  801  cd ..
+  802  mv hb/ detect
+  803  cd  detect/
+  804  ls -l
+  805  cat ../.bashrc
+  806  sh run.sh 
+  807  cat run.sh 
+  808  sh run.sh 
+  809  cat run.sh 
+  810  sh run.sh 
+  811  mv run.sh readme.txt
+  812  cat readme.txt 
+  813  python detect.py
+  814  ls
+  815  mv deepstream_detect.py ds-detect.py
+  816  cat readme.txt 
+  817  cd ..
+  818  mv detect/ ds-detect
+  819  cat readme.txt 
+  820  cd ds-detect/
+  821  cat readme.txt 
+  822  python ds-detect.py
+  823  deepstream-app -c hb_usb_dec_infer_resnet_int8.txt
+  824  cd ..
+  825  git clone https://github.com/hanoba/orin-git.git
+  826  ls -l
+  827  mv ds-detect/ orin-git/
+  828  cd orin-git/
+  829  ls
+  830  git status
+  831  git add ds-detect/
+  832  git commit -am "Initial version"
+  833  git config --global user.email "harald.n.bauer@web.de"
+  834  git config --global credential.helper store
+  835  git push
+  836  git status
+  837  git commit -am "Initial commit"
+  838  git push
+  839  sudo reboot
+  840  pwd
+  841  pip install -U pip
+  842  ls -l .local/bin
+  843  which pip
+  844  pip --version
+  845  pip3 --version
+  846  cat .local/bin/pip
+  847  git clone https://github.com/ultralytics/ultralytics
+  848  cd ultralytics/
+  849  pip install -e ".[export]" onnxslim
+  850  cd
+  851  git clone https://github.com/marcoslucianops/DeepStream-Yolo
+  852  cp ~/DeepStream-Yolo/utils/export_yolo11.py ~/ultralytics
+  853  cd ultralytics
+  854  wget https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11s.pt
+  855  python3 export_yolo11.py -w yolo11s.pt
+  856  pip uninstall -y onnx ml_dtypes
+  857  pip install onnx==1.15.0 ml_dtypes==0.3.2
+  858  python3 export_yolo11.py -w yolo11s.pt
+  859  ls
+  860  ls -l
+  861  nano ~/.bashrc
+  862  exit
+  863  echo $PATH
+  864  history
+  865  echo $PATH
+  866  nano ~/.bashrc
+  867  exit
+  868  echo $PATH
+  869  which pip
+  870  nano ~/.bashrc
+  871  exit
+  872  echo $PATH
+  873  exit
+  874  echo $PATH
+  875  ls .*
+  876  ls .b*
+  877  cat /etc/profile
+  878  nano /etc/profile
+  879  bash -l -x
+  880  echo $PATH
+  881  source .bashrc 
+  882  echo $PATH
+  883  exit
+  884  echo $PATH
+  885  python3 export_yolo11.py -w yolo11s.pt
+  886  cd ultralytics/
+  887  python3 export_yolo11.py -w yolo11s.pt
+  888  ls
+  889  cp yolo11s.pt.onnx labels.txt ~/DeepStream-Yolo
+  890  cd ~/DeepStream-Yolo
+  891  echo $CUDA_VER
+  892  export CUDA_VER=12.6
+  893  echo $CUDA_VER
+  894  make -C nvdsinfer_custom_impl_Yolo clean && make -C nvdsinfer_custom_impl_Yolo
+  895  ls /opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4
+  896  deepstream-app -c deepstream_app_config.txt
+  897  python deepstream-yolo11.py 
+  898  clear
+  899  python deepstream-yolo11.py 
+  900  sudo shutdown now
+  901  find . -name Rosmaster_Lib.*
+  902  ls /l
+  903  ls -l
+  904  cd ultralytics/
+  905  ls *py
+  906  cd
+  907  cd DeepStream-Yolo/
+  908  ls
+  909  python deepstream-yolo11.py 
+  910  cd orin-git/
+  911  ls
+  912  ./Rosmaster_Lib.py 
+  913  sudo pip install pyserial
+  914  pip install pyserial
+  915  pip3 install pyserial
+  916  ping pypi.org
+  917  pip3 install pyserial
+  918  history 
+  919  ls
+  920  ./Rosmaster_Lib.py 
+  921  ls /dev/tty*
+  922  sudo ./Rosmaster_Lib.py 
+  923  pip3 install pyserial
+  924  sudo pip3 install pyserial
+  925  sudo ./Rosmaster_Lib.py 
+  926  sudo shutdown now
+  927  cd orin-git/
+  928  sudo python Rosmaster_Lib.py 
+  929  cd /dev/by-id
+  930  ls /dev/s*
+  931  cd /dev/serial/by_id
+  932  cd /dev/serial/by-id
+  933  ls
+  934  ls -l
+  935  cd
+  936  cd orin-git/
+  937  ls
+  938  sudo python Rosmaster_Lib.py 
+  939  python --version
+  940  cd orin-git/
+  941  ls
+  942  python Rosmaster_Lib.py 
+  943  sudo python Rosmaster_Lib.py 
+  944  ls -l /dev/ttyUSB*
+  945  groups
+  946  sudo usermod -aG dialout $USER
+  947  groups
+  948  exit
+  949  cd orin-git/
+  950  groups
+  951  sudo python Rosmaster_Lib.py 
+  952  python Rosmaster_Lib.py 
+  953  ls -l /dev
+  954  ls -l /dev/nv*
+  955  ls -l /dev/disk/by-id/
+  956  sudo blkid /dev/sda
+  957  sudo blkid /dev/sda1
+  958  lsblk
+  959  sudo blkid /dev/sda14
+  960  sudo nano /media/harald/f462b297-df42-409e-81b1-a8edbe954426/boot/extlinux/extlinux.conf
+  961  cat /media/harald/f462b297-df42-409e-81b1-a8edbe954426/boot/extlinux/extlinux.conf
+  962  exit
+  963  ls
+  964  sudo cp extlinux.conf extlinux.conf.hb-backup
+  965  cd /dev/by-id
+  966  ls /dev/
+  967  ls /dev/serial/
+  968  ls /dev/serial/by-id
+  969  ls -l /dev/serial/by-id
+  970  ls
+  971  cd orin-git/
+  972  ls
+  973  python Rosmaster_Lib.py 
+  974  lsmod | grep ch341
+  975  sudo modprobe ch341
+  976  jtop
+  977  cd orin-git/
+  978  wget https://raw.githubusercontent.com/torvalds/linux/master/drivers/usb/serial/ch341.c
+  979  ls -l
+  980  sudo apt update
+  981  cd ..
+  982  git clone https://github.com/WCHSoftGroup/ch341ser_linux.git
+  983  cd ch341ser_linux/
+  984  make
+  985  sudo apt remove brltty
+  986  sudo reboot
+  987  ls /dev/
+  988  ls /dev/serial
+  989  sudo apt install build-essential linux-headers-$(uname -r)
+  990  head -n 1 /etc/nv_tegra_release
+  991  cd
+  992  git clone https://github.com/NVIDIA/jetson-linux.git
+  993  wget https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.7/sources/public_sources.tbz2
+  994  head -n 1 /etc/nv_tegra_release
+  995  wget https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.6/sources/public_sources.tbz2
+  996  wget https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.5/sources/public_sources.tbz2
+  997  wget https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.4/sources/public_sources.tbz2
+  998  mkdir -p ~/l4t-src && cd ~/l4t-src
+  999  mv ../public_sources.tbz2 .
+ 1000  tar -xjf public_sources.tbz2
+ 1001  tar -xjf Linux_for_Tegra/source/public/kernel_src.tbz2 -C .
+ 1002  tar -xjf Linux_for_Tegra/source/kernel_src.tbz2 -C .
+ 1003  ls -l /proc/config.gz 
+ 1004  cd kernel/kernel-jammy-src/
+ 1005  ls -al
+ 1006  zcat /proc/config.gz > .config
+ 1007  ls -al
+ 1008  more .config 
+ 1009  make olddefconfig
+ 1010  make M=drivers/usb/serial/ modules
+ 1011  export KERNEL_SRC=$(pwd)
+ 1012  export ARCH=arm64
+ 1013  export CROSS_COMPILE=/usr/bin/aarch64-linux-gnu-
+ 1014  sudo apt install gcc-aarch64-linux-gnu
+ 1015  cd $KERNEL_SRC
+ 1016  make O=$KERNEL_SRC/build tegra_defconfig
+ 1017  make mrproper
+ 1018  make O=$KERNEL_SRC/build tegra_defconfig
+ 1019  find ~/l4t-src -type f -name "tegra_defconfig"
+ 1020  make O=$KERNEL_SRC/build /home/harald/l4t-src/kernel/kernel-jammy-src/arch/arm/configs/tegra_defconfig
+ 1021  echo $KERNEL_SRC
+ 1022  make O=$KERNEL_SRC/build arch/arm/configs/tegra_defconfig
+ 1023  make O=$KERNEL_SRC/build ../arch/arm/configs/tegra_defconfig
+ 1024  make O=$KERNEL_SRC/build tegra_defconfig
+ 1025  echo $KERNEL
+ 1026  echo $KERNEL_SRC
+ 1027  echo $ARCH
+ 1028  echo $CROSS_COMPILE
+ 1029  make O=$KERNEL_SRC/build tegra_defconfig
+ 1030  ls $KERNEL_SRC/arch/arm64/configs | grep tegra
+ 1031  make O=$KERNEL_SRC/build tegra_prod_defconfig
+ 1032  make O=$KERNEL_SRC/build prepar
+ 1033  make O=$KERNEL_SRC/build prepare
+ 1034  sudo apt install libssl-dev
+ 1035  make O=$KERNEL_SRC/build prepare
+ 1036  make O=$KERNEL_SRC/build modules_prepare
+ 1037  make O=$KERNEL_SRC/build M=drivers/usb/serial/ modules -j$(nproc)
+ 1038  ls -lh ~/l4t-src/kernel/kernel-jammy-src/drivers/usb/serial/*.ko
+ 1039  ls -lh ~/l4t-src/kernel/kernel-jammy-src/build/drivers/usb/serial/*.ko
+ 1040  make O=$KERNEL_SRC/build M=drivers/usb/serial/ ch341.ko -j$(nproc)
+ 1041  ls /lib/modules/$(uname -r)/build
+ 1042  cd
+ 1043  cd ch341ser_linux/
+ 1044  ls
+ 1045  cd driver/
+ 1046  ls
+ 1047  make
+ 1048  sudo make load
+ 1049  dmesg | tail -n 20
+ 1050  sudo dmesg | tail -n 20
+ 1051  ls /dev/ttyCH*
+ 1052  cd
+ 1053  cd orin-git/
+ 1054  python Rosmaster_Lib.py 
+ 1055  history
+ 1056  history >2025-10-10-history.txt
+ 1057  cd 
+ 1058  cd ch341ser_linux/
+ 1059  ls
+ 1060  cd driver/
+ 1061  ls
+ 1062  ls -l
+ 1063  ls /lib/modules/$(uname -r)/kernel/drivers/usb/serial/
+ 1064  sudo cp ch341.ko /lib/modules/$(uname -r)/kernel/drivers/usb/serial/
+ 1065  sudo depmod -a
+ 1066  ls /etc/modules-load.d/
+ 1067  echo "ch341" | sudo tee /etc/modules-load.d/ch341.conf
+ 1068  lsmod | grep ch341
+ 1069  cd 
+ 1070  cd orin-git/
+ 1071  mkdir rosmaster
+ 1072  ls
+ 1073  cd rosmaster/
+ 1074  ls
+ 1075  cd ..
+ 1076  mkdir Rosmaster_Lib
+ 1077  cd Rosmaster_Lib/
+ 1078  mv ../Rosmaster_Lib.py .
+ 1079  ls -l ..
+ 1080  touch libtest.py
+ 1081  python libtest.py 
+ 1082  history
+ 1083  history >2025-10-10-history.txt
