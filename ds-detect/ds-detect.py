@@ -107,61 +107,6 @@ def osd_sink_pad_buffer_probe(pad, info, u_data):
     return Gst.PadProbeReturn.OK
 
 
-
-def OLDosd_sink_pad_buffer_probe(pad, info, u_data):
-    gst_buffer = info.get_buffer()
-    if not gst_buffer:
-        return Gst.PadProbeReturn.OK
-
-    batch_meta = pyds.gst_buffer_get_nvds_batch_meta(hash(gst_buffer))
-    l_frame = batch_meta.frame_meta_list
-
-    while l_frame is not None:
-        try:
-            frame_meta = pyds.NvDsFrameMeta.cast(l_frame.data)
-        except StopIteration:
-            break
-
-        # Iterate through detected objects in this frame
-        l_obj = frame_meta.obj_meta_list
-        while l_obj is not None:
-            try:
-                obj_meta = pyds.NvDsObjectMeta.cast(l_obj.data)
-            except StopIteration:
-                break
-
-            # 🔹 Hide or show based on confidence threshold
-            if obj_meta.confidence < CONF_THRESHOLD:
-                # Hide low-confidence detections
-                obj_meta.rect_params.border_width = 0
-                obj_meta.text_params.display_text = ""
-                obj_meta.text_params.font_params.font_size = 0
-            else:
-                # Show bounding box + custom label
-                obj_meta.rect_params.border_width = 2
-                obj_meta.text_params.font_params.font_size = 14
-                obj_meta.text_params.font_params.font_name = "Serif"
-                obj_meta.text_params.font_params.font_color.set(1.0, 1.0, 1.0, 1.0)  # white
-                obj_meta.text_params.set_bg_clr = 1
-                obj_meta.text_params.text_bg_clr.set(0.3, 0.3, 0.3, 1.0)  # gray background
-
-                # 🔸 Custom display text: <class>: <confidence>
-                class_name = obj_meta.obj_label
-                obj_meta.text_params.display_text = f"{class_name}: {obj_meta.confidence:.2f}"
-
-            try:
-                l_obj = l_obj.next
-            except StopIteration:
-                break
-
-        try:
-            l_frame = l_frame.next
-        except StopIteration:
-            break
-
-    return Gst.PadProbeReturn.OK
-
-
 def main():
     # Build pipeline
     pipeline = Gst.Pipeline()
@@ -203,14 +148,6 @@ def main():
     pgie.set_property("batch-size", 1)
     # if you need to set engine directly:
     # pgie.set_property("model-engine-file", MODEL_ENGINE_FILE)
-
-    #HB # OSD properties (map from your config)
-    #HB nvosd.set_property("process-mode", 0)  # 0=GPU
-    #HB nvosd.set_property("display-text", True)
-    #HB # text size and border width as in config
-    #HB nvosd.set_property("text-size", 15)
-    #HB # border width is controlled per object in object meta (but nvdsosd also has line-width param)
-    #HB nvosd.set_property("border-width", 2)
 
     # camera source element capabilities; link elements
     pipeline.add(source)
@@ -259,7 +196,21 @@ def main():
     streammux.link(pgie)
     pgie.link(nvvidconv)
     nvvidconv.link(nvosd)
-    nvosd.link(sink)
+    
+    MIRROR = True
+    if MIRROR:
+        # Neues Element für horizontales Spiegeln hinzufügen
+        flipconv = Gst.ElementFactory.make("nvvideoconvert", "flip-converter")
+        flipconv.set_property("flip-method", 4)  # 0=none, 4=horizontal flip
+        if not flipconv:
+            print("Unable to create flip-converter element!", file=sys.stderr)
+            return
+        pipeline.add(flipconv)
+        
+         # nvosd -> flipconv -> sink
+        nvosd.link(flipconv)
+        flipconv.link(sink)   
+    else: nvosd.link(sink)
 
     # attach probe to the pgie src pad OR to nvosd sink pad; we choose pgie src pad to get metadata immediately after inference
     pgie_src_pad = pgie.get_static_pad("src")
