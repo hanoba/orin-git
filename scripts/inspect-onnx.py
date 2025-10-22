@@ -1,7 +1,17 @@
-import onnx
+#!/usr/bin/env python3
 
+import onnx
+import sys
+
+if len(sys.argv) != 2:
+    print("usage: inspect_onxx <onnx-file>")
+    exit()
+    
 # Load the model
-model_path = "model/hand_pose_resnet18_att_244_244.onnx"
+model_path = sys.argv[1]
+
+# model_path = "/home/harald/pytorch-YOLOv4/cross_hands.onnx"
+#"model/hand_pose_resnet18_att_244_244.onnx"
 model = onnx.load(model_path)
 
 # Check the model is well-formed
