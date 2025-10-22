@@ -262,74 +262,48 @@ class InferenceThread(threading.Thread):
 ###time.sleep(0.2)
 ###
 
-
-class HandPoseApp():
-    def __init__(self, CAM_ID):
-        self.q_cam, self.q_res = queue.Queue(maxsize=2), queue.Queue(maxsize=2)
-
-        self.inf_thread = InferenceThread(self.q_cam, self.q_res)
-        self.inf_thread.start()
-        time.sleep(0.5)
-
-        self.cam_thread = CaptureThread(CAM_ID, CAM_W, CAM_H, CAM_FPS, queue_out=self.q_cam)
-        self.cam_thread.start()
-
-        self.win = "YOLO11n Pose (Preprocess@Capture)"
-        cv2.namedWindow(self.win, cv2.WINDOW_NORMAL)
-        #cv2.resizeWindow(win, INPUT_SIZE, INPUT_SIZE)
-        cv2.setWindowProperty(self.win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        self.fpsCnt = 0
-        self.fpsCntMax = 10
-        self.fps = 0
-        self.t_last = time.time()
-
-    def ProcessFrame(self):
-        output, frame, shape = self.q_res.get()
-        t0 = perf_counter_ns()
-        ##boxes, scores, kpts = inf_thread.hp.decode_yolo11_output(output, shape, conf_thresh=CONF_THRESH)
-        boxes, scores, kpts = HandPose.decode_yolo11_output(output, shape, conf_thresh=CONF_THRESH)
-        now = time.time()
-        self.fpsCnt += 1
-        if self.fpsCnt >= self.fpsCntMax:
-            self.fpsCnt = 0
-            self.fps = self.fpsCntMax / (now - self.t_last)
-            self.t_last = now
-
-        disp = HandPose.draw_pose(frame, boxes, kpts, scores, fps=self.fps)
-        cv2.imshow(self.win, disp)
-
-        dt_ms = (perf_counter_ns() - t0) / 1e6
-        Trace(f"DisplayThread {dt_ms:.1f} ms")
-
-        exitFlag = cv2.waitKey(1) & 0xFF == 27
-        if len(boxes) > 0:
-            x1, y1, x2, y2 = boxes[0].astype(int)
-            handSize = y2 - y1
-            handPos = (x1 + x2) // 2 
-            handPos -= disp.shape[1] // 2
-        else:
-            handSize = 0
-            handPos = 0
-        return exitFlag, handSize, handPos
-
-    def Exit(self):
-        self.cam_thread.stop()
-        self.inf_thread.stop()
-        cv2.destroyAllWindows()
-        PrintTrace()
- 
-
 # --------------------------------------------------------------------------
 # Hauptprogramm (Anzeige + Performance-Statistik)
 # --------------------------------------------------------------------------
 def WebCamDemo(): 
-    app = HandPoseApp(CAM_ID)
+    q_cam, q_res = queue.Queue(maxsize=2), queue.Queue(maxsize=2)
+
+    inf_thread = InferenceThread(q_cam, q_res)
+    inf_thread.start()
+    time.sleep(0.5)
+
+    cam_thread = CaptureThread(CAM_ID, CAM_W, CAM_H, CAM_FPS, queue_out=q_cam)
+    cam_thread.start()
+
+    win = "YOLO11n Pose (Preprocess@Capture)"
+    cv2.namedWindow(win, cv2.WINDOW_NORMAL)
+    #cv2.resizeWindow(win, INPUT_SIZE, INPUT_SIZE)
+    cv2.setWindowProperty(win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+    t_last = time.time()
     try:
         while True:
-            ret = app.ProcessFrame()
-            if ret: break
+            output, frame, shape = q_res.get()
+            t0 = perf_counter_ns()
+            ##boxes, scores, kpts = inf_thread.hp.decode_yolo11_output(output, shape, conf_thresh=CONF_THRESH)
+            boxes, scores, kpts = HandPose.decode_yolo11_output(output, shape, conf_thresh=CONF_THRESH)
+            fps = 1.0 / (time.time() - t_last)
+            t_last = time.time()
+
+            disp = inf_thread.hp.draw_pose(frame, boxes, kpts, scores, fps=fps)
+            cv2.imshow(win, disp)
+
+            dt_ms = (perf_counter_ns() - t0) / 1e6
+            Trace(f"DisplayThread {dt_ms:.1f} ms")
+
+            if cv2.waitKey(1) & 0xFF == 27:
+                break
+
     finally:
-        app.Exit()
-        
+        cam_thread.stop()
+        inf_thread.stop()
+        cv2.destroyAllWindows()
+        PrintTrace()
+
 if __name__ == "__main__":
     WebCamDemo()

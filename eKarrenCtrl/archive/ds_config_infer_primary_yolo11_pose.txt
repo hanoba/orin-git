@@ -1,0 +1,12 @@
+[property]
+gpu-id=0
+batch-size=1
+interval=0
+gie-unique-id=1
+process-mode=1
+
+# Pose Network
+network-type=100
+output-tensor-meta=1
+
+model-engine-file=/home/harald/YOLO11n-pose-hands/runs/pose/train/weights/best.engine

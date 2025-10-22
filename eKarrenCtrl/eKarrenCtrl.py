@@ -4,56 +4,13 @@
 import cv2
 import time
 from Rosmaster_Lib import Rosmaster
-from HandPoseYolo11 import HandPose, GetScreenSize
+from AsyncHandPoseYolo11 import HandPoseApp
 from pid import PID
 
-class Cam():
-    def __init__(self, CAM_ID):
-        # === Main Loop ===
-        self.cap = cv2.VideoCapture(CAM_ID)
-        if not self.cap.isOpened():
-            raise RuntimeError(f"Cannot open camera {CAM_ID}")
 
-        GetScreenSize()
-        
-        # Get frame width and height from camera properties
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        width  = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        height = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        print(f"Camera {width=} {height=}")
-
-        self.win = "YOLO11n Pose (TensorRT)"
-        #cv2.namedWindow(self.win, cv2.WINDOW_NORMAL)
-        #cv2.setWindowProperty(self.win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        return
-
-    def ProcessFrame(self):
-        ret, frame = self.cap.read()
-        if not ret:
-            return -1, 0
-
-        frame, handSize, handPos = handPose.ProcessFrame(frame)
-
-        #cv2.putText(frame, f"{deltaTime_ms:.0f} ms {handSize}, {handPos}", (10, 30),
-        #            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
-
-
-        #cv2.imshow(self.win, frame)
-        #if cv2.waitKey(1) & 0xFF == 27:  # ESC
-        #    return -1, 0
-            
-        #cv2.putText(frame, f"{(t1 - t0)*1000:.1f} ms", (10, 30),
-        #            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
-
-        return handSize, handPos
-        
-    def Release(self):
-        self.cap.release()
     
     
 if __name__ == '__main__':
-    handPose = HandPose()
     bot = Rosmaster(com="/dev/ttyCH341USB0", debug=False)
     bot.create_receive_threading()
     
@@ -82,12 +39,14 @@ if __name__ == '__main__':
     KpLinear = 0.5*Ku
     KiLinear = 0.01
     pAngular = 1/150    # 1/20
-    CAM_ID = 2
     dt = 0.03           # sec
 
     pidLinear = PID(KpLinear, KiLinear, 0, setpoint=wantedHandSize, output_limits=(-0.5, 0.5))
-    cam = Cam(CAM_ID)
+    ###cam = Cam(CAM_ID)
     
+    CAM_ID = 2
+    handPoseApp = HandPoseApp(CAM_ID)
+
     lastTime = time.time()
 
     try:
@@ -97,7 +56,9 @@ if __name__ == '__main__':
             lastTime = newTime
             if deltaTime_ms > 1000: deltaTime_ms = 0
 
-            handSize, handPos = cam.ProcessFrame()
+            exitFlag, handSize, handPos = handPoseApp.ProcessFrame()
+            if exitFlag: break
+            
             if handSize < 0: break
             elif handSize > 0:
                 linear = pidLinear.update(handSize, dt)
@@ -127,4 +88,4 @@ if __name__ == '__main__':
 
     bot.set_colorful_effect(effect=0)
     bot.set_car_motion(v_x=0, v_y=0, v_z=0)
-    cam.Release()
+    handPoseApp.Exit()
