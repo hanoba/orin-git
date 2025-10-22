@@ -7,12 +7,13 @@ import pycuda.driver as cuda, pycuda.autoinit
 import threading, queue, time
 from time import perf_counter_ns
 import subprocess
+from trace import Trace, PrintTrace
 
 
 # === Konfiguration ===
 ENGINE_PATH = "/home/harald/YOLO11n-pose-hands/runs/pose/train/weights/best.engine"
 INPUT_SIZE = 640
-CONF_THRESH = 0.4
+CONF_THRESH = 0.3
 CAM_ID = 2
 CAM_W, CAM_H, CAM_FPS = 1280, 720, 30
 
@@ -110,7 +111,7 @@ class HandPose:
 
         return host_output
 
-cTimeStamps = []
+###cTimeStamps = []
         
 # --------------------------------------------------------------------------
 # Kamera-Thread mit Preprocessing
@@ -127,7 +128,7 @@ class OldCaptureThread(threading.Thread):
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        self.numTimeStamps = 0
+        ###self.numTimeStamps = 0
         if not self.cap.isOpened():
             raise RuntimeError(f"Kamera {cam_id} konnte nicht geöffnet werden")
         print(f"[INFO] Kamera gestartet @ {width}x{height}@{fps}fps")
@@ -144,9 +145,10 @@ class OldCaptureThread(threading.Thread):
             #    try: _ = self.q_out.get_nowait()
             #    except queue.Empty: pass
             self.q_out.put_nowait((img, frame, frame.shape))
-            if self.numTimeStamps < MAX_TIME_STAMPS:
-                cTimeStamps.append(int(perf_counter_ns() * 1e-6))
-                self.numTimeStamps += 1
+            ###if self.numTimeStamps < MAX_TIME_STAMPS:
+            ###    cTimeStamps.append(int(perf_counter_ns() * 1e-6))
+            ###    self.numTimeStamps += 1
+            Trace("CaptureThread")
 
     def stop(self):
         self.running = False
@@ -161,7 +163,7 @@ class CaptureThread(threading.Thread):
         self.running = True
         self.q_out = queue_out
         self.hp = HandPose()
-        self.numTimeStamps = 0
+        ###self.numTimeStamps = 0
         self.skip = 7   # skip first 7 frames
 
         gst_str = (
@@ -176,19 +178,9 @@ class CaptureThread(threading.Thread):
         self.cap = cv2.VideoCapture(gst_str, cv2.CAP_GSTREAMER)
         if not self.cap.isOpened():
             raise RuntimeError("Kamera konnte nicht über GStreamer geöffnet werden")
-
-        # Kamera läuft nur dann mit 30fps, wenn exposure_dynamic_framerate=0
-        subprocess.call([
-            "v4l2-ctl", "-d", "/dev/video2",
-            "--set-ctrl=auto_exposure=1",
-            "--set-ctrl=exposure_dynamic_framerate=0",
-            "--set-ctrl=exposure_time_absolute=500"
-        ])
-
-        time.sleep(0.5)
-     
+        
+        time.sleep(0.2)
         print(f"[INFO] Kamera gestartet @ {width}x{height}@{fps}fps (MJPEG via GStreamer)")
-
 
 
     def run(self):
@@ -199,6 +191,9 @@ class CaptureThread(threading.Thread):
             if not ok:
                 raise RuntimeError(f"Kamera konnte nicht gelesen werden")
 
+            #frame = self.CenterCrop(frame, INPUT_SIZE)
+            # Mirror
+            frame = cv2.flip(frame, 1)
             img = self.hp.preprocess(frame)
 
             # Send preprocessed image to queue
@@ -206,9 +201,11 @@ class CaptureThread(threading.Thread):
             else: self.q_out.put_nowait((img, frame, frame.shape))
 
             # Optional: timestamp logging
-            if self.numTimeStamps < MAX_TIME_STAMPS:
-                cTimeStamps.append(int(perf_counter_ns() * 1e-6))
-                self.numTimeStamps += 1
+            ###if self.numTimeStamps < MAX_TIME_STAMPS:
+            ###    cTimeStamps.append(int(perf_counter_ns() * 1e-6))
+            ###    self.numTimeStamps += 1
+            Trace("CaptureThread")
+
 
     def stop(self):
         self.running = False
@@ -216,17 +213,45 @@ class CaptureThread(threading.Thread):
         self.cap.release()
         print("[INFO] Capture-Thread gestoppt")
 
-iTimeStamps = []
+    def CenterCrop(self, image, crop_size):
+        """
+        Crop the center region of an image.
+
+        Args:
+            image (np.ndarray): Input image (H x W x C)
+            crop_size (int or tuple): Size of the crop (e.g. 416 or (416, 416))
+
+        Returns:
+            Cropped image (np.ndarray)
+        """
+        if isinstance(crop_size, int):
+            crop_w = crop_h = crop_size
+        else:
+            crop_w, crop_h = crop_size
+
+        h, w = image.shape[:2]
+
+        # Ensure crop size does not exceed image size
+        crop_w = min(crop_w, w)
+        crop_h = min(crop_h, h)
+
+        start_x = (w - crop_w) // 2
+        start_y = (h - crop_h) // 2
+
+        cropped = image[start_y:start_y + crop_h, start_x:start_x + crop_w]
+        return cropped
+
+###iTimeStamps = []
 
 # --------------------------------------------------------------------------
 # Inferenz-Thread (nur GPU)
 # --------------------------------------------------------------------------
 class InferenceThread(threading.Thread):
-    def __init__(self, q_in, q_out, perf_data):
+    def __init__(self, q_in, q_out):
         super().__init__(daemon=True)
-        self.q_in, self.q_out, self.perf_data = q_in, q_out, perf_data
+        self.q_in, self.q_out = q_in, q_out
         self.running = True
-        self.numTimeStamps = 0
+        ###self.numTimeStamps = 0
 
     def run(self):
         global iTimeStamps
@@ -245,21 +270,21 @@ class InferenceThread(threading.Thread):
                 # Direkte (synchronisierte) Inference — keine Slots
                 output = self.hp.infer_image(img)
 
-                # Messung GPU-Zeit
-                dt_ms = (perf_counter_ns() - t0) / 1e6
-                self.perf_data["gpu_times"].append(dt_ms)
-
                 # Ergebnis an den Anzeige-Thread übergeben
                 result = (output.copy(), frame.copy(), shape)
+
+                # Messung GPU-Zeit
+                dt_ms = (perf_counter_ns() - t0) / 1e6
+                Trace(f"InferenceThread {dt_ms:.1f}")
                 #if self.q_out.full(): 
                 #    try:
                 #        _ = self.q_out.get_nowait()
                 #    except queue.Empty:
                 #        pass
                 self.q_out.put_nowait(result)
-                if self.numTimeStamps < MAX_TIME_STAMPS:
-                    iTimeStamps.append(int(perf_counter_ns() * 1e-6))
-                    self.numTimeStamps += 1
+                ###if self.numTimeStamps < MAX_TIME_STAMPS:
+                ###    iTimeStamps.append(int(perf_counter_ns() * 1e-6))
+                ###    self.numTimeStamps += 1
 
         finally:
             self.cuda_ctx.pop()
@@ -268,16 +293,35 @@ class InferenceThread(threading.Thread):
     def stop(self):
         self.running = False
 
+
+
+# Kamera läuft nur dann mit 30fps, wenn exposure_dynamic_framerate=0
+###FPS30 = False
+###if FPS30: cmds = [
+###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=auto_exposure=0"],
+###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=exposure_dynamic_framerate=0"],
+###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=exposure_time_absolute=50"]
+###    ]
+###else: cmds = [
+###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=auto_exposure=3"],
+###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=exposure_dynamic_framerate=1"],
+###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=exposure_time_absolute=50"]
+###    ]
+###for cmd in cmds:
+###    subprocess.run(cmd, check=False)
+###time.sleep(0.2)
+###
+
 # --------------------------------------------------------------------------
 # Hauptprogramm (Anzeige + Performance-Statistik)
 # --------------------------------------------------------------------------
 def WebCamDemo():  
     timeStamps = []
-    numTimeStamps = 0
+    ###numTimeStamps = 0
     q_cam, q_res = queue.Queue(maxsize=7), queue.Queue(maxsize=2)
-    perf_data = {"gpu_times": [], "disp_times": [], "last_report": time.time()}
+    ###perf_data = {"gpu_times": [], "disp_times": [], "last_report": time.time()}
 
-    inf_thread = InferenceThread(q_cam, q_res, perf_data)
+    inf_thread = InferenceThread(q_cam, q_res)
     inf_thread.start()
     time.sleep(0.5)
 
@@ -286,12 +330,14 @@ def WebCamDemo():
 
     win = "YOLO11n Pose (Preprocess@Capture)"
     cv2.namedWindow(win, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(win, 1280, 720)
+    #cv2.resizeWindow(win, INPUT_SIZE, INPUT_SIZE)
+    cv2.setWindowProperty(win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     t_last = time.time()
     try:
         while True:
             output, frame, shape = q_res.get()
+            t0 = perf_counter_ns()
             boxes, scores, kpts = inf_thread.hp.decode_yolo11_output(output, shape, conf_thresh=CONF_THRESH)
             fps = 1.0 / (time.time() - t_last)
             t_last = time.time()
@@ -300,27 +346,30 @@ def WebCamDemo():
             cv2.imshow(win, disp)
 
             # Performance alle 2s anzeigen
-            now = time.time()
-            if now - perf_data["last_report"] > 2.0:
-                gpu_avg = np.mean(perf_data["gpu_times"]) if perf_data["gpu_times"] else 0
-                print(f"[PERF] GPU {gpu_avg:5.1f} ms | {1000/gpu_avg:5.1f} FPS" if gpu_avg>0 else "[PERF] keine Daten")
-                perf_data["gpu_times"].clear()
-                perf_data["last_report"] = now
-            if numTimeStamps < MAX_TIME_STAMPS:
-                timeStamps.append(int(perf_counter_ns() * 1e-6))
-                numTimeStamps += 1
+            ###now = time.time()
+            ###if now - perf_data["last_report"] > 2.0:
+            ###    gpu_avg = np.mean(perf_data["gpu_times"]) if perf_data["gpu_times"] else 0
+            ###    print(f"[PERF] GPU {gpu_avg:5.1f} ms | {1000/gpu_avg:5.1f} FPS" if gpu_avg>0 else "[PERF] keine Daten")
+            ###    perf_data["gpu_times"].clear()
+            ###    perf_data["last_report"] = now
+            ###if numTimeStamps < MAX_TIME_STAMPS:
+            ###    timeStamps.append(int(perf_counter_ns() * 1e-6))
+            ###    numTimeStamps += 1
             #else: break
+            dt_ms = (perf_counter_ns() - t0) / 1e6
+            Trace(f"DisplayThread {dt_ms:.1f}")
 
             if cv2.waitKey(1) & 0xFF == 27:
                 break
-            import ExecTime
-            ExecTime.Print()
+            ###import ExecTime
+            ###ExecTime.Print()
 
     finally:
         cam_thread.stop()
         inf_thread.stop()
         cv2.destroyAllWindows()
-        print(f"{len(cTimeStamps)=}")
+        #print(f"{len(cTimeStamps)=}")
+        PrintTrace()
         #for i in range(MAX_TIME_STAMPS-1):
         #    print(cTimeStamps[i], "CaptureThread")
         #    print(iTimeStamps[i], "InferenceThread")
