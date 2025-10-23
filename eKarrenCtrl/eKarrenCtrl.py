@@ -30,14 +30,14 @@ if __name__ == '__main__':
     printCnt = 0
     angular = 0
     linear = 0
-    wantedHandSize = 170
+    wantedHandSize = 200
     #pidLinear = pid(Kp=1/25, Ki=0, Kd=0, setpoint=ymThreshold, (-0.5,0.5))
     #pidAngular = pid(Kp=1/20, Ki=0, Kd=0, setpoint=0, (-2.5,2.5))
 
-    Ku = 0.027          # Kritische Verstärkung (engl. ultimate gain)
+    Ku = 0.027 / 2      # Kritische Verstärkung (engl. ultimate gain)
     Tu = 2.0            # Kritische Periodendauer (engl. ultimate period) in sec
     KpLinear = 0.5*Ku
-    KiLinear = 0.01
+    KiLinear = 0.01 / 2
     pAngular = 1/150    # 1/20
     dt = 0.03           # sec
 
@@ -81,7 +81,8 @@ if __name__ == '__main__':
             printCnt += 1
             if printCnt >= 10:
                 printCnt=0
-                print(f"{deltaTime_ms:.0f} ms lin={linear:.3f}, ang={angular:.3f}, {handSize=}, {handPos=}")
+                Vbat = bot.get_battery_voltage()
+                print(f"{deltaTime_ms:.0f} ms lin={linear:.3f}, ang={angular:.3f}, {handSize=}, {handPos=}, {Vbat=}")
 
     except KeyboardInterrupt:
         print("\nScript terminated")

@@ -15,9 +15,43 @@ ENGINE_PATH = "/home/harald/YOLO11n-pose-hands/runs/pose/train/weights/best.engi
 INPUT_SIZE = 640
 CONF_THRESH = 0.3
 CAM_ID = 2
-CAM_W, CAM_H, CAM_FPS = 1280, 720, 30
+#CAM_W, CAM_H, CAM_FPS = 1280, 720, 30
 
-MAX_TIME_STAMPS = 10
+# Wir verwenden ein 640x640 Ausschnitt mittig am oberen Bildrand des 
+# 1920x1080 Originalbildes.
+# Das Originalbild muss möglichst gross sein, um einen Zoomeffekt zu erreichen!
+# Der obere Bildrand wird verwendet, um den Winkel um den die Kamera
+# nach oben schaut zu minimieren
+CAM_W, CAM_H, CAM_FPS = 1920, 1080, 30
+
+
+# Crop the center region of an image.
+# Args:
+#     image (np.ndarray): Input image (H x W x C)
+#     crop_size (int or tuple): Size of the crop (e.g. 416 or (416, 416))
+# Returns:
+#     Cropped image (np.ndarray) am oberen Bildrand
+def CenterCrop(image, crop_size):
+    if isinstance(crop_size, int):
+        crop_w = crop_h = crop_size
+    else:
+        crop_w, crop_h = crop_size
+
+    h, w = image.shape[:2]
+
+    # Ensure crop size does not exceed image size
+    crop_w = min(crop_w, w)
+    crop_h = min(crop_h, h)
+
+    start_x = (w - crop_w) // 2
+    #start_y = (h - crop_h) // 2
+    start_y = 0   
+    
+    cropped = image[start_y:start_y + crop_h, start_x:start_x + crop_w]
+    return cropped
+
+
+
 
 # --------------------------------------------------------------------------
 # TensorRT Wrapper
@@ -53,7 +87,7 @@ class HandPose:
             raise RuntimeError("Keine Input/Output-Tensors gefunden.")
 
     # === GPU inference ===
-    def infer_image(self, img):
+    def Inference(self, img):
         """Synchroner TensorRT-Inferenzaufruf (ohne Double Buffer)"""
         # Eingabedaten an GPU senden
         cuda.memcpy_htod(self.tensor_buffers[self.input_name], img)
@@ -69,7 +103,7 @@ class HandPose:
 
     # === Postprocessing ===
     @staticmethod
-    def decode_yolo11_output(output, orig_shape, conf_thresh=0.5):
+    def DecodeYolo11Output(output, orig_shape, conf_thresh=0.5):
         out = output[0].T
         boxes = out[:, :4]
         scores = out[:, 4]
@@ -91,7 +125,7 @@ class HandPose:
         return boxes_xyxy, scores, kpts
 
     @staticmethod
-    def draw_pose(frame, boxes, kpts, scores, fps=None):
+    def DrawPose(frame, boxes, kpts, scores, fps=None):
         for i, box in enumerate(boxes):
             x1, y1, x2, y2 = box.astype(int)
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 2)
@@ -105,14 +139,14 @@ class HandPose:
 
     # === Preprocessing (jetzt für Kamera-Thread) ===
     @staticmethod
-    def preprocess(frame_bgr):
+    def Preprocess(frame_bgr):
         img = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        img = cv2.resize(img, (INPUT_SIZE, INPUT_SIZE))
+        img = CenterCrop(img, INPUT_SIZE)
+        #img = cv2.resize(img, (INPUT_SIZE, INPUT_SIZE))
         img = img.astype(np.float32) / 255.0
         img = np.transpose(img, (2, 0, 1))
         img = np.expand_dims(img, axis=0)
         return np.ascontiguousarray(img)
-
         
 # --------------------------------------------------------------------------
 # Kamera-Thread mit Preprocessing
@@ -146,10 +180,14 @@ class CaptureThread(threading.Thread):
             if not ok:
                 raise RuntimeError(f"Kamera konnte nicht gelesen werden")
 
-            #frame = self.CenterCrop(frame, INPUT_SIZE)
+            t0 = perf_counter_ns()
+            frame = CenterCrop(frame, INPUT_SIZE)
             # Mirror
             frame = cv2.flip(frame, 1)
-            img = HandPose.preprocess(frame)
+            img = HandPose.Preprocess(frame)
+
+            # Messung CPU-Zeit
+            dt_ms = (perf_counter_ns() - t0) / 1e6
 
             # Send preprocessed image to queue
             frameDropped = False
@@ -161,8 +199,8 @@ class CaptureThread(threading.Thread):
                     pass
             self.q_out.put_nowait((img, frame, frame.shape))
 
-            if frameDropped: Trace("CaptureThread (one frame dropped)")
-            else: Trace("CaptureThread")
+            if frameDropped: Trace(f"CaptureThread {dt_ms:.1f} ms (one frame dropped)")
+            else: Trace(f"CaptureThread {dt_ms:.1f} ms")
 
 
     def stop(self):
@@ -170,30 +208,6 @@ class CaptureThread(threading.Thread):
         time.sleep(0.1)
         self.cap.release()
         print("[INFO] Capture-Thread gestoppt")
-
-    # Crop the center region of an image.
-    # Args:
-    #     image (np.ndarray): Input image (H x W x C)
-    #     crop_size (int or tuple): Size of the crop (e.g. 416 or (416, 416))
-    # Returns:
-    #     Cropped image (np.ndarray)
-    def CenterCrop(self, image, crop_size):
-        if isinstance(crop_size, int):
-            crop_w = crop_h = crop_size
-        else:
-            crop_w, crop_h = crop_size
-
-        h, w = image.shape[:2]
-
-        # Ensure crop size does not exceed image size
-        crop_w = min(crop_w, w)
-        crop_h = min(crop_h, h)
-
-        start_x = (w - crop_w) // 2
-        start_y = (h - crop_h) // 2
-
-        cropped = image[start_y:start_y + crop_h, start_x:start_x + crop_w]
-        return cropped
 
 
 # --------------------------------------------------------------------------
@@ -221,7 +235,7 @@ class InferenceThread(threading.Thread):
                 Trace(f"Inference started")
 
                 # Direkte (synchronisierte) Inference — keine Slots
-                output = self.hp.infer_image(img)
+                output = self.hp.Inference(img)
 
                 # Ergebnis an den Anzeige-Thread übergeben
                 result = (output.copy(), frame.copy(), shape)
@@ -244,27 +258,50 @@ class InferenceThread(threading.Thread):
         self.running = False
 
 
+# Kamera läuft nur dann mit 30fps, wenn es hell genug ist
+def CameraConfig():
+    cmds = [
+        # Aperture Priority Mode“ (Blendenpriorität) bedeutet:
+        # Die Kamera hält die Blende fest und passt Belichtungszeit (und ggf. Gain) automatisch an,
+        # um ein korrekt belichtetes Bild zu erzeugen (1=Manual mode,  3=Aperture Priority Mode).
+        ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=auto_exposure=3"],
+        ["v4l2-ctl", "-d", "/dev/video2", "--get-ctrl=auto_exposure"],
 
-# Kamera läuft nur dann mit 30fps, wenn exposure_dynamic_framerate=0
-###FPS30 = False
-###if FPS30: cmds = [
-###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=auto_exposure=0"],
-###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=exposure_dynamic_framerate=0"],
-###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=exposure_time_absolute=50"]
-###    ]
-###else: cmds = [
-###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=auto_exposure=3"],
-###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=exposure_dynamic_framerate=1"],
-###    ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=exposure_time_absolute=50"]
-###    ]
-###for cmd in cmds:
-###    subprocess.run(cmd, check=False)
-###time.sleep(0.2)
-###
+        # exposure_dynamic_framerate erlaubt oder verbietet der Kamera,
+        # die tatsächliche Bildrate (Framerate) zu ändern,
+        # wenn sie versucht, eine korrekte Belichtung zu halten
+        ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=exposure_dynamic_framerate=1"],
+        ["v4l2-ctl", "-d", "/dev/video2", "--get-ctrl=exposure_dynamic_framerate"],
+
+        # exposure_time_absolute kann nur bei Manual Mode gesetzt werden.
+        # ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=exposure_time_absolute=150"],
+        ["v4l2-ctl", "-d", "/dev/video2", "--get-ctrl=exposure_time_absolute"]
+    ]
+    print("----------- Camera Configuration -----------")
+    for cmd in cmds:
+        result = subprocess.run(cmd, check=False)
+    time.sleep(0.2)
+
+
+class FpsCalc():
+    def __init__(self, duration_sec=1.0):
+        self.fpsCnt = 0
+        self.fps = 0
+        self.duration = int(duration_sec*1e9)
+        self.t_last = time.perf_counter_ns()        
+    def Value(self):
+        self.fpsCnt += 1
+        now = time.perf_counter_ns()
+        if now - self.t_last >= self.duration:
+            self.fps = self.fpsCnt * 1e9 / (now - self.t_last)
+            self.t_last = now
+            self.fpsCnt = 0
+        return self.fps
 
 
 class HandPoseApp():
     def __init__(self, CAM_ID):
+        CameraConfig()
         self.q_cam, self.q_res = queue.Queue(maxsize=2), queue.Queue(maxsize=2)
 
         self.inf_thread = InferenceThread(self.q_cam, self.q_res)
@@ -278,24 +315,18 @@ class HandPoseApp():
         cv2.namedWindow(self.win, cv2.WINDOW_NORMAL)
         #cv2.resizeWindow(win, INPUT_SIZE, INPUT_SIZE)
         cv2.setWindowProperty(self.win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        self.fpsCnt = 0
-        self.fpsCntMax = 10
-        self.fps = 0
-        self.t_last = time.time()
+        self.fpsCalc = FpsCalc()
 
     def ProcessFrame(self):
         output, frame, shape = self.q_res.get()
         t0 = perf_counter_ns()
-        ##boxes, scores, kpts = inf_thread.hp.decode_yolo11_output(output, shape, conf_thresh=CONF_THRESH)
-        boxes, scores, kpts = HandPose.decode_yolo11_output(output, shape, conf_thresh=CONF_THRESH)
-        now = time.time()
-        self.fpsCnt += 1
-        if self.fpsCnt >= self.fpsCntMax:
-            self.fpsCnt = 0
-            self.fps = self.fpsCntMax / (now - self.t_last)
-            self.t_last = now
+        ##boxes, scores, kpts = inf_thread.hp.DecodeYolo11Output(output, shape, conf_thresh=CONF_THRESH)
+        boxes, scores, kpts = HandPose.DecodeYolo11Output(output, shape, conf_thresh=CONF_THRESH)
+        
+        fps = self.fpsCalc.Value()
 
-        disp = HandPose.draw_pose(frame, boxes, kpts, scores, fps=self.fps)
+        disp = HandPose.DrawPose(frame, boxes, kpts, scores, fps=fps)
+        #Trace(f"{disp.shape=}")
         cv2.imshow(self.win, disp)
 
         dt_ms = (perf_counter_ns() - t0) / 1e6
