@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import ydlidar
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
+import pyqtgraph as pg
+from pyqtgraph.Qt import QtWidgets
 import time
 
 # === Parameter anpassen ===
@@ -30,23 +32,38 @@ if not laser.turnOn():
 
 print("LIDAR läuft – Strg+C zum Beenden")
 
-# === Matplotlib-Setup ===
-plt.ion()
-fig = plt.figure(figsize=(6,6))
-ax = fig.add_subplot(111, polar=True)
-points, = ax.plot([], [], '.', markersize=2)
-ax.set_ylim(0, 12)   # max. 12 m Reichweite
+
+# --- Plot-Setup --------------------------------------------------------------
+app = QtWidgets.QApplication([])
+pg.setConfigOptions(antialias=True)
+win = pg.plot(title="YDLidar TG30 – Live-Scan")
+win.setAspectLocked(True)
+win.setXRange(-10, 10)
+win.setYRange(-10, 10)
+win.showGrid(x=True, y=True)
+# --- Vollbildmodus aktivieren ---
+win.showFullScreen()
+
+curve = win.plot(pen=None, symbol='o', symbolSize=2, symbolBrush=(0, 255, 0))
 
 try:
     scan = ydlidar.LaserScan()
     while True:
         if laser.doProcessSimple(scan):
             # Rohdaten in Winkel/Entfernung umrechnen
-            angles = np.array([p.angle for p in scan.points])
-            dists  = np.array([p.range for p in scan.points])
-            points.set_data(angles, dists)
-            ax.set_title("YDLidar TG30 Live-Scan")
-            plt.pause(0.001)
+            ang270 = 270/180*np.pi
+            angles =  np.array([ang270 - p.angle for p in scan.points])
+            radius  = np.array([p.range for p in scan.points])
+
+            #angles = (ang270-angles)
+
+            x = radius * np.cos(angles)
+            y = radius * np.sin(angles)
+            points = np.stack((x, y), axis=1)
+
+            curve.setData(points)
+            QtWidgets.QApplication.processEvents()
+
         else:
             time.sleep(0.05)
 except KeyboardInterrupt:
