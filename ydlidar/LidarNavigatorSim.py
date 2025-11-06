@@ -300,11 +300,33 @@ def main():
         freeRangeDist=600)
         
     robot = DiffDriveRobot(x=180, y=100, theta=-3.14/4*0)  #HB
-    robotController = RobotController(robot.set_wheels, gate)
+    robotController = RobotController(
+                robot.set_wheels, 
+                gate,
+                gateReachedThreshold=30,            # Schwellwert für Erreichen des Tores
+                startPointThreshold=10,             # Schwellwert für Erreichen Startpunktes
+                wheelBase = 2 * 16,                 # Radabstand (vereinfacht)
+                baseSpeed = 70.0,                   # Basisfahrgeschwindigkeit [px/s]#
+                kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
+    )
 
     # PyGame-Setup
     pygame.init()
-    screen = pygame.display.set_mode((WIN_W, WIN_H))
+    
+    # Get the display information object
+    info = pygame.display.Info()
+
+    # Access the width and height attributes
+    screen_width = info.current_w
+    screen_height = info.current_h
+    screen_resolution = (screen_width, screen_height)
+
+    print(f"Detected Screen Width: {screen_width} pixels")
+    print(f"Detected Screen Height: {screen_height} pixels")
+    
+    #screen = pygame.display.set_mode((WIN_W, WIN_H))
+    screen = pygame.display.set_mode(screen_resolution, pygame.FULLSCREEN)
+    
     pygame.display.set_caption("TurtleBot-ähnlicher LiDAR-Gate-Navigator (PyGame)")
     clock = pygame.time.Clock()
 
@@ -371,13 +393,9 @@ def main():
             # Autopilot
             result = robotController.Run(angles, radius, dt)
             
-            # Visualisierung von aktuell anvisierter Richtung, Tor und Startpunkt
+            # Visualisierung von Tor und Startpunkt
             if result is not None and not robotController.Done():
                 torMitte, startPoint, pfosten1, pfosten2 = result
-                phi = cmath.phase(torMitte)
-                gx = robot.x + math.cos(phi + robot.theta) * 40*4   #HB
-                gy = robot.y + math.sin(phi + robot.theta) * 40*4   #HB
-                pygame.draw.line(screen, TARGET_COLOR, (robot.x, robot.y), (gx, gy), 3)
                 robot.drawPoint(screen, pfosten1)
                 robot.drawPoint(screen, pfosten2)
                 robot.drawPoint(screen, torMitte)

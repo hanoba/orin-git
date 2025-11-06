@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# coding: utf-8
+
 import numpy as np
 import cmath
 import math
@@ -5,14 +8,15 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtWidgets
 import time
 from RobotLib import Lidar, Gate
+from Rosmaster_Lib import Rosmaster
 
 
 # --- Plot-Setup --------------------------------------------------------------
 app = QtWidgets.QApplication([])
 pg.setConfigOptions(antialias=True)
 win = pg.plot(title="YDLidar TG30 – Live-Scan")
-win.setXRange(0,2)  #HB(-10, 10)
-win.setYRange(-2, 2)   #10)
+win.setXRange(0,2) 
+win.setYRange(-2, 2)  
 win.setAspectLocked(True)
 win.disableAutoRange()
 win.showGrid(x=True, y=True)

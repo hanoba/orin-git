@@ -4,37 +4,90 @@ import math
 import cmath
 import numpy as np
 import sys
+import ydlidar
+
+
+class Lidar():
+    def __init__(self):
+        # === Parameter anpassen ===
+        PORT = "/dev/ttyUSB0"
+        BAUD = 512000           # TG30 nutzt 512000 Baud
+
+        # === Lidar initialisieren ===
+        self.laser = ydlidar.CYdLidar()
+        self.laser.setlidaropt(ydlidar.LidarPropSerialPort, PORT)
+        self.laser.setlidaropt(ydlidar.LidarPropSerialBaudrate, BAUD)
+        self.laser.setlidaropt(ydlidar.LidarPropFixedResolution, False)
+        self.laser.setlidaropt(ydlidar.LidarPropReversion, False)
+        self.laser.setlidaropt(ydlidar.LidarPropSingleChannel, False)
+        self.laser.setlidaropt(ydlidar.LidarPropLidarType, ydlidar.TYPE_TOF)
+        self.laser.setlidaropt(ydlidar.LidarPropScanFrequency, 10.0)
+
+        ret = self.laser.initialize()
+        if not ret:
+            print("Fehler: Initialisierung fehlgeschlagen")
+            exit(1)
+
+        if not self.laser.turnOn():
+            print("Fehler: Laser konnte nicht gestartet werden")
+            exit(1)
+
+        print("LIDAR läuft – Strg+C zum Beenden")
+        self.scan = ydlidar.LaserScan()
+
+
+    def Scan(self):
+        if self.laser.doProcessSimple(self.scan):
+            # Rohdaten in Winkel/Entfernung umrechnen
+            ang270 = 270/180*np.pi
+            #angles =  np.array([ang270 - p.angle for p in self.scan.points])
+            #angles = (angles + np.pi) % (2*np.pi) - np.pi
+            #angles =  np.array([(ang270 - p.angle + np.pi) % (2*np.pi) - np.pi for p in self.scan.points])
+            # Umrechnung in Roboterkoordinationsystem (x zeigt in Fahrtrichtung
+            angles =  np.array([(np.pi - p.angle + np.pi) % (2*np.pi) - np.pi for p in self.scan.points])
+            radius  = np.array([p.range for p in self.scan.points])
+    
+            return angles, radius
+            
+        else:
+            time.sleep(0.05)
+            return [], []
+            
+    def Close(self):
+        # === Aufräumen ===
+        self.laser.turnOff()
+        self.laser.disconnecting()
 
 
 # LiDAR‑Parameter
-LIDAR_COUNT = 180      #HB 360       # Anzahl der Strahlen (1° Raster)
-LIDAR_MAX_RANGE = 320.0*2            # maximale Messdistanz in Pixeln
-LIDAR_NOISE_STD = 0.5                # Gauß‑Rauschen (σ) auf Distanzmessung
+#LIDAR_COUNT = 180      #HB 360       # Anzahl der Strahlen (1° Raster)
+#LIDAR_MAX_RANGE = 320.0*2            # maximale Messdistanz in Pixeln
+#LIDAR_NOISE_STD = 0.5                # Gauß‑Rauschen (σ) auf Distanzmessung
 
 # Roboterkinematik
-ROBOT_RADIUS = 16                    # nur für Zeichnung/Kollision (Kreis)
-WHEEL_BASE = 2 * ROBOT_RADIUS        # Radabstand (vereinfacht)
-MAX_WHEEL_SPEED = 120.0              # Sättigung der Radspeed‑Kommandos [px/s]
-BASE_SPEED = 70.0                    # Basisfahrgeschwindigkeit [px/s]
-
-# Regler‑Gains
-K_HEADING = 2.2                      # Proportionalgain auf den Richtungsfehler
-K_DISTANCE = 0.8                     # aktuell nicht genutzt, belassen für Experimente
+#ROBOT_RADIUS = 16                    # nur für Zeichnung/Kollision (Kreis)
+#self.wheelBase = 2 * 16                   # Radabstand (vereinfacht)
+#self.baseSpeed = 70.0                    # Basisfahrgeschwindigkeit [px/s]#
+#self.kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
+#MAX_WHEEL_SPEED = 120.0              # Sättigung der Radspeed‑Kommandos [px/s]
+##
+## Regler‑Gains
+#K_DISTANCE = 0.8                     # aktuell nicht genutzt, belassen für Experimente
 
 # Gate‑Detektion
-GATE_MIN_ANGULAR_WIDTH_DEG = 14      # minimale zusammenhängende freie Winkelbreite
-GATE_FREE_RANGE_THRESH = LIDAR_MAX_RANGE * 0.92  # Schwelle ab der ein Strahl „frei“ gilt
-GATE_REACHED_THRE = 30               # Schwellwert für Erreichen des Tores
-START_POINT_REACHED_THRE = 10        # Schwellwert für Erreichen Startpunktes
-TARGET_ANGLE_REACHED_THRE = 16/180*math.pi       # Schwellwert für Ausrichtung zum Ziel
-GATE_WIDTH_MIN = 100
-GATE_WIDTH_MAX = 140
+#GATE_MIN_ANGULAR_WIDTH_DEG = 14      # minimale zusammenhängende freie Winkelbreite
+#GATE_FREE_RANGE_THRESH = LIDAR_MAX_RANGE * 0.92  # Schwelle ab der ein Strahl „frei“ gilt
+#self.gateReachedThreshold = 30               # Schwellwert für Erreichen des Tores
+#self.startPointThreshold = 10        # Schwellwert für Erreichen Startpunktes
+#self.targetAngleReachedThreshold = 16/180*math.pi       # Schwellwert für Ausrichtung zum Ziel
+#GATE_WIDTH_MIN = 100
+#GATE_WIDTH_MAX = 140
 
 # Zustände der einfachen Zustandsmaschine
 STATE_SEARCH = 0                     # Suchen / „patrouillieren“
 STATE_GOTO_START = 1                 # Ausrichten auf Startpunkt und zufahren
 STATE_ALIGN_AND_GO = 2               # Ausrichten auf Gate und zufahren
-STATE_GATE_REACHED = 3               # Distance to gate less than GATE_REACHED_THRE
+STATE_GATE_REACHED = 3               # Distance to gate less than self.gateReachedThreshold
 STATE_DONE = 4                       # hinter dem Tor angehalten
 
 def G(x):
@@ -44,90 +97,6 @@ def G(x):
 def wrap_angle(angle):
     """Normiert einen Winkel auf den Bereich [-p, p]."""
     return (angle + math.pi) % (2 * math.pi) - math.pi
-
-
-#def detect_gate(angles, radius):
-#    """Erkennt die breiteste „freie“ Winkelmenge im 360°-LiDAR.
-#
-#    Vorgehen
-#      1) Klassifiziere jeden Strahl als frei (1) oder belegt (0) via Schwellwert.
-#      2) Finde die längste zusammenhängende Sequenz von 1en. Zirkulär behandeln,
-#         daher wird die Liste zu sich selbst konkateniert.
-#      3) Liefere den Mittelindex und dessen Winkel (in Rad) zurück.
-#
-#    Rückgabe
-#      (mid_angle, length) oder None, falls kein genügend breites Gate gefunden wird.
-#    """
-#    #free = [1 if d >= GATE_FREE_RANGE_THRESH else 0 for (_, _, d) in lidar_hits]
-#    best_len = 0
-#    best_start = 0
-#    n = len(radius)
-#
-#    # Suche den ersten Punkt des Zaunes
-#    i0 = 0
-#    for d in radius:
-#        last_d = d
-#        if d < GATE_FREE_RANGE_THRESH: break
-#        i0 += 1
-#    if i0 >= n: 
-#        print ("Zaun nicht gefunden")       #HB
-#        return None
-#    
-#    # Suche Tor
-#    cur_len = 0
-#    cur_start = 0
-#    best_flag = False
-#    i2 = 0
-#    
-#    #print(f"{i0=} {n=}")
-#    for i in range(i0+1,n):
-#        d = radius[i]
-#        if d >= GATE_FREE_RANGE_THRESH:
-#            if cur_len == 0:
-#                cur_start = i
-#            cur_len += 1
-#            if cur_len > best_len:
-#                best_len = cur_len
-#                best_start = cur_start
-#                i1 = cur_start - 1
-#                d1 = last_d
-#                best_flag = True
-#        else:
-#            if best_flag: 
-#                i2 = i
-#                d2 = d
-#                cur_len = 0
-#                best_flag = False
-#            last_d = d
-#        
-#    if best_len == 0 or i2 == 0:
-#        print ("Tor nicht gefunden")       #HB
-#        return None
-#        
-#    # Erster Pfosten als complexe Zahl
-#    #phi1 = i1/LIDAR_COUNT*math.pi - math.pi/2
-#    phi1 = angles[i1]
-#    pfosten1 = cmath.rect(d1, phi1)
-#
-#    # Zweiter Pfosten als complexe Zahl
-#    #phi2 = i2/LIDAR_COUNT*math.pi - math.pi/2
-#    phi2 = angles[i2]
-#    pfosten2 = cmath.rect(d2, phi2)
-#
-#    # die Breite des Tores muss zwischen GATE_WIDTH_MIN und GATE_WIDTH_MAX liegen
-#    tor = pfosten2 - pfosten1
-#    torBreite = abs(tor)
-#    #print(f"{torBreite=} {G(phi1)=} {d1=} {i1=}   {G(phi2)=} {d2=} {i2=}")      #HB
-#    if torBreite > GATE_WIDTH_MAX or torBreite < GATE_WIDTH_MIN:
-#        print ("Torbreite passt nicht")       #HB
-#        return None
-#        
-#    # Winkel zum Mittelpunkt des Tores
-#    torMitte = (pfosten2 + pfosten1) / 2
-#    
-#    startPoint = torMitte + 200 * tor / torBreite * 1j
-#
-#    return torMitte, startPoint, pfosten1, pfosten2
 
 
 class Gate():
@@ -182,7 +151,7 @@ class Gate():
                 i0 = i
                 break
         if i0 == None: 
-            print ("Zaun nicht gefunden")       #HB
+            print ("Zaun nicht gefunden")     
             return None
         
         # Suche Tor
@@ -192,15 +161,15 @@ class Gate():
         torBreite = 0
         found = False
         gateFreeRangeThresh = self.freeRangeDist
-        print(f"{gateFreeRangeThresh=}")
+        #print(f"{gateFreeRangeThresh=}")
         for i in range(i0+1,n):
             d = radius[i]
-            print(i,int(d), G(angle[i]), cur_len)
+            #print(i,int(d), G(angle[i]), cur_len)  #HB
             if d >= gateFreeRangeThresh:
                 if cur_len == 0:
                     i1 = i - 1 - self.gateIndexMargin
                     gateFreeRangeThresh = radius[i1] * 1.5  #+ 0.5
-                    print(f"{gateFreeRangeThresh=}")
+                    #print(f"{gateFreeRangeThresh=}")
                 cur_len += 1
             else:
                 if cur_len > 0: 
@@ -223,14 +192,14 @@ class Gate():
                         tor = pfosten2 - pfosten1
                         torBreite = abs(tor)
                         #print(f"{torBreite=}, {i1=}, {i2=}")
-                        print(f"{i1=}, {i2=}, {pfosten1=}, {pfosten2=}, {G(phi1)=}°, {G(phi2)=}°")
+                        #print(f"{i1=}, {i2=}, {pfosten1=}, {pfosten2=}, {G(phi1)=}°, {G(phi2)=}°")
                         if torBreite <= self.gateWidthMax and torBreite >= self.gateWidthMin:
                             found = True
                             break
                     cur_len = 0
             
         if not found:
-            print (f"Tor nicht gefunden {torBreite=}")       #HB
+            print (f"Tor nicht gefunden {torBreite=}")   
             #print(f"{pfosten1=}, {pfosten2=}")
             return None  # , None
             
@@ -242,7 +211,7 @@ class Gate():
 
     def Preprocessing(self, angles, radius):
         # Winkel-Filter
-        mask = (angles >= np.pi/2-self.maxWinkelRad) & (angles <= np.pi/2+self.maxWinkelRad)
+        mask = (angles >= np.pi/2*0-self.maxWinkelRad) & (angles <= 0*np.pi/2+self.maxWinkelRad)
         angles = angles[mask]
         radius = radius[mask]
 
@@ -309,13 +278,26 @@ class Gate():
         return None  # , None
 
 
-
 class RobotController():
-    def __init__(self, FuncSetWheels, gate):
+    def __init__(self, 
+                FuncSetWheels, 
+                gate, 
+                gateReachedThreshold = 0.3,         # Schwellwert für Erreichen des Tores [m]
+                startPointThreshold = 0.1,          # Schwellwert für Erreichen Startpunktes
+                wheelBase = 0.205,                  # Radabstand (vereinfacht)
+                baseSpeed = 0.2,                    # Basisfahrgeschwindigkeit [m/s]#
+                kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
+        ):
         self.robotState = STATE_SEARCH
         self.timeOut = 10
-        self.SetWheels = FuncSetWheels
-        self.gate = gate
+        self.SetWheels = FuncSetWheels                      # Python-Funktion zum setzen der Rasgeschwindigkeite
+        self.gate = gate                                    # Tor das gefunden werden soll
+        self.gateReachedThreshold = gateReachedThreshold    # Schwellwert für Erreichen des Tores
+        self.startPointThreshold = startPointThreshold      # Schwellwert für Erreichen Startpunktes
+        self.targetAngleReachedThreshold = 16/180*math.pi   # Schwellwert für Ausrichtung zum Ziel
+        self.wheelBase = wheelBase                          # Radabstand (vereinfacht)
+        self.baseSpeed = baseSpeed                          # Basisfahrgeschwindigkeit [px/s]#
+        self.kHeading = kHeading                            # Proportionalgain auf den Richtungsfehler
         
     def GetState(self):
         return f"{['SEARCH','GOTO_START','ALIGN&GO','GATE_REACHED','DONE'][self.robotState]}  "
@@ -344,7 +326,7 @@ class RobotController():
         if self.robotState == STATE_SEARCH:
             # roboter drehen um das Panorama zu „scannen“
             self.SetWheels(-20, 20)       # Nur Drehung
-            self.SetWheels(0, 0)  #HB TEST
+            #self.SetWheels(0, 0)  #HB TEST
             result = self.gate.Detect(angles, radius)
             #sys.exit(0) #HB TEST
             # Beim ersten validen Gate wechseln wir in den Ausrichtungs/Fahrt‑Modus
@@ -359,7 +341,7 @@ class RobotController():
             result = self.gate.Detect(angles, radius)
             if result is not None:
                 torMitte, startPoint, pfosten1, pfosten2 = result
-                if abs(startPoint) > START_POINT_REACHED_THRE:
+                if abs(startPoint) > self.startPointThreshold:
                     self.targetAngle = cmath.phase(startPoint)  #HB [0]
 
                     # Fehler zwischen Blickrichtung und Gate‑Mittelwinkel
@@ -369,16 +351,16 @@ class RobotController():
                     #err = wrap_angle(self.targetAngle) 
                     err = self.targetAngle
                     #print(f"err={G(err)}°")  #HB
-                    omega_cmd = K_HEADING * err * 2 #HB
+                    omega_cmd = self.kHeading * err
                     HB=0.0
                     if err<0: omega_cmd -= HB
                     else: omega_cmd += HB
                     #if numSteps < 20: print(f"{self.targetAngle=}")   #HB
-                    v_cmd = BASE_SPEED*1 #HB  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
-                    if abs(self.targetAngle) > TARGET_ANGLE_REACHED_THRE: v_cmd = 0
+                    v_cmd = self.baseSpeed*1 #HB  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
+                    if abs(self.targetAngle) > self.targetAngleReachedThreshold: v_cmd = 0
                     # Umrechnung in Radspeed‑Kommandos (Differentialfahrwerk)
-                    vl = v_cmd - omega_cmd * (WHEEL_BASE / 2.0)
-                    vr = v_cmd + omega_cmd * (WHEEL_BASE / 2.0)
+                    vl = v_cmd - omega_cmd * (self.wheelBase / 2.0)
+                    vr = v_cmd + omega_cmd * (self.wheelBase / 2.0)
                     self.SetWheels(vl, vr)
                     #self.SetWheels(0, 0)  #HB
                 else: 
@@ -399,21 +381,21 @@ class RobotController():
                 # bereits im Roboter‑Frame. 
                 err = self.targetAngle
                 #print(f"err={G(err)}°")  #HB
-                omega_cmd = K_HEADING * err
+                omega_cmd = self.kHeading * err
                 HB=0.0
                 if err<0: omega_cmd -= HB
                 else: omega_cmd += HB
                 #if numSteps < 20: print(f"{self.targetAngle=}")   #HB
-                v_cmd = BASE_SPEED*1 #HB  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
-                if abs(self.targetAngle) > TARGET_ANGLE_REACHED_THRE: v_cmd = 0
+                v_cmd = self.baseSpeed*1 #HB  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
+                if abs(self.targetAngle) > self.targetAngleReachedThreshold: v_cmd = 0
                 # Umrechnung in Radspeed‑Kommandos (Differentialfahrwerk)
-                vl = v_cmd - omega_cmd * (WHEEL_BASE / 2.0)
-                vr = v_cmd + omega_cmd * (WHEEL_BASE / 2.0)
+                vl = v_cmd - omega_cmd * (self.wheelBase / 2.0)
+                vr = v_cmd + omega_cmd * (self.wheelBase / 2.0)
                 self.SetWheels(vl, vr)
                 #self.SetWheels(0, 0)   #HB
                 timeOut = 10
                 # Stop‑Kriterium: geringer Abstand zum Tor
-                if abs(torMitte) <= GATE_REACHED_THRE:
+                if abs(torMitte) <= self.gateReachedThreshold:
                     self.robotState = STATE_GATE_REACHED
                 return torMitte, startPoint, pfosten1, pfosten2
             else: 
@@ -422,7 +404,7 @@ class RobotController():
                     self.robotState = STATE_DONE
                     self.SetWheels(0, 0)
                 else: 
-                    self.SetWheels(BASE_SPEED, BASE_SPEED)
+                    self.SetWheels(self.baseSpeed, self.baseSpeed)
                     timeOut -= 1
 
         elif self.robotState == STATE_GATE_REACHED:
@@ -430,7 +412,7 @@ class RobotController():
                 self.robotState = STATE_DONE
                 self.SetWheels(0, 0)
             else: 
-                self.SetWheels(BASE_SPEED, BASE_SPEED)
+                self.SetWheels(self.baseSpeed, self.baseSpeed)
                 timeOut -= 1
             
         return None
