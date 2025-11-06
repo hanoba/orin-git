@@ -33,6 +33,7 @@ import random
 import sys
 from dataclasses import dataclass
 import pygame
+from RobotLib import Gate, RobotController
 
 numSteps = 0
 
@@ -57,13 +58,9 @@ WALL_X = 500                         # X‑Position der vertikalen Mauer
 GATE_Y1 = 240                        # oberes Ende der Toröffnung
 GATE_Y2 = 360                        # unteres Ende der Toröffnung
 
-# Torbreite 
-GATE_WIDTH_MIN = 100
-GATE_WIDTH_MAX = 140
-
 # LiDAR‑Parameter
 LIDAR_COUNT = 180      #HB 360       # Anzahl der Strahlen (1° Raster)
-LIDAR_MAX_RANGE = 320.0*2            # maximale Messdistanz in Pixeln
+LIDAR_MAX_RANGE = 320.0*3            # maximale Messdistanz in Pixeln
 LIDAR_NOISE_STD = 0.5                # Gauß‑Rauschen (σ) auf Distanzmessung
 
 # Roboterkinematik
@@ -167,6 +164,8 @@ def ray_segment_intersection(px, py, dx, dy, seg: Segment):
 #
 def cast_lidar(world: World, px, py, theta=0.0):
     hits = []
+    angles = []
+    radius = []
     i0 = LIDAR_COUNT // 2
     for i in range(LIDAR_COUNT):
         # Winkel in Rad: i° + theta, 0° zeigt in Roboter‑Vorwärtsrichtung (x‑Achse)
@@ -186,7 +185,10 @@ def cast_lidar(world: World, px, py, theta=0.0):
         # Einfaches Messrauschen
         noisy_dist = max(0.0, min(LIDAR_MAX_RANGE, dist + random.gauss(0, LIDAR_NOISE_STD)))
         hits.append((px + dx * noisy_dist, py + dy * noisy_dist, noisy_dist))
-    return hits  # Liste von (HitX, HitY, Distanz)
+        #angles.append(i/LIDAR_COUNT*math.pi - 0*math.pi/2)
+        angles.append(ang - theta)
+        radius.append(noisy_dist)
+    return hits, angles, radius  # Liste von (HitX, HitY, Distanz)
 
 
 class DiffDriveRobot:
@@ -241,204 +243,8 @@ class DiffDriveRobot:
         y = int(self.y+p.imag)
         pygame.draw.circle(surf, POINT_COLOR, (x, y), POINT_RADIUS, 2)
 
-
-def wrap_angle(angle):
-    """Normiert einen Winkel auf den Bereich [−π, π]."""
-    return (angle + math.pi) % (2 * math.pi) - math.pi
-
 def G(x):
     return x*360/math.tau
-
-
-def detect_gate(lidar_hits):
-    """Erkennt die breiteste „freie“ Winkelmenge im 360°‑LiDAR.
-
-    Vorgehen
-      1) Klassifiziere jeden Strahl als frei (1) oder belegt (0) via Schwellwert.
-      2) Finde die längste zusammenhängende Sequenz von 1en. Zirkulär behandeln,
-         daher wird die Liste zu sich selbst konkateniert.
-      3) Liefere den Mittelindex und dessen Winkel (in Rad) zurück.
-
-    Rückgabe
-      (mid_angle, length) oder None, falls kein genügend breites Gate gefunden wird.
-    """
-    #free = [1 if d >= GATE_FREE_RANGE_THRESH else 0 for (_, _, d) in lidar_hits]
-    best_len = 0
-    best_start = 0
-    n = len(lidar_hits)
-
-    # Suche den ersten Punkt des Zaunes
-    i0 = 0
-    for (_, _, d) in lidar_hits:
-        last_d = d
-        if d < GATE_FREE_RANGE_THRESH: break
-        i0 += 1
-    if i0 >= n: 
-        print ("Zaun nicht gefunden")       #HB
-        return None
-    
-    # Suche Tor
-    cur_len = 0
-    cur_start = 0
-    best_flag = False
-    i2 = 0
-    
-    #print(f"{i0=} {n=}")
-    for i in range(i0+1,n):
-        (_, _, d) = lidar_hits[i]
-        if d >= GATE_FREE_RANGE_THRESH:
-            if cur_len == 0:
-                cur_start = i
-            cur_len += 1
-            if cur_len > best_len:
-                best_len = cur_len
-                best_start = cur_start
-                i1 = cur_start - 1
-                d1 = last_d
-                best_flag = True
-        else:
-            if best_flag: 
-                i2 = i
-                d2 = d
-                cur_len = 0
-                best_flag = False
-            last_d = d
-        
-    if best_len == 0 or i2 == 0:
-        print ("Tor nicht gefunden")       #HB
-        return None
-        
-    # Erster Pfosten als complexe Zahl
-    phi1 = i1/LIDAR_COUNT*math.pi - math.pi/2
-    pfosten1 = cmath.rect(d1, phi1)
-
-    # Zweiter Pfosten als complexe Zahl
-    phi2 = i2/LIDAR_COUNT*math.pi - math.pi/2
-    pfosten2 = cmath.rect(d2, phi2)
-
-    # die Breite des Tores muss zwischen GATE_WIDTH_MIN und GATE_WIDTH_MAX liegen
-    tor = pfosten2 - pfosten1
-    torBreite = abs(tor)
-    #print(f"{torBreite=} {G(phi1)=} {d1=} {i1=}   {G(phi2)=} {d2=} {i2=}")      #HB
-    if torBreite > GATE_WIDTH_MAX or torBreite < GATE_WIDTH_MIN:
-        print ("Torbreite passt nicht")       #HB
-        return None
-        
-    # Winkel zum Mittelpunkt des Tores
-    torMitte = (pfosten2 + pfosten1) / 2
-    
-    startPoint = torMitte + 200 * tor / torBreite * 1j
-
-    return torMitte, startPoint, pfosten1, pfosten2
-
-
-timeOut = 10
-
-def controller(robot: DiffDriveRobot, lidar_hits, dt):
-    """Einfache Zustandssteuerung.
-
-    SEARCH:         Dreht sich langsam, bis das Tor erkannt wurde.
-    GOTO_START:     Fährt zum Startpunkt
-    ALIGN&GO:       Regelt die Ausrichtung auf den Mittelpunkt des Tores und fährt vorwärts.
-    GATE_REACHED:   Der Abstand zum Tor ist kleiner als 30cm
-    DONE:           Stoppt, kurze Zeit nachdem das Tor erreicht wurde.
-    """
-    global timeOut
-    if robot.state == STATE_DONE:
-        robot.set_wheels(0, 0)
-        return None
-
-    
-    if robot.state == STATE_SEARCH:
-        # roboter drehen um das Panorama zu „scannen“
-        robot.set_wheels(-20, 20)       # Nur Drehung
-        result = detect_gate(lidar_hits)
-        # Beim ersten validen Gate wechseln wir in den Ausrichtungs/Fahrt‑Modus
-        if result is not None:
-            torMitte, startPoint, pfosten1, pfosten2 = result
-            robot.target_angle = cmath.phase(torMitte)  #HB[0]  # Winkel IN ROBOTERKOORDINATEN
-            robot.state = STATE_GOTO_START
-            return torMitte, startPoint, pfosten1, pfosten2
-
-    elif robot.state == STATE_GOTO_START:
-        # Aktualisiere Zielwinkel laufend, falls Gate sich geometrisch verschiebt
-        result = detect_gate(lidar_hits)
-        if result is not None:
-            torMitte, startPoint, pfosten1, pfosten2 = result
-            if abs(startPoint) > START_POINT_REACHED_THRE:
-                robot.target_angle = cmath.phase(startPoint)  #HB [0]
-
-                # Fehler zwischen Blickrichtung und Gate‑Mittelwinkel
-                # Hinweis: Da die LiDAR‑Winkel relativ zu theta erzeugt wurden, ist robot.target_angle
-                # bereits im Roboter‑Frame. 
-                #HB err = wrap_angle(gate[0] - robot.theta) 
-                err = wrap_angle(robot.target_angle - robot.theta*0) 
-                #print(f"err={G(err)}°")  #HB
-                omega_cmd = K_HEADING * err * 2 #HB
-                HB=0.0
-                if err<0: omega_cmd -= HB
-                else: omega_cmd += HB
-                if numSteps < 20: print(f"{robot.target_angle=}")   #HB
-                v_cmd = BASE_SPEED*1 #HB  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
-                if abs(G(robot.target_angle)) > TARGET_ANGLE_REACHED_THRE: v_cmd = 0
-                # Umrechnung in Radspeed‑Kommandos (Differentialfahrwerk)
-                vl = v_cmd - omega_cmd * (WHEEL_BASE / 2.0)
-                vr = v_cmd + omega_cmd * (WHEEL_BASE / 2.0)
-                robot.set_wheels(vl, vr)
-                #HB robot.set_wheels(0, 0)
-            else: 
-                # start point reached
-                robot.state = STATE_ALIGN_AND_GO
-                robot.set_wheels(0, 0)
-            return torMitte, startPoint, pfosten1, pfosten2
-    
-    elif robot.state == STATE_ALIGN_AND_GO:
-        # Aktualisiere Zielwinkel laufend, falls Gate sich geometrisch verschiebt
-        result = detect_gate(lidar_hits)
-        if result is not None:
-            torMitte, startPoint, pfosten1, pfosten2 = result
-            robot.target_angle = cmath.phase(torMitte)  #HB [0]
-
-            # Fehler zwischen Blickrichtung und Gate‑Mittelwinkel
-            # Hinweis: Da die LiDAR‑Winkel relativ zu theta erzeugt wurden, ist robot.target_angle
-            # bereits im Roboter‑Frame. 
-            err = robot.target_angle
-            #print(f"err={G(err)}°")  #HB
-            omega_cmd = K_HEADING * err
-            HB=0.0
-            if err<0: omega_cmd -= HB
-            else: omega_cmd += HB
-            if numSteps < 20: print(f"{robot.target_angle=}")   #HB
-            v_cmd = BASE_SPEED*1 #HB  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
-            if abs(G(robot.target_angle)) > TARGET_ANGLE_REACHED_THRE: v_cmd = 0
-            # Umrechnung in Radspeed‑Kommandos (Differentialfahrwerk)
-            vl = v_cmd - omega_cmd * (WHEEL_BASE / 2.0)
-            vr = v_cmd + omega_cmd * (WHEEL_BASE / 2.0)
-            robot.set_wheels(vl, vr)
-            #HB robot.set_wheels(0, 0)
-            timeOut = 10
-            # Stop‑Kriterium: geringer Abstand zum Tor
-            if abs(torMitte) <= GATE_REACHED_THRE:
-                robot.state = STATE_GATE_REACHED
-            return torMitte, startPoint, pfosten1, pfosten2
-        else: 
-            # Stop‑Kriterium: seit geraumer Zeit kein Tor mehr erkannt
-            if timeOut <= 0:
-                robot.state = STATE_DONE
-                robot.set_wheels(0, 0)
-            else: 
-                robot.set_wheels(BASE_SPEED, BASE_SPEED)
-                timeOut -= 1
-
-    elif robot.state == STATE_GATE_REACHED:
-        if timeOut <= 0:
-            robot.state = STATE_DONE
-            robot.set_wheels(0, 0)
-        else: 
-            robot.set_wheels(BASE_SPEED, BASE_SPEED)
-            timeOut -= 1
-        
-    return None
 
 
 def resolve_collisions(robot: DiffDriveRobot, world: World):
@@ -475,7 +281,7 @@ def resolve_collisions(robot: DiffDriveRobot, world: World):
 
 
 def draw_lidar_rays(surf, robot: DiffDriveRobot, hits):
-    """Zeichnet alle LiDAR‑Strahlen und markiert Trefferpunkte."""
+    """Zeichnet alle LiDAR-Strahlen und markiert Trefferpunkte."""
     for hx, hy, d in hits:
         pygame.draw.line(surf, LIDAR_RAY_COLOR, (robot.x, robot.y), (hx, hy), 1)
         if d < LIDAR_MAX_RANGE * 0.999:
@@ -483,17 +289,29 @@ def draw_lidar_rays(surf, robot: DiffDriveRobot, hits):
 
 
 def main():
-    # PyGame‑Setup
+    # Setup gate to be detected
+    gate = Gate(
+        gateWidthMin=120-40,    # 0.275, 
+        gateWidthMax=120+40,
+        startPointDist=200,     # Abstand zwischen Startpunkt und Tor 0.4, 
+        maxWinkel = 90,         #80,
+        vonRechts=True, 
+        segBasedDetection=False,
+        freeRangeDist=600)
+        
+    robot = DiffDriveRobot(x=180, y=100, theta=-3.14/4*0)  #HB
+    robotController = RobotController(robot.set_wheels, gate)
+
+    # PyGame-Setup
     pygame.init()
     screen = pygame.display.set_mode((WIN_W, WIN_H))
-    pygame.display.set_caption("TurtleBot‑ähnlicher LiDAR‑Gate‑Navigator (PyGame)")
+    pygame.display.set_caption("TurtleBot-ähnlicher LiDAR-Gate-Navigator (PyGame)")
     clock = pygame.time.Clock()
 
     # Szenenaufbau
     world = World()
 
     # Startpose: links der Mauer, unterhalb des Tores
-    robot = DiffDriveRobot(x=180, y=100, theta=-3.14)  #HB
 
     show_rays = True   # LiDAR‑Darstellung an/aus
     manual = False     # manueller Modus per Pfeiltasten
@@ -518,6 +336,7 @@ def main():
                 elif event.key == pygame.K_SPACE:
                     # vollständiger Reset der Roboterpose und des Zustands
                     robot.Reset()
+                    robotController.Reset()
                 elif event.key == pygame.K_d:
                     debugMode = not debugMode
 
@@ -526,7 +345,11 @@ def main():
         world.draw(screen)
 
         # LiDAR erzeugen: Wichtig, theta mitgeben, damit Strahlen im Roboterframe sind
-        lidar_hits = cast_lidar(world, robot.x, robot.y, robot.theta)
+        lidar_hits, angles, radius = cast_lidar(world, robot.x, robot.y, robot.theta)
+
+        # LiDAR zeichnen
+        if show_rays:
+            draw_lidar_rays(screen, robot, lidar_hits)
 
         # Manuelle Steuerung: sehr simpel, Pfeile → Vorwärts/ Rückwärts/ Drehen
         if manual:
@@ -546,10 +369,10 @@ def main():
             robot.set_wheels(vl, vr)
         else:
             # Autopilot
-            result = controller(robot, lidar_hits, dt)
+            result = robotController.Run(angles, radius, dt)
             
-            # Visualisierung der aktuell anvisierten Richtung
-            if result is not None and robot.state != STATE_DONE:
+            # Visualisierung von aktuell anvisierter Richtung, Tor und Startpunkt
+            if result is not None and not robotController.Done():
                 torMitte, startPoint, pfosten1, pfosten2 = result
                 phi = cmath.phase(torMitte)
                 gx = robot.x + math.cos(phi + robot.theta) * 40*4   #HB
@@ -572,15 +395,11 @@ def main():
             robot.step(dt)
             resolve_collisions(robot, world)
 
-        # LiDAR zeichnen
-        if show_rays:
-            draw_lidar_rays(screen, robot, lidar_hits)
-
         # Roboter zeichnen + HUD
         robot.draw(screen)
         font = pygame.font.SysFont(None, 18)
         txt = (
-            f"State: {['SEARCH','GOTO_START','ALIGN&GO','GATE_REACHED','DONE'][robot.state]}  "
+            f"State: {robotController.GetState()}  "
             f"SPACE=Reset  M=Manual:{manual}  R=Rays:{show_rays}"
             f" {G(robot.target_angle):.0f}°"
         )
