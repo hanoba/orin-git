@@ -210,10 +210,14 @@ class DiffDriveRobot:
         self.y = self.y0 
         self.theta = self.theta0 
         self.state = STATE_SEARCH
-        self.set_wheels(0, 0)
+        self.SetSpeed(0, 0)
 
-    def set_wheels(self, vl, vr):
+    def SetSpeed(self, v_cmd, omega_cmd):
         """Setzt Radgeschwindigkeiten mit Sättigung."""
+        # Umrechnung in Radspeed-Kommandos (Differentialfahrwerk)
+        wheelBase = 2 * 16  # Radabstand (vereinfacht)
+        vl = v_cmd - omega_cmd * (wheelBase / 2.0)
+        vr = v_cmd + omega_cmd * (wheelBase / 2.0)
         m = MAX_WHEEL_SPEED
         self.v_l = max(-m, min(m, vl))
         self.v_r = max(-m, min(m, vr))
@@ -277,7 +281,7 @@ def resolve_collisions(robot: DiffDriveRobot, world: World):
             robot.theta = (robot.theta + 0.05) % math.tau
             pushed = True
     if pushed:
-        robot.set_wheels(0.0, 0.0)
+        robot.SetSpeed(0.0, 0.0)
 
 
 def draw_lidar_rays(surf, robot: DiffDriveRobot, hits):
@@ -301,11 +305,10 @@ def main():
         
     robot = DiffDriveRobot(x=180, y=100, theta=-3.14/4*0)  #HB
     robotController = RobotController(
-                robot.set_wheels, 
+                robot.SetSpeed, 
                 gate,
                 gateReachedThreshold=30,            # Schwellwert für Erreichen des Tores
                 startPointThreshold=10,             # Schwellwert für Erreichen Startpunktes
-                wheelBase = 2 * 16,                 # Radabstand (vereinfacht)
                 baseSpeed = 70.0,                   # Basisfahrgeschwindigkeit [px/s]#
                 kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
     )
@@ -388,7 +391,7 @@ def main():
                 turn += 1.0
             vl = BASE_SPEED * fwd - turn * 40.0
             vr = BASE_SPEED * fwd + turn * 40.0
-            robot.set_wheels(vl, vr)
+            robot.SetSpeed(vl, vr)
         else:
             # Autopilot
             result = robotController.Run(angles, radius, dt)

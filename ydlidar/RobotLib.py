@@ -89,6 +89,7 @@ STATE_GOTO_START = 1                 # Ausrichten auf Startpunkt und zufahren
 STATE_ALIGN_AND_GO = 2               # Ausrichten auf Gate und zufahren
 STATE_GATE_REACHED = 3               # Distance to gate less than self.gateReachedThreshold
 STATE_DONE = 4                       # hinter dem Tor angehalten
+STATE_ERROR = 5                      # Tor seit geraumer Zeit nicht gefunden
 
 def G(x):
     return int(x*360/math.tau)
@@ -167,13 +168,13 @@ class Gate():
             #print(i,int(d), G(angle[i]), cur_len)  #HB
             if d >= gateFreeRangeThresh:
                 if cur_len == 0:
-                    i1 = i - 1 - self.gateIndexMargin
+                    i1 = max(i - 1 - self.gateIndexMargin, 0)
                     gateFreeRangeThresh = radius[i1] * 1.5  #+ 0.5
                     #print(f"{gateFreeRangeThresh=}")
                 cur_len += 1
             else:
                 if cur_len > 0: 
-                    i2 = i + self.gateIndexMargin
+                    i2 = min(i + self.gateIndexMargin, n-1)
                     gateFreeRangeThresh = self.freeRangeDist
             
                     if cur_len > self.minInsideGatePoints:
@@ -280,33 +281,43 @@ class Gate():
 
 class RobotController():
     def __init__(self, 
-                FuncSetWheels, 
+                robot, 
                 gate, 
                 gateReachedThreshold = 0.3,         # Schwellwert für Erreichen des Tores [m]
                 startPointThreshold = 0.1,          # Schwellwert für Erreichen Startpunktes
-                wheelBase = 0.205,                  # Radabstand (vereinfacht)
                 baseSpeed = 0.2,                    # Basisfahrgeschwindigkeit [m/s]#
                 kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
         ):
         self.robotState = STATE_SEARCH
         self.timeOut = 10
-        self.SetWheels = FuncSetWheels                      # Python-Funktion zum setzen der Rasgeschwindigkeite
+        self.robot = robot                                  # Python-Funktion zum setzen der Radgeschwindigkeit
         self.gate = gate                                    # Tor das gefunden werden soll
         self.gateReachedThreshold = gateReachedThreshold    # Schwellwert für Erreichen des Tores
         self.startPointThreshold = startPointThreshold      # Schwellwert für Erreichen Startpunktes
         self.targetAngleReachedThreshold = 16/180*math.pi   # Schwellwert für Ausrichtung zum Ziel
-        self.wheelBase = wheelBase                          # Radabstand (vereinfacht)
         self.baseSpeed = baseSpeed                          # Basisfahrgeschwindigkeit [px/s]#
         self.kHeading = kHeading                            # Proportionalgain auf den Richtungsfehler
+        print(self.GetState())
         
     def GetState(self):
-        return f"{['SEARCH','GOTO_START','ALIGN&GO','GATE_REACHED','DONE'][self.robotState]}  "
+        return f"{['SEARCH','GOTO_START','ALIGN&GO','GATE_REACHED','DONE','ERROR'][self.robotState]}  "
+        
+    def SetState(self, state):
+        self.robotState = state
+        print(self.GetState())
+        if state==STATE_SEARCH:         self.robot.SetColor(255, 255, 255)      # weiß
+        elif state==STATE_GOTO_START:   self.robot.SetColor(255, 255, 0)        # gelb
+        elif state==STATE_ALIGN_AND_GO: self.robot.SetColor(0, 0, 255)          # Blau
+        elif state==STATE_GATE_REACHED: self.robot.SetColor(0, 255, 0)          # grün
+        elif state==STATE_DONE:         self.robot.SetColor(255, 0, 0)          # rot
+        elif state==STATE_ERROR:        self.robot.SetColor(255, 0, 255)        # lila
 
-    def Done(self):
-        return self.robotState == STATE_DONE
+
+    def Ready(self):
+        return self.robotState == STATE_DONE or self.robotState == STATE_ERROR
 
     def Reset(self):
-        self.robotState = STATE_SEARCH
+        self.SetState(STATE_SEARCH)
     
     def Run(self, angles, radius, dt):
         """Einfache Zustandssteuerung.
@@ -317,23 +328,22 @@ class RobotController():
         GATE_REACHED:   Der Abstand zum Tor ist kleiner als 30cm
         DONE:           Stoppt, kurze Zeit nachdem das Tor erreicht wurde.
         """
-        global timeOut, robotState
         if self.robotState == STATE_DONE:
-            self.SetWheels(0, 0)
+            self.robot.SetSpeed(0, 0)
             return None
 
         
         if self.robotState == STATE_SEARCH:
             # roboter drehen um das Panorama zu „scannen“
-            self.SetWheels(-20, 20)       # Nur Drehung
-            #self.SetWheels(0, 0)  #HB TEST
+            self.robot.SetSpeed(0, 2*3.14/4)       # Nur Drehung
+            #self.robot.SetSpeed(0, 0)  #HB TEST
             result = self.gate.Detect(angles, radius)
             #sys.exit(0) #HB TEST
             # Beim ersten validen Gate wechseln wir in den Ausrichtungs/Fahrt‑Modus
             if result is not None:
                 torMitte, startPoint, pfosten1, pfosten2 = result
                 self.targetAngle = cmath.phase(torMitte)  #HB[0]  # Winkel IN ROBOTERKOORDINATEN
-                self.robotState = STATE_GOTO_START
+                self.SetState(STATE_GOTO_START)
                 return torMitte, startPoint, pfosten1, pfosten2
 
         elif self.robotState == STATE_GOTO_START:
@@ -359,14 +369,14 @@ class RobotController():
                     v_cmd = self.baseSpeed*1 #HB  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
                     if abs(self.targetAngle) > self.targetAngleReachedThreshold: v_cmd = 0
                     # Umrechnung in Radspeed‑Kommandos (Differentialfahrwerk)
-                    vl = v_cmd - omega_cmd * (self.wheelBase / 2.0)
-                    vr = v_cmd + omega_cmd * (self.wheelBase / 2.0)
-                    self.SetWheels(vl, vr)
-                    #self.SetWheels(0, 0)  #HB
+                    #vl = v_cmd - omega_cmd * (self.wheelBase / 2.0)
+                    #vr = v_cmd + omega_cmd * (self.wheelBase / 2.0)
+                    self.robot.SetSpeed(v_cmd, omega_cmd)
+                    #self.robot.SetSpeed(0, 0)  #HB
                 else: 
                     # start point reached
-                    self.robotState = STATE_ALIGN_AND_GO
-                    self.SetWheels(0, 0)
+                    self.SetState(STATE_ALIGN_AND_GO)
+                    self.robot.SetSpeed(0, 0)
                 return torMitte, startPoint, pfosten1, pfosten2
         
         elif self.robotState == STATE_ALIGN_AND_GO:
@@ -389,30 +399,33 @@ class RobotController():
                 v_cmd = self.baseSpeed*1 #HB  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
                 if abs(self.targetAngle) > self.targetAngleReachedThreshold: v_cmd = 0
                 # Umrechnung in Radspeed‑Kommandos (Differentialfahrwerk)
-                vl = v_cmd - omega_cmd * (self.wheelBase / 2.0)
-                vr = v_cmd + omega_cmd * (self.wheelBase / 2.0)
-                self.SetWheels(vl, vr)
-                #self.SetWheels(0, 0)   #HB
-                timeOut = 10
+                #vl = v_cmd - omega_cmd * (self.wheelBase / 2.0)
+                #vr = v_cmd + omega_cmd * (self.wheelBase / 2.0)
+                #self.robot.SetSpeed(vl, vr)
+                self.robot.SetSpeed(v_cmd, omega_cmd)
+                #self.robot.SetSpeed(0, 0)   #HB
+                self.timeOut = 10
                 # Stop‑Kriterium: geringer Abstand zum Tor
                 if abs(torMitte) <= self.gateReachedThreshold:
-                    self.robotState = STATE_GATE_REACHED
+                    self.timeOut = 160
+                    self.SetState(STATE_GATE_REACHED)
                 return torMitte, startPoint, pfosten1, pfosten2
             else: 
                 # Stop‑Kriterium: seit geraumer Zeit kein Tor mehr erkannt
-                if timeOut <= 0:
-                    self.robotState = STATE_DONE
-                    self.SetWheels(0, 0)
+                if self.timeOut <= 0:
+                    self.SetState(STATE_ERROR)
+                    print(self.GetState())
+                    self.robot.SetSpeed(0, 0)
                 else: 
-                    self.SetWheels(self.baseSpeed, self.baseSpeed)
-                    timeOut -= 1
+                    self.robot.SetSpeed(self.baseSpeed, 0)
+                    self.timeOut -= 1
 
         elif self.robotState == STATE_GATE_REACHED:
-            if timeOut <= 0:
-                self.robotState = STATE_DONE
-                self.SetWheels(0, 0)
+            if self.timeOut <= 0:
+                self.SetState(STATE_DONE)
+                self.robot.SetSpeed(0, 0)
             else: 
-                self.SetWheels(self.baseSpeed, self.baseSpeed)
-                timeOut -= 1
+                self.robot.SetSpeed(self.baseSpeed, 0)
+                self.timeOut -= 1
             
         return None
