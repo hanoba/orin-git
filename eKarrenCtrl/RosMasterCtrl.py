@@ -29,20 +29,26 @@
 import cv2
 import time
 from time import perf_counter_ns
-from eKarrenLib import eKarren
+from Rosmaster_Lib import Rosmaster
 from AsyncHandPoseYolo11 import HandPoseApp
 from pid import PID
 
 if __name__ == '__main__':
     # Roboter über USB-Port initialisieren
-    bot = eKarren(debug=False)
-    #bot.create_receive_threading()  # Empfangsthread für Statuswerte starten
+    bot = Rosmaster(com="/dev/ttyCH341USB0", debug=False)
+    bot.create_receive_threading()  # Empfangsthread für Statuswerte starten
 
+    # Kurze Pause für Initialisierung
+    time.sleep(.1)
+    # Startsignal: drei kurze Pieptöne
+    for i in range(3):
+        bot.set_beep(60)
+        time.sleep(.2)
 
     # Systeminformationen anzeigen
     # Abfrage der Firmware-Version und Batteriespannung des Roboters zur Statusanzeige
-    print("Version:", bot.GetVersion())
-    print("Vbat:", bot.GetBatteryVoltage())
+    print("Version:", bot.get_version())
+    print("Vbat:", bot.get_battery_voltage())
 
     # Optionale Lichtsteuerung (auskommentiert)
     # Effect =[0, 6], 0: stop light effect, 1: running light, 2: running horse light,
@@ -68,7 +74,7 @@ if __name__ == '__main__':
     pidLinear = PID(KpLinear, KiLinear, 0, setpoint=wantedHandSize, output_limits=(-0.5, 0.5))
 
     # Kamera-ID festlegen und HandPoseApp starten
-    CAM_ID = 2
+    CAM_ID = 0  #2
     handPoseApp = HandPoseApp(CAM_ID)
 
     lastTime = perf_counter_ns()
@@ -103,13 +109,13 @@ if __name__ == '__main__':
 
             # Steuerbefehl an Roboter senden (Vorwärts-/Rückwärts- und Drehbewegung)
             # v_x=[-0.7, 0.7] m/s, v_y=[-0.7, 0.7] m/s, v_z=[-3.2, 3.2] rad/sec
-            bot.SetSpeed(linear, angular)
+            bot.set_car_motion(v_x=-linear, v_y=0, v_z=-angular)
 
             # Statusausgabe alle Sekunde
             now = perf_counter_ns()
             if now - lastTime > 1e9:
                 lastTime = now
-                Vbat = bot.GetBatteryVoltage()
+                Vbat = bot.get_battery_voltage()
                 print(f"{fps:.1f} FPS lin={linear:.3f}, ang={angular:.3f}, {handSize=}, {handPos=}, {Vbat=}V")
 
     except KeyboardInterrupt:
@@ -117,5 +123,6 @@ if __name__ == '__main__':
         print("\nScript terminated")
 
     # Nach Beendigung: Licht ausschalten, Bewegung stoppen, Kamera schließen
-    bot.Close()
+    bot.set_colorful_effect(effect=0)
+    bot.set_car_motion(v_x=0, v_y=0, v_z=0)
     handPoseApp.Exit()

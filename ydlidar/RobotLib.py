@@ -39,12 +39,14 @@ class Lidar():
     def Scan(self):
         if self.laser.doProcessSimple(self.scan):
             # Rohdaten in Winkel/Entfernung umrechnen
-            ang270 = 270/180*np.pi
+            #ang270 = 270/180*np.pi
             #angles =  np.array([ang270 - p.angle for p in self.scan.points])
             #angles = (angles + np.pi) % (2*np.pi) - np.pi
             #angles =  np.array([(ang270 - p.angle + np.pi) % (2*np.pi) - np.pi for p in self.scan.points])
             # Umrechnung in Roboterkoordinationsystem (x zeigt in Fahrtrichtung
-            angles =  np.array([(np.pi - p.angle + np.pi) % (2*np.pi) - np.pi for p in self.scan.points])
+            #angles =  np.array([(np.pi - p.angle + np.pi) % (2*np.pi) - np.pi for p in self.scan.points])
+            angles =  np.array([(np.pi/2 - p.angle) % (2*np.pi) for p in self.scan.points])
+
             radius  = np.array([p.range for p in self.scan.points])
     
             return angles, radius
