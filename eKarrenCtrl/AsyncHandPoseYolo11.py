@@ -252,14 +252,14 @@ class InferenceThread(threading.Thread):
 # --------------------------------------------------------------------------
 # Hilfsfunktionen – Kamera konfigurieren, FPS berechnen
 # --------------------------------------------------------------------------
-def CameraConfig():
+def CameraConfig(camId):
     # Setzt feste Kamera-Parameter (keine dynamische Framerate).
     cmds = [
-        ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=auto_exposure=3"],
-        ["v4l2-ctl", "-d", "/dev/video2", "--get-ctrl=auto_exposure"],
-        ["v4l2-ctl", "-d", "/dev/video2", "--set-ctrl=exposure_dynamic_framerate=0"],
-        ["v4l2-ctl", "-d", "/dev/video2", "--get-ctrl=exposure_dynamic_framerate"],
-        ["v4l2-ctl", "-d", "/dev/video2", "--get-ctrl=exposure_time_absolute"]
+        ["v4l2-ctl", "-d", f"/dev/video{camId}", "--set-ctrl=auto_exposure=3"],
+        ["v4l2-ctl", "-d", f"/dev/video{camId}", "--get-ctrl=auto_exposure"],
+        ["v4l2-ctl", "-d", f"/dev/video{camId}", "--set-ctrl=exposure_dynamic_framerate=0"],
+        ["v4l2-ctl", "-d", f"/dev/video{camId}", "--get-ctrl=exposure_dynamic_framerate"],
+        ["v4l2-ctl", "-d", f"/dev/video{camId}", "--get-ctrl=exposure_time_absolute"]
     ]
     print("----------- Camera Configuration -----------")
     for cmd in cmds:
@@ -288,7 +288,7 @@ class FpsCalc():
 # --------------------------------------------------------------------------
 class HandPoseApp():
     def __init__(self, CAM_ID):
-        CameraConfig()
+        CameraConfig(CAM_ID)
         self.q_cam, self.q_res = queue.Queue(maxsize=2), queue.Queue(maxsize=2)
 
         self.inf_thread = InferenceThread(self.q_cam, self.q_res)

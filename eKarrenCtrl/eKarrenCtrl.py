@@ -5,8 +5,8 @@
 # Projekt: Handgesteuerte Robotersteuerung mit YOLO-HandPose
 # Autor: Harald Bauer 
 # Datum: 2025-10-23
-# Beschreibung: Steuert einen Rosmaster-Roboter in Echtzeit basierend auf Handposition und -größe,
-#                erkannt durch YOLO11 HandPose-Inferenz auf Jetson/TensorRT.
+# Beschreibung: Steuert eKarren oder Rosmaster in Echtzeit basierend auf Handposition und -größe,
+#               erkannt durch YOLO11 HandPose-Inferenz auf Jetson/TensorRT.
 # ==============================================================
 
 # ============================================================================
@@ -28,33 +28,42 @@
 
 import cv2
 import time
+import sys
 from time import perf_counter_ns
 from eKarrenLib import eKarren
 from AsyncHandPoseYolo11 import HandPoseApp
 from pid import PID
 
-if __name__ == '__main__':
-    # Roboter über USB-Port initialisieren
-    bot = eKarren(debug=False)
-    #bot.create_receive_threading()  # Empfangsthread für Statuswerte starten
 
+def Usage():
+    print("Usage: python eKarrenCtrl.py [Rosmaster|eKarren]")
+    print("       Note: Default is eKarren")
+    sys.exit(0)
+
+
+if __name__ == '__main__':
+    useRosmaster = False
+    argc = len(sys.argv)
+    if argc == 2:
+        if sys.argv[1] == "Rosmaster":
+            useRosmaster = True
+        elif sys.argv[1] != "eKarren":
+            Usage()
+    elif argc > 2: Usage()
+        
+    # Roboter initialisieren
+    bot = eKarren(useRosMaster=useRosmaster, debug=True)
 
     # Systeminformationen anzeigen
     # Abfrage der Firmware-Version und Batteriespannung des Roboters zur Statusanzeige
     print("Version:", bot.GetVersion())
     print("Vbat:", bot.GetBatteryVoltage())
 
-    # Optionale Lichtsteuerung (auskommentiert)
-    # Effect =[0, 6], 0: stop light effect, 1: running light, 2: running horse light,
-    #                 3: breathing light, 4: gradient light, 5: starlight, 6: power display 
-    #                 Speed =[1, 10], the smaller the value, the faster the speed changes
-    # bot.set_colorful_effect(effect=2, speed=5)
-
     # Initialisierung von Steuerungsvariablen
     printCnt = 0
     angular = 0
     linear = 0
-    wantedHandSize = 200  # Ziel-Handgröße: bestimmt den gewünschten Abstand zur Hand
+    wantedHandSize = 250  #HB 200 # Ziel-Handgröße: bestimmt den gewünschten Abstand zur Hand
 
     # PID-Regler-Parameter (Ziegler-Nichols Methode)
     Ku = 0.027 / 2      # Kritische Verstärkung (ultimate gain)
@@ -68,7 +77,7 @@ if __name__ == '__main__':
     pidLinear = PID(KpLinear, KiLinear, 0, setpoint=wantedHandSize, output_limits=(-0.5, 0.5))
 
     # Kamera-ID festlegen und HandPoseApp starten
-    CAM_ID = 2
+    CAM_ID = 0
     handPoseApp = HandPoseApp(CAM_ID)
 
     lastTime = perf_counter_ns()

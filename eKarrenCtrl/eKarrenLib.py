@@ -3,8 +3,14 @@ import sys
 import time
 from Rosmaster_Lib import Rosmaster     # for eKarren emulation with RosMaster X3 PLus
 
+# Constants for eKarren
 rcMaxValue = 2048
 tauMax = 255
+radAbstand = 0.68             # meter
+vLinearMax = 1.63             # m/s
+vAngularMax = 0.3*vLinearMax  # m/s
+omegaMax_RadPerSec = 1.44  # rad/s vAngularMax_Hz*2*pi  
+
 
 # Die Klasse eKarren stellt im wesentlichen ein Interface zum Setzen der Geschwindigkeit bereit.
 # Weiterhin erlaubt die KLasse eine Emulationdes eKarrens mit dem RosMaster X3 Plus. 
@@ -40,13 +46,15 @@ class eKarren:
         # tau = (v - bv)/av = at*v + bt
         self.bt = bv/av
         self.at = 1/av
+        tauStart =  (17 * 256) // 100;   # 17%
+
 
     def GetVersion(self):
-        if self.useRosMaster: return self.bot.get_version())
+        if self.useRosMaster: return self.bot.get_version()
         return "V9"
         
     def GetBatteryVoltage(self):
-        if self.useRosMaster: return self.bot.get_battery_voltage())
+        if self.useRosMaster: return self.bot.get_battery_voltage()
         return 24.0
         
     def CheckSum(self, send_data):
@@ -56,18 +64,27 @@ class eKarren:
         checkSum = checkSum & 255
         return checkSum
     
-    def SetSpeed(self, vLinear, vAngular):
+    def Quantize(self, x):
+        y = int(round(x, 0))
+        if y>= rcMaxValue: y = rcMaxValue - 1
+        elif y <= -rcMaxValue: y = -rcMaxValue + 1
+        return y
+    
+    # vLinear = linear Geschwindigkeit in m/s
+    # omega = winkelgeschwindigkeit in rad/sec
+    def SetSpeed(self, vLinear, omega):
         if self.useRosMaster:
             # Steuerbefehl an RosMaster senden (Vorwärts-/Rückwärts- und Drehbewegung)
             # v_x=[-0.7, 0.7] m/s, v_y=[-0.7, 0.7] m/s, v_z=[-3.2, 3.2] rad/sec
-            self.bot.set_car_motion(v_x=-vLinear, v_y=0, v_z=-vAngular)
+            self.bot.set_car_motion(v_x=-vLinear, v_y=0, v_z=-omega)
             return
-            
-        tauLinear = self.at*vLinear + self.bt
-        tauAngular = vAngular       #HB to be corrected
-        x = int(round(tauLinear * rcMaxValue / 100, 0))
-        y = int(round(tauAngular * rcMaxValue / 100, 0))
-        send_data = f"AT+#,{x},{y},{self.mode}"
+
+        vLinearQ = self.Quantize(vLinear / vLinearMax * rcMaxValue)
+        vAngular = omega*radAbstand/2
+        vAngularQ = self.Quantize(vAngular / vAngularMax * rcMaxValue)
+        
+        #print(f"{vLinear=}m/s  {vAngular=}m/s  {vLinearQ=}  {vAngularQ=}")
+        send_data = f"AT+#,{vLinearQ},{vAngularQ},{self.mode}"
         send_data += f",0x{self.CheckSum(send_data):02X}"
         self.sock.sendto(send_data.encode('utf-8'), self.clientAddr)
  
@@ -79,18 +96,18 @@ class eKarren:
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: eKarrenLib <vLinear_m/s> <vAngular_rad/s>")
+        print("Usage: eKarrenLib <vLinear_m/s> <omega_rad/s>")
         sys.exit()
         
     vLinear = float(sys.argv[1])
-    vAngular = float(sys.argv[2])
-    print(f"{vLinear=}m/s   {vAngular=}rad/s")
+    omega = float(sys.argv[2])
+    print(f"{vLinear=}m/s   {omega=}rad/s")
 
     bot = eKarren(debug=True)
     #raw:AT+#,-1,-1,0,0x53
     try:
         while True:
-            bot.SetSpeed(vLinear, vAngular)
+            bot.SetSpeed(vLinear, omega)
             time.sleep(0.1)
     except KeyboardInterrupt:
         print("Stopped by user")
