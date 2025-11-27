@@ -30,14 +30,29 @@ import cv2
 import time
 import sys
 from time import perf_counter_ns
-from eKarrenLib import eKarren
+from eKarrenLib import eKarren, DEV_ROSMASTER, DEV_EKARREN, DEV_EKARREN_PC, DEV_EKARREN_EMU
+from emulator import Emulator
 from AsyncHandPoseYolo11 import HandPoseApp
 from pid import PID
 
 
 def Usage():
-    print("Usage: python eKarrenCtrl.py [Rosmaster|eKarren]")
-    print("       Note: Default is eKarren")
+    print("""    Elektrokarren Control Program
+
+    The software is controlled via the camera. If a hand is the detected, the eKarren follows the hand.
+    
+    Usage: python eKarrenCtrl.py <device>
+    
+    <device> must be one of the following options:
+    Rosmaster:  The target HW is the Rosmaster X3 PLus. 
+                eKarrenCtrl directly controls Rosmaster and its motors.
+    eKarren:    The target HW is the Elektrokarren. 
+                eKarren commands are sent via UDP to Elektrokarren to control the motors.
+    Emulator:   The target HW is an Elektrokarren emulated on Rosmaster. 
+                eKarren commands are sent via UDP to Rosmaster and control the Rosmaster motors. 
+    eKarrenPC:  eKarren commands are sent to the PC AZ-KENKO. 
+                A test SW on the PC simply prints the received commands.
+    """)
     sys.exit(0)
 
 
@@ -46,13 +61,20 @@ if __name__ == '__main__':
     argc = len(sys.argv)
     if argc == 2:
         if sys.argv[1] == "Rosmaster":
-            useRosmaster = True
-        elif sys.argv[1] != "eKarren":
+            device = DEV_ROSMASTER
+        elif sys.argv[1] == "eKarren":
+            device = DEV_EKARREN
+        elif sys.argv[1] == "Emulator":
+            device = DEV_EKARREN_EMU
+            emulator = Emulator()
+        elif sys.argv[1] == "eKarrenPC":
+            device = DEV_EKARREN_PC
+        else:
             Usage()
-    elif argc > 2: Usage()
+    else: Usage()
         
     # Roboter initialisieren
-    bot = eKarren(useRosMaster=useRosmaster, debug=True)
+    bot = eKarren(device=device, debug=False)
 
     # Systeminformationen anzeigen
     # Abfrage der Firmware-Version und Batteriespannung des Roboters zur Statusanzeige
@@ -81,7 +103,7 @@ if __name__ == '__main__':
     handPoseApp = HandPoseApp(CAM_ID)
 
     lastTime = perf_counter_ns()
-
+    
     try:
         # Hauptschleife für Handverfolgung und Robotersteuerung
         while True:
@@ -113,17 +135,26 @@ if __name__ == '__main__':
             # Steuerbefehl an Roboter senden (Vorwärts-/Rückwärts- und Drehbewegung)
             # v_x=[-0.7, 0.7] m/s, v_y=[-0.7, 0.7] m/s, v_z=[-3.2, 3.2] rad/sec
             bot.SetSpeed(linear, angular)
+                
+            # Emulation handling
+            if device==DEV_EKARREN_EMU:
+                emuLinear, emuOmega, udpMsg = emulator.Run()
 
             # Statusausgabe alle Sekunde
             now = perf_counter_ns()
             if now - lastTime > 1e9:
                 lastTime = now
                 Vbat = bot.GetBatteryVoltage()
-                print(f"{fps:.1f} FPS lin={linear:.3f}, ang={angular:.3f}, {handSize=}, {handPos=}, {Vbat=}V")
+                if device==DEV_EKARREN_EMU:
+                    print(f"{fps:.1f} FPS lin={linear:.3f} ({emuLinear:.3f}) m/s, ang={angular:.3f} ({emuOmega:.3f}) rad/s, "
+                        f"{handSize=}, {handPos=}, {Vbat=}V  {udpMsg}")
+                else:
+                    print(f"{fps:.1f} FPS lin={linear:.3f} m/s, ang={angular:.3f} rad/s, {handSize=}, {handPos=}, {Vbat=}V")
 
     except KeyboardInterrupt:
         # Beenden über STRG+C
         print("\nScript terminated")
+        if device==DEV_EKARREN_EMU: emulator.Close()
 
     # Nach Beendigung: Licht ausschalten, Bewegung stoppen, Kamera schließen
     bot.Close()

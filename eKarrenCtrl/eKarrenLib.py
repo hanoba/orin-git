@@ -11,13 +11,17 @@ vLinearMax = 1.63             # m/s
 vAngularMax = 0.3*vLinearMax  # m/s
 omegaMax_RadPerSec = 1.44  # rad/s vAngularMax_Hz*2*pi  
 
+DEV_ROSMASTER = 0       # run natively on Rosmaster
+DEV_EKARREN = 1         # send UDP commands to eKarren
+DEV_EKARREN_PC = 2      # send UDP commands to PC (AZ-KENKO)
+DEV_EKARREN_EMU = 3     # send UDP commands to Rosmaster
 
 # Die Klasse eKarren stellt im wesentlichen ein Interface zum Setzen der Geschwindigkeit bereit.
 # Weiterhin erlaubt die KLasse eine Emulationdes eKarrens mit dem RosMaster X3 Plus. 
 class eKarren:
-    def __init__(self, useRosMaster=False, debug=False):
-        self.useRosMaster = useRosMaster
-        if useRosMaster:
+    def __init__(self, device=DEV_EKARREN, debug=False):
+        self.device = device
+        if self.device==DEV_ROSMASTER:
             # Roboter über USB-Port initialisieren
             self.bot = Rosmaster(com="/dev/ttyCH341USB0", debug=debug)
             self.bot.create_receive_threading()  # Empfangsthread für Statuswerte starten
@@ -30,15 +34,20 @@ class eKarren:
                 time.sleep(.2)
             return
 
-        if debug:
+        if self.device==DEV_EKARREN_EMU:
+            self.clientAddr = ("127.0.0.1", 4215)            # 
+        elif self.device==DEV_EKARREN_PC:
             self.clientAddr = ("192.168.178.42", 4215)       # AZ-KENKO
-        else:
+        elif self.device==DEV_EKARREN_PC:
             self.clientAddr = ("192.168.20.100", 4211)       # E-Karren
+        else:
+            print("Wrong device: {self.device}")
+            sys.exit(1)
 
         self.bot = None            
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        self.mode = 1
+        self.rcKeyStatus = 1
     
         # v = av*tau + bv
         av = 0.0176  
@@ -50,11 +59,11 @@ class eKarren:
 
 
     def GetVersion(self):
-        if self.useRosMaster: return self.bot.get_version()
+        if self.device==DEV_ROSMASTER: return self.bot.get_version()
         return "V9"
         
     def GetBatteryVoltage(self):
-        if self.useRosMaster: return self.bot.get_battery_voltage()
+        if self.device==DEV_ROSMASTER: return self.bot.get_battery_voltage()
         return 24.0
         
     def CheckSum(self, send_data):
@@ -73,7 +82,7 @@ class eKarren:
     # vLinear = linear Geschwindigkeit in m/s
     # omega = winkelgeschwindigkeit in rad/sec
     def SetSpeed(self, vLinear, omega):
-        if self.useRosMaster:
+        if self.device==DEV_ROSMASTER:
             # Steuerbefehl an RosMaster senden (Vorwärts-/Rückwärts- und Drehbewegung)
             # v_x=[-0.7, 0.7] m/s, v_y=[-0.7, 0.7] m/s, v_z=[-3.2, 3.2] rad/sec
             self.bot.set_car_motion(v_x=-vLinear, v_y=0, v_z=-omega)
@@ -84,14 +93,14 @@ class eKarren:
         vAngularQ = self.Quantize(vAngular / vAngularMax * rcMaxValue)
         
         #print(f"{vLinear=}m/s  {vAngular=}m/s  {vLinearQ=}  {vAngularQ=}")
-        send_data = f"AT+#,{vLinearQ},{vAngularQ},{self.mode}"
+        send_data = f"AT+#,{vLinearQ},{vAngularQ},{self.rcKeyStatus}"
         send_data += f",0x{self.CheckSum(send_data):02X}"
         self.sock.sendto(send_data.encode('utf-8'), self.clientAddr)
  
     def Close(self):
         #sock.sendto(MESSAGE, (UDP_IP, UDP_PORT))
         self.SetSpeed(0, 0)
-        if not self.useRosMaster: self.sock.close()
+        if not self.device==DEV_ROSMASTER: self.sock.close()
         
 
 def main():

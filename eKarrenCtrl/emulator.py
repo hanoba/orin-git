@@ -1,11 +1,13 @@
 # Simuliert die eKarren-Firmware sowie die Motoren
-# Empfängt die Sollwerte via UDP und gibt die lineare
-# Geschwindigkeit und Drehgeschwindigkeit aus
+# Empfängt die Sollwerte via UDP und stellt die lineare
+# Geschwindigkeit und die Drehgeschwindigkeit am Rosmaster
+# ein
 
 import math
 import socket
 import time
 from datetime import datetime
+from eKarrenLib import eKarren, DEV_ROSMASTER, DEV_EKARREN, DEV_EKARREN_PC, DEV_EKARREN_EMU
 
 UDP_PORT = 4215  #4210
 bufsize = 256
@@ -20,6 +22,7 @@ tauStart  =  (17 * 256) // 100;   # 17%
 tauStartLeft = tauStart
 tauStartRight = tauStart   # 17%
 
+disableTotZonenKompensation = True
 
 class Emulator:
     def __init__(self):
@@ -29,7 +32,9 @@ class Emulator:
         self.sock.bind(addr)
         self.sock.setblocking(0)
         print("Start")
-        self.printCnt = 0
+        self.rosmaster = eKarren(device=DEV_ROSMASTER, debug=False)
+        self.vLinear = 0
+        self.omega = 0
 
     #=================================================================================================
     # Berechnung der Geschwindigkeit aus dem Tastverhältnis tau (tau=tauMax entspricht 100%)
@@ -37,6 +42,9 @@ class Emulator:
     def v(self, tau):
         av =  0.0176
         bv = -0.1348
+        if disableTotZonenKompensation: 
+            vMax = av*100 + bv
+            return tau/tauMax*vMax
         if tau > tauStart or tau < -tauStart: 
             return tau/tauMax*100*av + bv
         return 0
@@ -50,8 +58,9 @@ class Emulator:
     # RETURN VALUE:    kompensierter duty cycle
     #================================================================================================= 
     def TotZonenKompensation(self, tau, tauStart):
+        if disableTotZonenKompensation: return tau
         absTau = abs(tau)
-        tauKomp = tauStart + ((tauMax - tauStart) * absTau + tauMax/2) / tauMax
+        tauKomp = tauStart + ((tauMax - tauStart) * absTau + (tauMax // 2)) // tauMax
         if tau < 0: return -tauKomp
         return tauKomp
 
@@ -73,11 +82,18 @@ class Emulator:
         vLinear = (vLeft + vRight)/2
         vAngular = (vLeft - vRight)/2
         omega = vAngular * 2 /  radAbstand      # rad/sec
-        f = omega / (2*math.pi)                 # U/s = Hz
+        f = omega / math.tau                    # U/s = Hz
 
         return vLinear, f
 
 
+    #=================================================================================================
+    # FUNCTION:   eKarrenSimulation
+    # ARGUMENTS:
+    #    - vLinearQ:    normalized linear speed from RC (-2048 <= vLinearQ < 2048)
+    #    - vAngularQ:   normalized angular speed from RC (-2048 <= vAngularQ < 2048)
+    #    - rcKeyStatus: used as mode control (bit 0: slow/fast, bit 2: disableTotZonenKompensation
+    #================================================================================================= 
     def eKarrenSimulation(self, vLinearQ, vAngularQ, rcKeyStatus):
         if rcKeyStatus & 4:    # motors disabled?
             tauLinearTarget = 0
@@ -121,22 +137,22 @@ class Emulator:
           pass
        else:   
           msg = data.decode('utf-8', errors="ignore")
-          #msg = data
        return msg
 
     def Run(self):
-        data = self.ReceiveRaw()
-        if data != "": 
-            fields = data.split(",")
+        udpMsg = self.ReceiveRaw()
+        if udpMsg != "": 
+            fields = udpMsg.split(",")
             vLinearQ = int(fields[1])
             vAngularQ = int(fields[2])
             rcKeyStatus =  int(fields[3])
-            vLinear, f = self.eKarrenSimulation(vLinearQ, vAngularQ, rcKeyStatus)
-            self.printCnt += 1
-            if self.printCnt > 30:
-                self.printCnt = 0
-                print(f"{datetime.now()}  vLinear = {vLinear:4.2f} m/s,   f = {f:4.2f} Hz  raw:{data}")
-
+            self.vLinear, f = self.eKarrenSimulation(vLinearQ, vAngularQ, rcKeyStatus)
+            self.omega = math.tau*f
+            self.rosmaster.SetSpeed(self.vLinear, self.omega)
+        return self.vLinear, self.omega, udpMsg
+        
+    def Close(self):
+        self.rosmaster.SetSpeed(0, 0,)
 
 if __name__ == "__main__":
     emulator = Emulator()
