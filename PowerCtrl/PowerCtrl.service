@@ -1,0 +1,15 @@
+[Unit]
+Description=ORIN_ON GPIO (pin 37 on 40-pin header) high during system runtime, low on shutdown
+DefaultDependencies=no
+Before=shutdown.target halt.target reboot.target
+After=sysinit.target
+
+[Service]
+Type=exec
+RemainAfterExit=yes
+
+ExecStart=/usr/bin/gpioset --mode=signal gpiochip0 124=1
+ExecStop=/usr/bin/gpioset gpiochip0 124=0
+
+[Install]
+WantedBy=multi-user.target
