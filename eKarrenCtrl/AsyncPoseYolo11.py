@@ -10,7 +10,7 @@
 # werden, um Echtzeitfähigkeit auf Jetson-Systemen zu erreichen.
 #
 # 📁 Hauptmodule & Klassen
-# - HandPose: TensorRT-Wrapper, enthält Preprocessing, Inferenz und Dekodierung.
+# - BodyPose: TensorRT-Wrapper, enthält Preprocessing, Inferenz und Dekodierung.
 # - CaptureThread: Liest Frames von Kamera, preprocessiert, legt Daten in Queue.
 # - InferenceThread: Führt GPU-Inferenz aus, legt Ergebnisse in zweite Queue.
 # - HandPoseApp: Koordiniert Threads, Anzeige, FPS-Messung und sauberen Shutdown.
@@ -38,6 +38,12 @@
 # bis zur GPU-Inferenz mit YOLO11n (Pose-Modell) verständlich zu machen.
 # Es nutzt Threads und Queues, um CPU- und GPU-Aufgaben parallel auszuführen.
 
+# ==============================================================================
+#  MODIFIED VERSION: YOLO11 BODY POSE (17 KEYPOINTS) INSTEAD OF HAND POSE (21)
+# ==============================================================================
+# All comments preserved. Only code adapted.
+# ==============================================================================
+
 import cv2, numpy as np, tensorrt as trt
 import pycuda.driver as cuda, pycuda.autoinit
 import threading, queue, time
@@ -46,15 +52,15 @@ import subprocess
 from trace import Trace, PrintTrace  # Benutzerdefinierte Trace-Funktionen (nicht-blockierende Log-Ausgabe)
 
 # === Globale Parameter ===
-ENGINE_PATH = "/home/harald/YOLO11n-pose-hands/runs/pose/train/weights/best.engine"  # Pfad zur TensorRT Engine
+ENGINE_PATH = "/home/harald/orin-git/eKarrenCtrl/yolo11n-pose/yolo11n-pose.engine"  # Pfad zur TensorRT Engine
 INPUT_SIZE = 640   # Inputgröße für YOLO11 (640x640)
 CAM_SIZE = 1080    # Camera input size
 CONF_THRESH = 0.3  # Mindestkonfidenz für Detektionen
 CAM_ID = 0         # Kamera-ID (z. B. /dev/video2)
 
 # Kamera-Auflösung und Framerate – diese Werte bestimmen das Eingangssignal.
-# Es wird ein Ausschnitt (Crop) aus dem oberen Bereich des Bildes genutzt,
-# um den Blickwinkel der Kamera zu optimieren (z. B. Handerkennung von oben).
+# Es wird ein Ausschnitt (Crop) aus dem mittleren Bereich des Bildes genutzt,
+# um den Blickwinkel der Kamera zu optimieren.
 CAM_W, CAM_H, CAM_FPS = 1920, 1080, 30
 
 # === Hilfsfunktion: Bildausschnitt berechnen ===
@@ -75,9 +81,11 @@ def CenterCrop(image, crop_size):
     return cropped
 
 # --------------------------------------------------------------------------
-# Klasse: HandPose – TensorRT Wrapper für YOLO11n-Pose
+# Klasse: BodyPose – TensorRT Wrapper für YOLO11n-Pose
 # --------------------------------------------------------------------------
-class HandPose:
+class BodyPose:
+    NUM_KPTS = 17   # UPDATED: Body has 17 keypoints instead of 21
+
     def __init__(self):
         TRT_LOGGER = trt.Logger(trt.Logger.INFO)
         with open(ENGINE_PATH, "rb") as f, trt.Runtime(TRT_LOGGER) as runtime:
@@ -114,17 +122,26 @@ class HandPose:
         cuda.memcpy_dtoh(host_output, self.tensor_buffers[self.output_name])
         return host_output
 
+
+    # ----------------------------------------------------------------------
+    # UPDATED: Decode BODY pose (17 keypoints) instead of hand pose (21)
+    # ----------------------------------------------------------------------
     @staticmethod
     def DecodeYolo11Output(output, orig_shape, conf_thresh=0.5):
         # Dekodiert das YOLO11-Pose-Ausgabeformat in Bounding Boxes und Keypoints.
         out = output[0].T
         boxes = out[:, :4]
         scores = out[:, 4]
-        kpts = out[:, 5:].reshape(-1, 21, 3)
+
+        # UPDATED reshape: 17 keypoints (not 21)
+        kpts_flat = out[:, 5:]
+        kpts = kpts_flat.reshape(-1, BodyPose.NUM_KPTS, 3)
+
         mask = scores > conf_thresh
         boxes, scores, kpts = boxes[mask], scores[mask], kpts[mask]
         if len(boxes) == 0:
-            return np.zeros((0, 4)), np.zeros((0,)), np.zeros((0, 21, 3))
+            return np.zeros((0,4)), np.zeros((0,)), np.zeros((0, BodyPose.NUM_KPTS, 3))
+
         boxes_xyxy = np.zeros_like(boxes)
         boxes_xyxy[:, 0] = boxes[:, 0] - boxes[:, 2]/2
         boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3]/2
@@ -138,7 +155,7 @@ class HandPose:
         return boxes_xyxy, scores, kpts
 
     @staticmethod
-    def DrawPose(frame, boxes, kpts, scores, fps=None):
+    def DrawPose(frame, boxes, kpts, scores, text=""):
         # Zeichnet Bounding Boxes und Keypoints in das Bild.
         for i, box in enumerate(boxes):
             x1, y1, x2, y2 = box.astype(int)
@@ -146,8 +163,7 @@ class HandPose:
             for (x, y, c) in kpts[i]:
                 if c > 0.3:
                     cv2.circle(frame, (int(x), int(y)), 2, (255,0,0), -1)
-        if fps is not None:
-            cv2.putText(frame, f"{fps:.1f} FPS", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+        cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
         return frame
 
     @staticmethod
@@ -160,37 +176,6 @@ class HandPose:
         img = np.expand_dims(img, axis=0)
         return np.ascontiguousarray(img)
 
-    @staticmethod
-    def unflip_boxes(boxes, img_h):
-        """Spiegelt Bounding Boxes zurück in das Originalbild.
-        YOLO-Format: x1, y1, x2, y2
-        """
-        if boxes is None:
-            return None
-
-        b = boxes.copy()
-        b[:, 1] = img_h - 1 - b[:, 1]    # y1
-        b[:, 3] = img_h - 1 - b[:, 3]    # y2
-        
-        # Nach Spiegeln sind y1 und y2 ggf. vertauscht → korrigieren
-        y1 = np.minimum(b[:, 1], b[:, 3])
-        y2 = np.maximum(b[:, 1], b[:, 3])
-        b[:, 1] = y1
-        b[:, 3] = y2
-
-        return b
-
-    @staticmethod
-    def unflip_keypoints(kps, img_h):
-        """Spiegelt Keypoints zurück.
-        YOLO Keypoints-Form: [num_keypoints, 3]  (x, y, confidence)
-        """
-        if kps is None:
-            return None
-
-        out = kps.copy()
-        out[:, :, 1] = img_h - 1 - out[:, :, 1]  # y-Koordinaten invertieren
-        return out
 
 # --------------------------------------------------------------------------
 # Kamera-Thread: Liest Frames, preprocessiert und legt sie in Queue
@@ -222,13 +207,13 @@ class CaptureThread(threading.Thread):
         while self.running:
             ok, frame = self.cap.read()
             if not ok:
-                raise RuntimeError(f"Kamera konnte nicht gelesen werden")
+                raise RuntimeError("Kamera konnte nicht gelesen werden")
 
             t0 = perf_counter_ns()
             frame = CenterCrop(frame, CAM_SIZE)
             frame = cv2.flip(frame, 1)  # spiegeln (1=horizontal, 0=vertical, -1=both)
             frame = cv2.resize(frame, (INPUT_SIZE, INPUT_SIZE), interpolation=cv2.INTER_LINEAR)
-            img = HandPose.Preprocess(frame)
+            img = BodyPose.Preprocess(frame)
 
             dt_ms = (perf_counter_ns() - t0) / 1e6
 
@@ -262,8 +247,8 @@ class InferenceThread(threading.Thread):
     def run(self):
         self.cuda_ctx = cuda.Device(0).make_context()
         try:
-            self.hp = HandPose()
-            print("[INFO] Inference-Thread CUDA-Context aktiv (ohne Double Buffer)")
+            self.hp = BodyPose()   # UPDATED: BodyPose instead of HandPose
+            print("[INFO] Inference-Thread CUDA-Context aktiv")
 
             while self.running:
                 img, frame, shape = self.q_in.get()
@@ -318,9 +303,9 @@ class FpsCalc():
         return self.fps
 
 # --------------------------------------------------------------------------
-# Hauptklasse: HandPoseApp – steuert Threads, GUI, FPS
+# Hauptklasse: BodyPoseApp – steuert Threads, GUI, FPS
 # --------------------------------------------------------------------------
-class HandPoseApp():
+class BodyPoseApp():
     def __init__(self, CAM_ID):
         CameraConfig(CAM_ID)
         self.q_cam, self.q_res = queue.Queue(maxsize=2), queue.Queue(maxsize=2)
@@ -332,7 +317,7 @@ class HandPoseApp():
         self.cam_thread = CaptureThread(CAM_ID, CAM_W, CAM_H, CAM_FPS, queue_out=self.q_cam)
         self.cam_thread.start()
 
-        self.win = "YOLO11n Pose (Preprocess@Capture)"
+        self.win = "YOLO11n BODY Pose (Preprocess@Capture)"
         cv2.namedWindow(self.win, cv2.WINDOW_NORMAL)
         cv2.setWindowProperty(self.win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         self.fpsCalc = FpsCalc()
@@ -343,23 +328,39 @@ class HandPoseApp():
         output, frame, shape = self.q_res.get()
         t0 = perf_counter_ns()
 
-        boxes, scores, kpts = HandPose.DecodeYolo11Output(output, shape, conf_thresh=CONF_THRESH)
+        boxes, scores, kpts = BodyPose.DecodeYolo11Output(output, shape, conf_thresh=CONF_THRESH)
+        
+        # Bestimme Größe und Position des Körpers anhand der Hüften
+        # note: kpts.shape = (num_people, 17, 2)
+        midX = frame.shape[1] // 2
+        if len(kpts) > 0:
+            firstPerson = kpts[0]
+            leftHipX = int(firstPerson[11][0])
+            rightHipX = int(firstPerson[12][0])
+            bodySize = abs(leftHipX - rightHipX)
+            bodyPos = (leftHipX + rightHipX) // 2 - midX
+        else:
+            bodySize = 0
+            bodyPos = 0
+            
         self.fps = self.fpsCalc.Value()
-        disp = HandPose.DrawPose(frame, boxes, kpts, scores, fps=self.fps)
+        #disp = BodyPose.DrawPose(frame, boxes, kpts, scores, f"{self.fps:.1f} FPS  {bodySize=} {bodyPos=}")
+        disp = BodyPose.DrawPose(frame, boxes, kpts, scores, f"size={bodySize} pos={bodyPos}")
         cv2.imshow(self.win, disp)
 
         dt_ms = (perf_counter_ns() - t0) / 1e6
         Trace(f"DisplayThread {dt_ms:.1f} ms")
 
         exitFlag = cv2.waitKey(1) & 0xFF == 27
-        if len(boxes) > 0:
-            x1, y1, x2, y2 = boxes[0].astype(int)
-            handSize = y2 - y1
-            handPos = (x1 + x2) // 2 - disp.shape[1] // 2
-        else:
-            handSize = 0
-            handPos = 0
-        return exitFlag, handSize, handPos
+        
+        #if len(boxes) > 0:
+        #    x1, y1, x2, y2 = boxes[0].astype(int)
+        #    handSize = y2 - y1
+        #    handPos = (x1 + x2) // 2 - disp.shape[1] // 2
+        #else:
+        #    handSize = 0
+        #    handPos = 0
+        return exitFlag, bodySize, bodyPos
 
     def Exit(self):
         # Beendet Threads und GUI ordentlich.
@@ -376,7 +377,7 @@ class HandPoseApp():
 # Hauptprogramm – Startet App, Schleife, beendet sauber
 # --------------------------------------------------------------------------
 def WebCamDemo():
-    app = HandPoseApp(CAM_ID)
+    app = BodyPoseApp(CAM_ID)
     try:
         while True:
             exitFlag, handSize, handPos = app.ProcessFrame()
@@ -385,7 +386,6 @@ def WebCamDemo():
     except KeyboardInterrupt:
         # Beenden über STRG+C
         print("\nScript terminated")
-    #finally:
         app.Exit()
 
 if __name__ == "__main__":

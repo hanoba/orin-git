@@ -2,25 +2,25 @@
 # coding: utf-8
 
 # ==============================================================
-# Projekt: Handgesteuerte Robotersteuerung mit YOLO-HandPose
+# Projekt: Robotersteuerung mit yolo11n-pose
 # Autor: Harald Bauer 
-# Datum: 2025-10-23
+# Datum: 2025-12-06
 # Beschreibung: Steuert eKarren oder Rosmaster in Echtzeit basierend auf Handposition und -größe,
-#               erkannt durch YOLO11 HandPose-Inferenz auf Jetson/TensorRT.
+#               erkannt durch YOLO11-Pose-Inferenz auf Jetson/TensorRT.
 # ==============================================================
 
 # ============================================================================
 # Robotersteuerung mit Handverfolgung über YOLO-HandPose
 # ============================================================================
-# Dieses Skript nutzt eine Kamera und ein Handpose-Erkennungsnetz (YOLO11), um
-# Bewegungen einer Hand zu erkennen und einen Roboter (Rosmaster) zu steuern.
-# Die Bewegung erfolgt über PID-Regelung, die den Abstand (Handgröße) und die
-# Position (seitliche Abweichung) der Hand ausgleicht.
+# Dieses Skript nutzt eine Kamera und ein Body-Pose-Erkennungsnetz (YOLO11-Pose, um
+# um Gesten Bewegungen einer Person zu erkennen und einen Roboter (Rosmaster) zu steuern.
+# Die Bewegung erfolgt über PID-Regelung, die den Abstand der (gemessen über den 
+# Hüftabstand) und die Position (seitliche Abweichung) der Person ausgleicht.
 #
 # Ablauf:
 # 1. Initialisierung des Roboters (Port, Threads, Startsignal)
 # 2. Starten der Handpose-Erkennung über Kamera
-# 3. Hauptschleife: Handposition und -größe werden erfasst
+# 3. Hauptschleife: Position und -größe der Person werden erfasst
 # 4. PID-Regelung berechnet lineare (vor/zurück) und Drehbewegung
 # 5. Roboter fährt entsprechend nach
 # 6. Beenden durch ESC oder STRG+C
@@ -32,14 +32,14 @@ import sys
 from time import perf_counter_ns
 from eKarrenLib import eKarren, DEV_ROSMASTER, DEV_EKARREN, DEV_EKARREN_PC, DEV_EKARREN_EMU
 from emulator import Emulator
-from AsyncHandPoseYolo11 import HandPoseApp
+from AsyncPoseYolo11 import BodyPoseApp
 from pid import PID
 
 
 def Usage():
     print("""    Elektrokarren Control Program
 
-    The software is controlled via the camera. If a hand is the detected, the eKarren follows the hand.
+    The software is controlled via the camera. If a person is the detected, the eKarren follows the person.
     
     Usage: python eKarrenCtrl.py <device>
     
@@ -85,7 +85,7 @@ if __name__ == '__main__':
     printCnt = 0
     angular = 0
     linear = 0
-    wantedHandSize = 250  #HB 200 # Ziel-Handgröße: bestimmt den gewünschten Abstand zur Hand
+    wantedSize = 60  # Der Abstand zur Person wird durch den gemessenen Hüftabstand bestimmt
 
     # PID-Regler-Parameter (Ziegler-Nichols Methode)
     Ku = 0.027 / 2      # Kritische Verstärkung (ultimate gain)
@@ -96,11 +96,11 @@ if __name__ == '__main__':
     dt = 0.03           # Zeitintervall in Sekunden
 
     # PID-Regler für lineare Bewegung (Abstandsregelung)
-    pidLinear = PID(KpLinear, KiLinear, 0, setpoint=wantedHandSize, output_limits=(-0.5, 0.5))
+    pidLinear = PID(KpLinear, KiLinear, 0, setpoint=wantedSize, output_limits=(-0.5, 0.5))
 
     # Kamera-ID festlegen und HandPoseApp starten
     CAM_ID = 0
-    handPoseApp = HandPoseApp(CAM_ID)
+    app = BodyPoseApp(CAM_ID)
 
     lastTime = perf_counter_ns()
     
@@ -108,11 +108,11 @@ if __name__ == '__main__':
         # Hauptschleife für Handverfolgung und Robotersteuerung
         while True:
             # Bildverarbeitung: Handgröße & Position bestimmen
-            exitFlag, handSize, handPos = handPoseApp.ProcessFrame()
+            exitFlag, handSize, handPos = app.ProcessFrame()
             if exitFlag:
                 break  # ESC-Taste gedrückt
 
-            fps = handPoseApp.GetFps()
+            fps = app.GetFps()
             dt = 1 / fps        # Zeitintervall in Sekunden
 
             # Wenn keine Hand erkannt wurde
@@ -158,4 +158,4 @@ if __name__ == '__main__':
 
     # Nach Beendigung: Licht ausschalten, Bewegung stoppen, Kamera schließen
     bot.Close()
-    handPoseApp.Exit()
+    app.Exit()
