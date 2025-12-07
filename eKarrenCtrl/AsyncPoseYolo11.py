@@ -44,12 +44,14 @@
 # All comments preserved. Only code adapted.
 # ==============================================================================
 
+import math
 import cv2, numpy as np, tensorrt as trt
 import pycuda.driver as cuda, pycuda.autoinit
 import threading, queue, time
 from time import perf_counter_ns
 import subprocess
 from trace import Trace, PrintTrace  # Benutzerdefinierte Trace-Funktionen (nicht-blockierende Log-Ausgabe)
+import Keypoints as kp
 
 # === Globale Parameter ===
 ENGINE_PATH = "/home/harald/orin-git/eKarrenCtrl/yolo11n-pose/yolo11n-pose.engine"  # Pfad zur TensorRT Engine
@@ -155,13 +157,14 @@ class BodyPose:
         return boxes_xyxy, scores, kpts
 
     @staticmethod
-    def DrawPose(frame, boxes, kpts, scores, text=""):
+    def DrawPose(frame, box, kpts, text=""):
         # Zeichnet Bounding Boxes und Keypoints in das Bild.
-        for i, box in enumerate(boxes):
+        if len(box) > 0:
+        #for i, box in enumerate(boxes):
             x1, y1, x2, y2 = box.astype(int)
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 2)
-            for (x, y, c) in kpts[i]:
-                if c > 0.3:
+            for (x, y, c) in kpts:
+                if not math.isnan(x) and not math.isnan(y):
                     cv2.circle(frame, (int(x), int(y)), 2, (255,0,0), -1)
         cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
         return frame
@@ -262,6 +265,11 @@ class InferenceThread(threading.Thread):
                 Trace(f"Inference done {dt_ms:.1f} ms")
                 self.q_out.put_nowait(result)
         finally:
+            # Robuster Cleanup
+            try:
+                del self.hp
+            except AttributeError:
+                pass
             self.cuda_ctx.pop()
             print("[INFO] Inference-Thread CUDA-Context freigegeben")
 
@@ -330,22 +338,34 @@ class BodyPoseApp():
 
         boxes, scores, kpts = BodyPose.DecodeYolo11Output(output, shape, conf_thresh=CONF_THRESH)
         
-        # Bestimme Größe und Position des Körpers anhand der Hüften
         # note: kpts.shape = (num_people, 17, 2)
-        midX = frame.shape[1] // 2
-        if len(kpts) > 0:
-            firstPerson = kpts[0]
-            leftHipX = int(firstPerson[11][0])
-            rightHipX = int(firstPerson[12][0])
-            bodySize = abs(leftHipX - rightHipX)
-            bodyPos = (leftHipX + rightHipX) // 2 - midX
-        else:
-            bodySize = 0
-            bodyPos = 0
-            
+        bodySize = 0
+        bodyPos = 0
+        pose = "none"
+        person_box = []
+        person_kpts = []
+
+        if len(scores) > 0:
+            # Beste Person auswählen
+            best = np.argmax(scores)
+            person_kpts = kpts[best]
+            person_box  = boxes[best]
+            person_score = scores[best]
+
+            #midX = frame.shape[1] // 2
+            if len(person_kpts) > 0:
+                # Bestimme Größe und Position der Person anhand der Schultern
+                leftShoulderX = int(person_kpts[5][0])
+                rightShoulderX = int(person_kpts[6][0])
+                bodySize = abs(leftShoulderX - rightShoulderX)
+                bodyPos = (leftShoulderX + rightShoulderX - frame.shape[1]) // 2
+                
+                # Pose-Klassifikation nur auf bester Person
+                person_kpts = kp.FilterLowConfidenceKpts(person_kpts, kp_thresh=0.9)
+                pose = kp.ClassifyPose(person_kpts)
+        
         self.fps = self.fpsCalc.Value()
-        #disp = BodyPose.DrawPose(frame, boxes, kpts, scores, f"{self.fps:.1f} FPS  {bodySize=} {bodyPos=}")
-        disp = BodyPose.DrawPose(frame, boxes, kpts, scores, f"size={bodySize} pos={bodyPos}")
+        disp = BodyPose.DrawPose(frame, person_box, person_kpts, f"size={bodySize} pos={bodyPos} {pose}")
         cv2.imshow(self.win, disp)
 
         dt_ms = (perf_counter_ns() - t0) / 1e6
@@ -353,14 +373,7 @@ class BodyPoseApp():
 
         exitFlag = cv2.waitKey(1) & 0xFF == 27
         
-        #if len(boxes) > 0:
-        #    x1, y1, x2, y2 = boxes[0].astype(int)
-        #    handSize = y2 - y1
-        #    handPos = (x1 + x2) // 2 - disp.shape[1] // 2
-        #else:
-        #    handSize = 0
-        #    handPos = 0
-        return exitFlag, bodySize, bodyPos
+        return exitFlag, bodySize, bodyPos, pose
 
     def Exit(self):
         # Beendet Threads und GUI ordentlich.
@@ -380,7 +393,7 @@ def WebCamDemo():
     app = BodyPoseApp(CAM_ID)
     try:
         while True:
-            exitFlag, handSize, handPos = app.ProcessFrame()
+            exitFlag, bodySize, bodyPos = app.ProcessFrame()
             if exitFlag:
                 break
     except KeyboardInterrupt:

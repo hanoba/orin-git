@@ -85,13 +85,13 @@ if __name__ == '__main__':
     printCnt = 0
     angular = 0
     linear = 0
-    wantedSize = 60  # Der Abstand zur Person wird durch den gemessenen Hüftabstand bestimmt
+    wantedSize = 80  # Der Abstand zur Person wird durch den gemessenen Schulterabstand bestimmt
 
     # PID-Regler-Parameter (Ziegler-Nichols Methode)
     Ku = 0.027 / 2      # Kritische Verstärkung (ultimate gain)
     Tu = 2.0            # Kritische Periodendauer (ultimate period) in Sekunden
-    KpLinear = 0.5 * Ku
-    KiLinear = 0.01 / 2
+    KpLinear = 4/150    # 0.5 * Ku
+    KiLinear = 0.01 / 2 * 0 #HB
     pAngular = 1/150    # Proportionalfaktor für Drehung
     dt = 0.03           # Zeitintervall in Sekunden
 
@@ -105,36 +105,45 @@ if __name__ == '__main__':
     lastTime = perf_counter_ns()
     
     try:
-        # Hauptschleife für Handverfolgung und Robotersteuerung
+        # Hauptschleife für Personenverfolgung und Robotersteuerung
+        followMode = False
         while True:
             # Bildverarbeitung: Handgröße & Position bestimmen
-            exitFlag, handSize, handPos = app.ProcessFrame()
+            exitFlag, personSize, personPos, pose = app.ProcessFrame()
             if exitFlag:
                 break  # ESC-Taste gedrückt
 
             fps = app.GetFps()
             dt = 1 / fps        # Zeitintervall in Sekunden
 
+            # Steuerung durch Pose
+            if pose == "LeftArmUp": followMode = True
+            elif pose == "RightArmUp": followMode = False
+            
             # Wenn keine Hand erkannt wurde
-            if handSize < 0:
+            if personSize < 0:
                 break
-            elif handSize > 0:
+            elif personSize > 0:
                 # PID-Regler berechnet Geschwindigkeit basierend auf Handgröße
-                linear = pidLinear.update(handSize, dt)
+                linear = pidLinear.update(personSize, dt)
 
                 # Seitliche Abweichung der Hand → Drehbewegung berechnen
-                eHandPos = 0 - handPos
-                angular = eHandPos * pAngular
+                errPersonPos = 0 - personPos
+                angular = errPersonPos * pAngular
 
                 # Begrenzung der Geschwindigkeiten (Sicherheitslimit)
                 angular = max(-2.5, min(angular, 2.5))
             else:
                 angular = 0
                 linear = 0
+            
+            if followMode == False:
+                angular = 0
+                linear = 0
 
             # Steuerbefehl an Roboter senden (Vorwärts-/Rückwärts- und Drehbewegung)
             # v_x=[-0.7, 0.7] m/s, v_y=[-0.7, 0.7] m/s, v_z=[-3.2, 3.2] rad/sec
-            bot.SetSpeed(linear, angular)
+            bot.SetSpeed(linear, angular)  
                 
             # Emulation handling
             if device==DEV_EKARREN_EMU:
@@ -147,9 +156,9 @@ if __name__ == '__main__':
                 Vbat = bot.GetBatteryVoltage()
                 if device==DEV_EKARREN_EMU:
                     print(f"{fps:.1f} FPS lin={linear:.3f} ({emuLinear:.3f}) m/s, ang={angular:.3f} ({emuOmega:.3f}) rad/s, "
-                        f"{handSize=}, {handPos=}, {Vbat=}V  {udpMsg}")
+                        f"{personSize=}, {personPos=}, {pose}, {followMode=}, {Vbat=}V  {udpMsg}")
                 else:
-                    print(f"{fps:.1f} FPS lin={linear:.3f} m/s, ang={angular:.3f} rad/s, {handSize=}, {handPos=}, {Vbat=}V")
+                    print(f"{fps:.1f} FPS lin={linear:.3f} m/s, ang={angular:.3f} rad/s, {personSize=}, {personPos=}, {pose}, {followMode=}, {Vbat=}V")
 
     except KeyboardInterrupt:
         # Beenden über STRG+C
