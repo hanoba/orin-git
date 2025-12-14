@@ -2,87 +2,57 @@
 import numpy as np
 import math
 
-
-class MyWallFollower:
-    def __init__(self, target_dist=0.5, max_speed=0.5):
-        self.target_dist = target_dist
-        self.max_speed = max_speed
-
-    def get_sector(self, dist, start, end):
-        """Extrahiert Sektor über 0°-Überlauf korrekt."""
-        if start <= end:
-            return dist[start:end]
-        else:
-            return np.concatenate((dist[start:360], dist[0:end]))
-
-    def step(self, dist):
-        """
-        dist: numpy array mit 360 floats (Entfernungen)
-        Rückgabe: (v, omega)
-          v: Vorwärtsgeschwindigkeit
-          omega: Drehgeschwindigkeit (+ links, - rechts)
-        """
-
-        # --- 1) Wichtige Sektoren ---
-        front    = self.get_sector(dist, 350, 10)   # -10° bis +10°
-        right    = self.get_sector(dist, 300, 340)
-        front_r  = self.get_sector(dist, 330, 350)
-
-        d_front   = np.nanmin(front)
-        d_right   = np.nanmin(right)
-        d_front_r = np.nanmin(front_r)
-
-        # --- 2) Parameter ---
-        wall = self.target_dist
-        v = self.max_speed
-
-        # --- 3) Reaktionslogik ---
-
-        w = 0.2
-
-        #e = d_right - wall
-        #Kp = 1.0
-        #omegaMax = 0.1
-        #omega = -e*Kp
-        #omega = max(-omegaMax, omega)
-        #omega = min(omegaMax, omega)
-        #
-        #Kv = 1.0
-        #v = abs(e)*Kv
-        #v = min(self.max_speed, v)
-        #return v, omega
+class Lidar():
+    def __init__(self, lidar):
+        self.frameCnt=-1
+        self.last_step = -1
+        self.dist = np.zeros(360)
+        self.lidar = lidar
+        self.lidar.initialize()                   # wichtig
+        self.lidar.add_point_cloud_data_to_frame()
+        self.lidar.enable_visualization()
         
-        # 3a) Hindernis direkt vorne → nach links drehen
-        if d_front < 0.4:
-            #print(f"Hindernis direkt vorne {d_front=}")
-            return 0.0, w
+    def GetDistArray(self):
+        # LiDAR-Frame holen
+        frame = self.lidar.get_current_frame()
+        if frame is None:
+            return []
 
-        # 3b) Wand rechts zu nah → nach links korrigieren
-        if d_right < wall * 0.95:
-            #print(f"rechts zu nah {d_right=}")
-            return v * 0.6/6, w*2
+        new_step = frame["physics_step"]
+        if new_step == self.last_step:
+            return []
+        self.last_step = new_step
+        
+        self.frameCnt += 1
+        # skip first dummy frame
+        if self.frameCnt == 0:
+            return []
+            
+        pc = frame["point_cloud"].reshape(-1, 3)   # shape (N, 1, 3) – Punkte im Lidar/Robot-Frame
 
-        # 3c) Wand rechts zu weit weg → nach rechts korrigieren
-        if d_right > wall * 1.06:
-            #print(f"rechts zu weit {d_right=}")
-            return v * 0.6, -w*0.6
+        numPoints = len(pc[:, 0])
+        
+        for i in range(numPoints):
+            x = pc[i, 0]
+            y = pc[i, 1]
+            r = np.sqrt(x*x + y*y)
+            theta = int(round((math.atan2(y, x)*180/math.pi)))
+            if theta<0: theta += 360
+            self.dist[theta] = r
 
-        if d_right > wall * 1.05:
-            return v * 0.6/6, -w*2
+        if self.frameCnt==3:
+            self.frameCnt = 0
+            return self.dist
 
-        # 3d) Rechts-Front Ecke → leicht links
-        if d_front_r < 0.5:
-            #print(f"rechts-front Ecke {d_front_r=}")
-            return v * 0.4, w*0.5
+        return []
 
-        # 3e) Normalfahrt → geradeaus
-        return v, 0.0
 
 
 SEARCH = 0
 FOLLOW = 1
 AVOID  = 2
-NONE   = 3
+ALIGN  = 3
+NONE   = 4
 
 
 class WallFollowerFinal:
@@ -112,6 +82,7 @@ class WallFollowerFinal:
         if newState==SEARCH: return "SEARCH"
         elif newState==FOLLOW: return "FOLLOW"
         elif newState==AVOID: return "AVOID"
+        elif newState==ALIGN: return "ALIGN"
         return "Unknown"
     
     def SetState(self, newState):
@@ -125,9 +96,11 @@ class WallFollowerFinal:
         start_deg %= 360
         end_deg   %= 360
         if start_deg <= end_deg:
-            return ranges_np[start_deg:end_deg]
+            sector = ranges_np[start_deg:end_deg]
         else:
-            return np.concatenate((ranges_np[start_deg:], ranges_np[:end_deg]))
+            sector = np.concatenate((ranges_np[start_deg:], ranges_np[:end_deg]))
+        #return np.nanmean(sector) if np.any(~np.isnan(sector)) else np.inf
+        return np.nanmin(sector) if np.any(~np.isnan(sector)) else np.inf
 
     def step(self, ranges):
         r = np.array(ranges, dtype=float)
@@ -146,14 +119,9 @@ class WallFollowerFinal:
             r = r[idx]
 
         # --- Sektoren (Standard: 0° vorne, 90° links, 270° rechts) ---
-        front_sector     = self.get_sector_deg(r, 350, 10)   # -10..+10°
-        right_sector     = self.get_sector_deg(r, 270, 290)  # 280° +/- 10° rechts seitlich
-        right_front_sec  = self.get_sector_deg(r, 310, 330)  # 320° +/- 10° rechts vorne
-
-        d_front     = np.nanmin(front_sector) if np.any(~np.isnan(front_sector)) else np.inf
-        d_right     = np.nanmean(right_sector) if np.any(~np.isnan(right_sector)) else np.inf
-        #d_right_fwd = np.nanmin(right_front_sec) if np.any(~np.isnan(right_front_sec)) else np.inf
-        d_right_fwd = np.nanmean(right_front_sec) if np.any(~np.isnan(right_front_sec)) else np.inf
+        d_front     = self.get_sector_deg(r, 350, 10)   #   0° +/- 10°
+        d_right     = self.get_sector_deg(r, 270, 290)  # 280° +/- 10° rechts seitlich
+        d_right_fwd = self.get_sector_deg(r, 310, 330)  # 320° +/- 10° rechts vorne
 
         d_dist = d_right*self.cos10
         print(f"{self.GetStateText(self.state)} {d_front=}  {d_dist=}  {d_right_fwd=}")
@@ -166,10 +134,11 @@ class WallFollowerFinal:
             # Wand verloren? → SEARCH
             th = self.far_thresh
             if self.state == FOLLOW: th=th*1.2  # Hysterese
-            if d_dist > th or np.isinf(d_right):
-                self.SetState(SEARCH)
-            else:
-                self.SetState(FOLLOW)
+            if self.state != ALIGN:
+                if d_dist > th or np.isinf(d_right):
+                    self.SetState(SEARCH)
+                else:
+                    self.SetState(FOLLOW)
 
         # -------- Zustandsverhalten --------
         if self.state == AVOID:
@@ -178,12 +147,29 @@ class WallFollowerFinal:
             angular = 1.0
 
         elif self.state == SEARCH:
-            # Wand suchen:
+            # Wand suchen: schnell auf Wand zufahren
             # sanfte Rechtskurve, damit man nicht ewig parallel fährt,
             # aber auch keine engen Kreise.
-            linear  = 0.25
-            angular = -0.2   # -0.25
-            if d_right_fwd < d_right: angular = 0.1  #HB
+            d_min = min(d_front, d_right_fwd, d_right)
+            if d_min < self.far_thresh: 
+                self.SetState(ALIGN)
+                linear = 0
+                angular = 0
+            elif d_front > d_right_fwd: 
+                angular = -0.5
+                linear  = 0.5
+            else:
+                angular = 0    # -0.5   
+                linear = 0.5
+            #angular = -0.2   # -0.25
+            #if d_right_fwd < d_right: angular = 0.1  #HB
+
+        elif self.state == ALIGN:
+            # Roboter ungefähr parallel zur Wand ausrichten
+            linear = 0
+            angular = 0.5
+            if d_front > d_right_fwd and d_right_fwd > d_right:
+                self.SetState(FOLLOW)
 
         elif self.state == FOLLOW:
             # Nur wenn Wandmessung vernünftig
