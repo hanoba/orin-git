@@ -132,52 +132,73 @@ my_world.scene.add_default_ground_plane()
 stage = my_world.stage
 
 
-xs=4.0
-ys=4.5
-zs=2.0
-#schuppen = my_world.scene.add(
-#    DynamicCuboid(
-#        prim_path="/World/Schuppen",
-#        name="Schuppen",
-#        position=np.array([0, 0, zs/2]),
-#        scale=np.array([xs, ys, zs]),
-#        #size=1.0,
-#        color=np.array([255, 0, 0]),
-#    )
-#)
-#schuppen.set_local_scale(Gf.Vec3f(xs, ys, zs))
+### xs=4.0
+### ys=4.5
+### zs=2.0
+### #schuppen = my_world.scene.add(
+### #    DynamicCuboid(
+### #        prim_path="/World/Schuppen",
+### #        name="Schuppen",
+### #        position=np.array([0, 0, zs/2]),
+### #        scale=np.array([xs, ys, zs]),
+### #        #size=1.0,
+### #        color=np.array([255, 0, 0]),
+### #    )
+### #)
+### #schuppen.set_local_scale(Gf.Vec3f(xs, ys, zs))
+### 
+### xz=50.0
+### yz=0.05
+### zz=1.6
+### #zaun = my_world.scene.add(
+### #    DynamicCuboid(
+### #        prim_path="/World/Zaun",
+### #        name="Zaun",
+### #        position=np.array([0, ys/2+1.0, zz/2]),
+### #        scale=np.array([xz, yz, zz]),
+### #        #size=1.0,
+### #        color=np.array([0, 0, 255]),
+### #    )
+### #)
+### 
+### 
+### # Rechteck-Raum mit vier Wänden erzeugen
+### #create_rect_room(
+### #    stage,
+### #    center=(0.0, 0.0, 0.0),
+### #    size_x=20.0,          # Länge in X
+### #    size_y=5.0,          # Breite in Y
+### #    wall_height=1.6,
+### #    wall_thickness=0.05,
+### #    base_z=0.0
+### #)
 
-xz=50.0
-yz=0.05
-zz=1.6
-#zaun = my_world.scene.add(
-#    DynamicCuboid(
-#        prim_path="/World/Zaun",
-#        name="Zaun",
-#        position=np.array([0, ys/2+1.0, zz/2]),
-#        scale=np.array([xz, yz, zz]),
-#        #size=1.0,
-#        color=np.array([0, 0, 255]),
-#    )
-#)
-
-
-# Rechteck-Raum mit vier Wänden erzeugen
-#create_rect_room(
-#    stage,
-#    center=(0.0, 0.0, 0.0),
-#    size_x=20.0,          # Länge in X
-#    size_y=5.0,          # Breite in Y
-#    wall_height=1.6,
-#    wall_thickness=0.05,
-#    base_z=0.0
-#)
+fenceLenX   = 10.0
+fenceLenY   =  6.0
+fenceZ      =  0.1      # 10 cm über dem Boden für klare Sicht
+fenceHeight =  1.3      # Höhe des Zaunes
+S = 0.1                 # Maschenweite
+R = 0.0015              # sichtbar runde Drähte
+#R = S/2                 # Zaun ==> Mauer
 
 # Zaun erzeugen 
-fence = Fence(stage, "/World/Fence1")
-f_xf = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/Fence1"))
-f_xf.SetTranslate((0, ys/2+1.0, 0.1))    # 1m über Boden für klare Sicht
+fenceNorth = Fence(stage, "/World/ZaunNord", width=fenceLenX, height=fenceHeight, radius=R, step=S)
+f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunNord"))
+f.SetTranslate((0, fenceLenY/2, fenceZ))
 
+fenceWest = Fence(stage, "/World/ZaunWest", width=fenceLenY, height=fenceHeight, radius=R, step=S)
+f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunWest"))
+f.SetRotate((0, 0, 90))
+f.SetTranslate((-fenceLenX/2, 0.0, fenceZ))
+
+fenceSouth = Fence(stage, "/World/ZaunSüd", width=fenceLenX, height=fenceHeight, radius=R, step=S)
+f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunSüd"))
+f.SetTranslate((0, -fenceLenY/2, fenceZ))
+
+fenceOst = Fence(stage, "/World/ZaunOst", width=fenceLenY, height=fenceHeight, radius=R, step=S)
+f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunOst"))
+f.SetRotate((0, 0, 90))
+f.SetTranslate((fenceLenX/2, 0.0, fenceZ))
 
 assets_root_path = get_assets_root_path()
 if assets_root_path is None:
@@ -195,7 +216,8 @@ my_carter = my_world.scene.add(
         orientation=quat,
         create_robot=True,
         usd_path=asset_path,
-        position=np.array([xs, 1.0, 0.3]),
+        #position=np.array([xs, 1.0, 0.3]),
+        position=np.array([fenceLenX/4, fenceLenY/4, 0.3]),
     )
 )
 
@@ -236,17 +258,20 @@ set_camera_view(
 )
 
 
+measPerDeg = 4
+
 lidar = my_world.scene.add(
             RotatingLidarPhysX(
                 prim_path="/World/Carter/chassis_link/lidar", 
                 name="lidar", 
+                rotation_frequency = 10,
                 fov=(360.0, 1.0),
-                resolution=(1.0, 1.0),
+                resolution=(1.0/measPerDeg, 1.0),
                 translation=np.array([-0.06, 0, 0.38])
             )
         )
 
-my_lidar = wf.Lidar(lidar)
+my_lidar = wf.Lidar(lidar, measPerDeg)
 follower = wf.WallFollowerFinal()
 
 my_world.reset()
@@ -260,6 +285,7 @@ while simulation_app.is_running():
             my_world.reset()
             my_controller.reset()
             reset_needed = False
+            follower.Init()
         dist = my_lidar.GetDistArray()
         if len(dist) > 0: 
             v, omega = follower.step(dist)

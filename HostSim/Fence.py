@@ -12,15 +12,12 @@ import math
 
 
 class Fence:
-    def __init__(self, stage, path, width=10.0, height=1.6):    
-        # ============================================================
-        # Parameter
-        # ============================================================
-        self.WIDTH = width
-        self.HEIGHT = height
-        self.RADIUS = 0.003       # sichtbar runde Drähte
-        self.STEP = 0.1          # Maschenweite
-
+    def __init__(self, stage, path, 
+            width=10.0, 
+            height=1.3,
+            radius = 0.0015,    # sichtbar runde Drähte
+            step = 0.1          # Maschenweite
+        ):    
         # ============================================================
         # Zaunelement: +45° und −45° Drähte (in einer XZ-Ebene)
         # ============================================================
@@ -28,48 +25,48 @@ class Fence:
         UsdGeom.Xform.Define(stage, root)
     
         # +45° Linien (steigend)
-        x = -self.WIDTH/2 - self.HEIGHT + self.STEP
+        x = -width/2 - height + step
         i = 0
-        while x <= self.WIDTH/2 - self.STEP:
+        while x <= width/2 - step:
             px = x
             pz = 0
-            if px < -self.WIDTH/2:
-                px = -self.WIDTH/2
-                pz = -self.WIDTH/2 - x
+            if px < -width/2:
+                px = -width/2
+                pz = -width/2 - x
             p0 = Gf.Vec3d(px, 0, pz)
             #p0 = Gf.Vec3d(x, 0, 0)
 
-            px = x + self.HEIGHT
-            pz = min(self.WIDTH/2 - x, self.HEIGHT)
-            if pz < self.HEIGHT: px = self.WIDTH/2
+            px = x + height
+            pz = min(width/2 - x, height)
+            if pz < height: px = width/2
             p1 = Gf.Vec3d(px, 0, pz)
-            #p1 = Gf.Vec3d(x + self.HEIGHT, 0, self.HEIGHT)
+            #p1 = Gf.Vec3d(x + height, 0, height)
             
-            self.create_cylinder_between(stage, root, f"P45_{i}", p0, p1)
-            x += self.STEP
+            self.create_cylinder_between(stage, root, f"P45_{i}", p0, p1, radius)
+            x += step
             i += 1
     
         # −45° Linien (fallend)
-        x = -self.WIDTH/2 - self.HEIGHT + self.STEP
+        x = -width/2 - height + step
         j = 0
-        while x <= self.WIDTH/2 - self.STEP:
+        while x <= width/2 - step:
             px = x
-            pz = self.HEIGHT
-            if px < -self.WIDTH/2:
-                px = -self.WIDTH/2
-                pz = self.HEIGHT + self.WIDTH/2 + x
+            pz = height
+            if px < -width/2:
+                px = -width/2
+                pz = height + width/2 + x
             p0 = Gf.Vec3d(px, 0, pz)
-            #p0 = Gf.Vec3d(x, 0, self.HEIGHT)
+            #p0 = Gf.Vec3d(x, 0, height)
 
-            px = x + self.HEIGHT
+            px = x + height
             pz = 0
-            if px > self.WIDTH/2: 
-                pz = px - self.WIDTH/2
-                px = self.WIDTH/2
+            if px > width/2: 
+                pz = px - width/2
+                px = width/2
             p1 = Gf.Vec3d(px, 0, pz)
-            #p1 = Gf.Vec3d(x + self.HEIGHT, 0, 0)
-            self.create_cylinder_between(stage, root, f"M45_{j}", p0, p1)
-            x += self.STEP
+            #p1 = Gf.Vec3d(x + height, 0, 0)
+            self.create_cylinder_between(stage, root, f"M45_{j}", p0, p1, radius)
+            x += step
             j += 1
     
         print("Zaunelement erzeugt:", path)
@@ -78,7 +75,7 @@ class Fence:
     # ============================================================
     # Hilfsfunktion: Cylinder zwischen zwei Punkten erzeugen
     # ============================================================
-    def create_cylinder_between(self, stage, parent, name, p0, p1):
+    def create_cylinder_between(self, stage, parent, name, p0, p1,radius):
         """Erzeugt einen Z-orientierten Zylinder und richtet ihn so aus,
         dass er exakt zwischen p0 und p1 liegt."""
     
@@ -89,7 +86,7 @@ class Fence:
         d = p1 - p0
         length = d.GetLength()
         cyl.CreateHeightAttr(length)
-        cyl.CreateRadiusAttr(self.RADIUS)
+        cyl.CreateRadiusAttr(radius)
         cyl.CreateAxisAttr("Z")        # Zylinder-Längsachse = Z
     
         # Mittelpunkt
@@ -112,9 +109,10 @@ class Fence:
         #xf.SetRotate((pitch, 0, yaw))
         xf.SetRotate((0, hb, 0))
     
-        # Materialfarbe (Metallisch hellgrau)
+        # Materialfarbe (schwarz)
         gprim = UsdGeom.Gprim(stage.GetPrimAtPath(prim_path))
-        gprim.CreateDisplayColorAttr([(0.75, 0.78, 0.82)])
+        #gprim.CreateDisplayColorAttr([(0.75, 0.78, 0.82)])
+        gprim.CreateDisplayColorAttr([(0.0, 0.0, 0.0)])
     
         # Physik
         UsdPhysics.CollisionAPI.Apply(stage.GetPrimAtPath(prim_path))
