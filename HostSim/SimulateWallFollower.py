@@ -16,7 +16,6 @@
 from isaacsim import SimulationApp
 simulation_app = SimulationApp({"headless": False})
 
-import argparse
 import sys
 
 import carb
@@ -30,202 +29,22 @@ from isaacsim.sensors.physx import RotatingLidarPhysX
 from isaacsim.storage.native import get_assets_root_path
 from pxr import Gf
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
+import omni.usd
 import WallFollower as wf
-#import UmdWallFollower
-#import RafaelWallFollower
-from Fence import Fence
+from Fence import CreateFence, CreateWalls
 
-
-#from omni.isaac.core import World
 from omni.isaac.core.utils.stage import add_reference_to_stage
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.viewports import set_camera_view
 from pxr import UsdLux, UsdGeom, Sdf, Gf
 
-
-from omni.isaac.core.utils.prims import create_prim
-from pxr import Gf, Sdf, UsdGeom
-
 from omni.isaac.core.utils.prims import create_prim
 from pxr import Gf, Sdf, UsdGeom, UsdPhysics, PhysxSchema
-
-def create_rect_room(stage,
-                     center=(0.0, 0.0, 0.0),
-                     size_x=8.0,
-                     size_y=6.0,
-                     wall_height=2.5,
-                     wall_thickness=0.1,
-                     base_z=0.0):
-    """
-    Erzeugt 4 physikalisch feste Wände (statisch, kollidierbar).
-    """
-
-    cx, cy, cz = center
-    z_mid = base_z + wall_height * 0.5
-
-    room_root = "/World/Room"
-    if not stage.GetPrimAtPath(room_root).IsValid():
-        UsdGeom.Xform.Define(stage, Sdf.Path(room_root))
-
-    def make_physics_wall(name, pos, scale):
-        prim_path = f"{room_root}/{name}"
-
-        # Wand als geometrisches Cube-Prim
-        create_prim(
-            prim_path=prim_path,
-            prim_type="Cube",
-            translation=Gf.Vec3d(*pos),
-            scale=Gf.Vec3f(*scale),
-            attributes={"size": 2.0},
-        )
-
-        prim = stage.GetPrimAtPath(prim_path)
-
-        # Kollisions-API anwenden
-        UsdPhysics.CollisionAPI.Apply(prim)
-
-        # Physikalischer Body (statisch)
-        body = UsdPhysics.RigidBodyAPI.Apply(prim)
-        body.CreateRigidBodyEnabledAttr(False)  # static geometry
-
-        # PhysX-Mesh / Collider
-        collider = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
-        collider.CreateDisableGravityAttr(True)
-
-    # Nord
-    make_physics_wall(
-        "Wall_N",
-        pos=(cx, cy + size_y * 0.5, z_mid),
-        scale=(size_x * 0.5, wall_thickness * 0.5, wall_height * 0.5),
-    )
-
-    # Süd
-    make_physics_wall(
-        "Wall_S",
-        pos=(cx, cy - size_y * 0.5, z_mid),
-        scale=(size_x * 0.5, wall_thickness * 0.5, wall_height * 0.5),
-    )
-
-    # Ost
-    make_physics_wall(
-        "Wall_E",
-        pos=(cx + size_x * 0.5, cy, z_mid),
-        scale=(wall_thickness * 0.5, size_y * 0.5, wall_height * 0.5),
-    )
-
-    # West
-    make_physics_wall(
-        "Wall_W",
-        pos=(cx - size_x * 0.5, cy, z_mid),
-        scale=(wall_thickness * 0.5, size_y * 0.5, wall_height * 0.5),
-    )
-
-
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--test", default=False, action="store_true", help="Run in test mode")
-args, unknown = parser.parse_known_args()
 
 
 my_world = World(stage_units_in_meters=1.0)
 my_world.scene.add_default_ground_plane()
 stage = my_world.stage
-
-
-### xs=4.0
-### ys=4.5
-### zs=2.0
-### #schuppen = my_world.scene.add(
-### #    DynamicCuboid(
-### #        prim_path="/World/Schuppen",
-### #        name="Schuppen",
-### #        position=np.array([0, 0, zs/2]),
-### #        scale=np.array([xs, ys, zs]),
-### #        #size=1.0,
-### #        color=np.array([255, 0, 0]),
-### #    )
-### #)
-### #schuppen.set_local_scale(Gf.Vec3f(xs, ys, zs))
-### 
-### xz=50.0
-### yz=0.05
-### zz=1.6
-### #zaun = my_world.scene.add(
-### #    DynamicCuboid(
-### #        prim_path="/World/Zaun",
-### #        name="Zaun",
-### #        position=np.array([0, ys/2+1.0, zz/2]),
-### #        scale=np.array([xz, yz, zz]),
-### #        #size=1.0,
-### #        color=np.array([0, 0, 255]),
-### #    )
-### #)
-### 
-### 
-### # Rechteck-Raum mit vier Wänden erzeugen
-### #create_rect_room(
-### #    stage,
-### #    center=(0.0, 0.0, 0.0),
-### #    size_x=20.0,          # Länge in X
-### #    size_y=5.0,          # Breite in Y
-### #    wall_height=1.6,
-### #    wall_thickness=0.05,
-### #    base_z=0.0
-### #)
-
-fenceLenX   = 10.0
-fenceLenY   =  6.0
-fenceZ      =  0.1      # 10 cm über dem Boden für klare Sicht
-fenceHeight =  1.3      # Höhe des Zaunes
-S = 0.1                 # Maschenweite
-R = 0.0015              # sichtbar runde Drähte
-#R = S/2                 # Zaun ==> Mauer
-
-# Zaun erzeugen 
-fenceNorth = Fence(stage, "/World/ZaunNord", width=fenceLenX, height=fenceHeight, radius=R, step=S)
-f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunNord"))
-f.SetTranslate((0, fenceLenY/2, fenceZ))
-
-fenceWest = Fence(stage, "/World/ZaunWest", width=fenceLenY, height=fenceHeight, radius=R, step=S)
-f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunWest"))
-f.SetRotate((0, 0, 90))
-f.SetTranslate((-fenceLenX/2, 0.0, fenceZ))
-
-fenceSouth = Fence(stage, "/World/ZaunSüd", width=fenceLenX, height=fenceHeight, radius=R, step=S)
-f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunSüd"))
-f.SetTranslate((0, -fenceLenY/2, fenceZ))
-
-fenceOst = Fence(stage, "/World/ZaunOst", width=fenceLenY, height=fenceHeight, radius=R, step=S)
-f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunOst"))
-f.SetRotate((0, 0, 90))
-f.SetTranslate((fenceLenX/2, 0.0, fenceZ))
-
-assets_root_path = get_assets_root_path()
-if assets_root_path is None:
-    carb.log_error("Could not find Isaac Sim assets folder")
-    simulation_app.close()
-    sys.exit()
-asset_path = assets_root_path + "/Isaac/Robots/NVIDIA/Carter/carter_v1_physx_lidar.usd"
-
-quat = euler_angles_to_quat([0, 0, np.pi])
-my_carter = my_world.scene.add(
-    WheeledRobot(
-        prim_path="/World/Carter",
-        name="my_carter",
-        wheel_dof_names=["left_wheel", "right_wheel"],
-        orientation=quat,
-        create_robot=True,
-        usd_path=asset_path,
-        #position=np.array([xs, 1.0, 0.3]),
-        position=np.array([fenceLenX/4, fenceLenY/4, 0.3]),
-    )
-)
-
-
-
-my_controller = DifferentialController(name="simple_control", wheel_radius=0.24, wheel_base=0.56)
-
-
 
 
 # -------------------------------------------------------
@@ -239,7 +58,6 @@ sun.CreateColorAttr(Gf.Vec3f(1.0, 0.95, 0.8))
 sun_prim = stage.GetPrimAtPath("/World/SunLight")
 sun_xf = UsdGeom.XformCommonAPI(sun_prim)
 #sun_xf.SetRotate((-45.0, 0.0, 0.0))  # leicht schräg
-
 
 # -------------------------------------------------------
 # Kamera auf Top-View ausrichten
@@ -258,21 +76,51 @@ set_camera_view(
 )
 
 
-measPerDeg = 4
+#asset_path = "/bin/Robots/NovaCarterScaled/nova_carter.usd"
+asset_path = "/bin/Robots/NVIDIA/NovaCarter/nova_carter.usd"
+add_reference_to_stage(asset_path, "/World/eKarren")
 
+fenceLenX = 15.0
+fenceLenY =  9.0
+#CreateFence(stage, fenceLenX=fenceLenX, fenceLenY=fenceLenY)
+CreateWalls(stage, size_x=fenceLenX, size_y=fenceLenY, wall_height=1.6)
+
+posX= 5.97 
+posY=-1.63 
+yaw=-118.5*np.pi/180*0
+#quat = euler_angles_to_quat([0, 0, 1*np.pi])
+quat = euler_angles_to_quat([0, 0, 1*np.pi+yaw])
+my_carter = my_world.scene.add(
+    WheeledRobot(
+        prim_path="/World/eKarren",
+        name="eKarren",
+        #wheel_dof_names=["left_wheel", "right_wheel"],
+        wheel_dof_names=["joint_wheel_left", "joint_wheel_right"],
+        orientation=quat,
+        create_robot=True,
+        usd_path=asset_path,
+        position=np.array([-fenceLenX/4, -fenceLenY/4, 0.3]),
+        #position=np.array([posX, posY, 0.3]),
+    )
+)
+my_controller = DifferentialController(name="simple_control", wheel_radius=0.218, wheel_base=0.68)
+
+measPerDeg = 4
+backWheelDrive = True
+lidarX = -0.6 if backWheelDrive else 0
 lidar = my_world.scene.add(
             RotatingLidarPhysX(
-                prim_path="/World/Carter/chassis_link/lidar", 
+                prim_path="/World/eKarren/chassis_link/hbLidar", 
                 name="lidar", 
                 rotation_frequency = 10,
                 fov=(360.0, 1.0),
                 resolution=(1.0/measPerDeg, 1.0),
-                translation=np.array([-0.06, 0, 0.38])
+                translation=np.array([lidarX, 0, 0.50])   # 0.38
             )
         )
 
-my_lidar = wf.Lidar(lidar, measPerDeg)
-follower = wf.WallFollowerFinal()
+my_lidar = wf.Lidar(lidar, measPerDeg, backWheelDrive)
+follower = wf.WallFollowerFinal(my_world, target_dist=1.5, max_speed=0.5)
 
 my_world.reset()
 reset_needed = False
@@ -286,10 +134,9 @@ while simulation_app.is_running():
             my_controller.reset()
             reset_needed = False
             follower.Init()
-        dist = my_lidar.GetDistArray()
+        dist, angles = my_lidar.GetDistArray()
         if len(dist) > 0: 
-            v, omega = follower.step(dist)
+            v, omega = follower.step(dist, angles)
+            v = -v if backWheelDrive else v
             my_carter.apply_wheel_actions(my_controller.forward(command=[v, omega]))
-    if args.test is True:
-        break
 simulation_app.close()

@@ -8,6 +8,7 @@
 
 from omni.usd import get_context
 from pxr import UsdGeom, UsdPhysics, PhysxSchema, UsdLux, Gf, Sdf
+from omni.isaac.core.utils.prims import create_prim
 import math
 
 
@@ -119,4 +120,107 @@ class Fence:
         rb = UsdPhysics.RigidBodyAPI.Apply(stage.GetPrimAtPath(prim_path))
         rb.CreateRigidBodyEnabledAttr(False)
         PhysxSchema.PhysxRigidBodyAPI.Apply(stage.GetPrimAtPath(prim_path))
+
+
+def CreateFence(
+    stage,
+    fenceLenX   = 10.0,
+    fenceLenY   =  6.0,
+    fenceZ      =  0.1,    # 10 cm über dem Boden für klare Sicht
+    fenceHeight =  1.3,    # Höhe des Zaunes
+    S = 0.1,               # Maschenweite
+    R = 0.05               # Zaun ==> Mauer (R=S/2)
+    #R = 0.0015            # sichtbar runde Drähte
+):
+    # Zaun erzeugen 
+    fenceNorth = Fence(stage, "/World/ZaunNord", width=fenceLenX, height=fenceHeight, radius=R, step=S)
+    f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunNord"))
+    f.SetTranslate((0, fenceLenY/2, fenceZ))
+
+    fenceWest = Fence(stage, "/World/ZaunWest", width=fenceLenY, height=fenceHeight, radius=R, step=S)
+    f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunWest"))
+    f.SetRotate((0, 0, 90))
+    f.SetTranslate((-fenceLenX/2, 0.0, fenceZ))
+
+    fenceSouth = Fence(stage, "/World/ZaunSüd", width=fenceLenX, height=fenceHeight, radius=R, step=S)
+    f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunSüd"))
+    f.SetTranslate((0, -fenceLenY/2, fenceZ))
+
+    fenceOst = Fence(stage, "/World/ZaunOst", width=fenceLenY, height=fenceHeight, radius=R, step=S)
+    f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath("/World/ZaunOst"))
+    f.SetRotate((0, 0, 90))
+    f.SetTranslate((fenceLenX/2, 0.0, fenceZ))
+
         
+
+def CreateWalls(
+    stage,
+    center=(0.0, 0.0, 0.0),
+    size_x=8.0,
+    size_y=6.0,
+    wall_height=2.5,
+    wall_thickness=0.1,
+    base_z=0.0):
+    """
+    Erzeugt 4 physikalisch feste Wände (statisch, kollidierbar).
+    """
+
+    cx, cy, cz = center
+    z_mid = base_z + wall_height * 0.5
+
+    room_root = "/World/Room"
+    if not stage.GetPrimAtPath(room_root).IsValid():
+        UsdGeom.Xform.Define(stage, Sdf.Path(room_root))
+
+    def make_physics_wall(name, pos, scale):
+        prim_path = f"{room_root}/{name}"
+
+        # Wand als geometrisches Cube-Prim
+        create_prim(
+            prim_path=prim_path,
+            prim_type="Cube",
+            translation=Gf.Vec3d(*pos),
+            scale=Gf.Vec3f(*scale),
+            attributes={"size": 2.0},
+        )
+
+        prim = stage.GetPrimAtPath(prim_path)
+
+        # Kollisions-API anwenden
+        UsdPhysics.CollisionAPI.Apply(prim)
+
+        # Physikalischer Body (statisch)
+        body = UsdPhysics.RigidBodyAPI.Apply(prim)
+        body.CreateRigidBodyEnabledAttr(False)  # static geometry
+
+        # PhysX-Mesh / Collider
+        collider = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+        collider.CreateDisableGravityAttr(True)
+
+    # Nord
+    make_physics_wall(
+        "Wall_N",
+        pos=(cx, cy + size_y * 0.5, z_mid),
+        scale=(size_x * 0.5, wall_thickness * 0.5, wall_height * 0.5),
+    )
+
+    # Süd
+    make_physics_wall(
+        "Wall_S",
+        pos=(cx, cy - size_y * 0.5, z_mid),
+        scale=(size_x * 0.5, wall_thickness * 0.5, wall_height * 0.5),
+    )
+
+    # Ost
+    make_physics_wall(
+        "Wall_E",
+        pos=(cx + size_x * 0.5, cy, z_mid),
+        scale=(wall_thickness * 0.5, size_y * 0.5, wall_height * 0.5),
+    )
+
+    # West
+    make_physics_wall(
+        "Wall_W",
+        pos=(cx - size_x * 0.5, cy, z_mid),
+        scale=(wall_thickness * 0.5, size_y * 0.5, wall_height * 0.5),
+    )
