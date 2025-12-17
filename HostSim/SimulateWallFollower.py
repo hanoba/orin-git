@@ -36,6 +36,7 @@ from Fence import CreateFence, CreateWalls
 from omni.isaac.core.utils.stage import add_reference_to_stage
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.viewports import set_camera_view
+from omni.isaac.core.prims import XFormPrim
 from pxr import UsdLux, UsdGeom, Sdf, Gf
 
 from omni.isaac.core.utils.prims import create_prim
@@ -112,6 +113,12 @@ set_camera_view(
 asset_path = "/bin/Robots/NVIDIA/NovaCarter/nova_carter.usd"
 add_reference_to_stage(asset_path, "/World/eKarren")
 
+# 3. Skalierung & Position (Einfach und lesbar über XFormPrim)
+# XFormPrim ist wie ein "Schweizer Taschenmesser" für Objekte
+robot_xform = XFormPrim("/World/eKarren")
+robot_xform.set_local_scale(np.array([1.6, 1.6, 1.6]))
+robot_xform.set_world_pose(position=np.array([0.0, 0.0, 0.5]))
+
 fenceLenX = 15.0
 fenceLenY =  9.0
 #CreateFence(stage, fenceLenX=fenceLenX, fenceLenY=fenceLenY)
@@ -134,8 +141,8 @@ my_carter = WheeledRobot(
         #position=np.array([posX, posY, 0.3]),
     )
 my_world.scene.add(my_carter)
-my_carter.set_local_scale(np.array([1.6, 1.6, 1.6]))
-get_robot_bounding_box("/World/eKarren")
+#my_carter.set_local_scale(np.array([1.6, 1.6, 1.6]))
+#get_robot_bounding_box("/World/eKarren")
 
 my_controller = DifferentialController(name="simple_control", wheel_radius=0.218, wheel_base=0.68)
 
