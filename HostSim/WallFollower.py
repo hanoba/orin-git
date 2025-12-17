@@ -7,19 +7,22 @@ lidarY=np.zeros(360*4)
 
 class Lidar():
     def __init__(self, lidar, measPerDeg, backWheelDrive):
-        self.frameCnt=-1
-        self.last_step = -1
+        self.lidar = lidar
         self.dist = np.zeros(360*measPerDeg) + 9.0
         self.angles = np.zeros(360*measPerDeg) + 400.0
-        self.lidar = lidar
+        self.measPerDeg = measPerDeg
+        self.angOffset = 180 if backWheelDrive else 0      # 0°=Front 180°=Back
+        self.Init()
+
+    def Init(self):
         self.lidar.initialize()                   # wichtig
         self.lidar.add_point_cloud_data_to_frame()
         self.lidar.enable_visualization()
+        self.frameCnt=-1
+        self.last_step = -1
         self.debugCnt = 0
         self.debugCntMax = 10
-        self.measPerDeg = measPerDeg
         self.totalPoints = 0
-        self.angOffset = 180 if backWheelDrive else 0      # 0°=Front 180°=Back
         
     def Debug(self, text):
         if self.debugCnt < self.debugCntMax:
@@ -258,8 +261,8 @@ class WallFollowerFinal:
                 v = self.max_speed
 
                 # Bei starkem Lenkeinschlag langsam fahren
-                if abs(omega) > 0.2:
-                    v *= 0.2
+                #if abs(omega) > 0.2:
+                #    v *= 0.2
                 linear  = v
 
             else:
@@ -285,7 +288,7 @@ class WallFollowerFinal:
                 f"{posX=:5.2f} {posY=:5.2f} {yaw=:4.1f}°"
             )
 
-        if time > 99.11:
+        if time > 99.11 and False:
             if not self.breakPointReached:
                 np.savetxt("/DriveX/GitHub/orin-git/HostSim/ranges.txt", ranges, fmt="%.3f")
                 np.savetxt("/DriveX/GitHub/orin-git/HostSim/angles.txt", angles, fmt="%.3f")

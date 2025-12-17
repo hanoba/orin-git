@@ -39,7 +39,39 @@ from omni.isaac.core.utils.viewports import set_camera_view
 from pxr import UsdLux, UsdGeom, Sdf, Gf
 
 from omni.isaac.core.utils.prims import create_prim
-from pxr import Gf, Sdf, UsdGeom, UsdPhysics, PhysxSchema
+from pxr import Gf, Sdf, UsdGeom, UsdPhysics, PhysxSchema, Usd
+
+def get_robot_bounding_box(prim_path):
+    stage = omni.usd.get_context().get_stage()
+    prim = stage.GetPrimAtPath(prim_path)
+    
+    if not prim.IsValid():
+        print(f"Fehler: Prim unter {prim_path} nicht gefunden!")
+        return
+    
+    # Korrekte Initialisierung des BBoxCache
+    # Wir nutzen Usd.TimeCode.Default() für die Standardzeit
+    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default"])
+    
+    # Berechnet die Bounding Box im Weltkoordinatensystem
+    bbox = bbox_cache.ComputeWorldBound(prim)
+    range_box = bbox.GetRange()
+    
+    # Min- und Max-Punkte
+    min_pt = range_box.GetMin()
+    max_pt = range_box.GetMax()
+    
+    # Dimensionen berechnen
+    dims = max_pt - min_pt
+    
+    print(f"--- Bounding Box für {prim_path} ---")
+    print(f"  Länge (X): {dims[0]:.3f} m")
+    print(f"  Breite (Y): {dims[1]:.3f} m")
+    print(f"  Höhe (Z):   {dims[2]:.3f} m")
+    print(f"  Min Punkt:  {min_pt}")
+    print(f"  Max Punkt:  {max_pt}")
+    
+    return dims
 
 
 my_world = World(stage_units_in_meters=1.0)
@@ -89,9 +121,8 @@ posX= 5.97
 posY=-1.63 
 yaw=-118.5*np.pi/180*0
 #quat = euler_angles_to_quat([0, 0, 1*np.pi])
-quat = euler_angles_to_quat([0, 0, 1*np.pi+yaw])
-my_carter = my_world.scene.add(
-    WheeledRobot(
+quat = euler_angles_to_quat([0, 0, 1*np.pi+0*yaw])
+my_carter = WheeledRobot(
         prim_path="/World/eKarren",
         name="eKarren",
         #wheel_dof_names=["left_wheel", "right_wheel"],
@@ -99,10 +130,13 @@ my_carter = my_world.scene.add(
         orientation=quat,
         create_robot=True,
         usd_path=asset_path,
-        position=np.array([-fenceLenX/4, -fenceLenY/4, 0.3]),
+        position=np.array([fenceLenX/4*1, fenceLenY/4*1, 0.3*1]),
         #position=np.array([posX, posY, 0.3]),
     )
-)
+my_world.scene.add(my_carter)
+my_carter.set_local_scale(np.array([1.6, 1.6, 1.6]))
+get_robot_bounding_box("/World/eKarren")
+
 my_controller = DifferentialController(name="simple_control", wheel_radius=0.218, wheel_base=0.68)
 
 measPerDeg = 4
@@ -118,6 +152,15 @@ lidar = my_world.scene.add(
                 translation=np.array([lidarX, 0, 0.50])   # 0.38
             )
         )
+# 3. FIX: Die Welt-Skalierung des Lidars auf 1.0 zurücksetzen
+from omni.isaac.core.prims import XFormPrim
+lidar_xform = XFormPrim(lidar.prim_path)
+# Berechne den Kehrwert der Roboter-Skalierung
+inv_scale = 1.0 / 1.6  # ergibt 0.625
+
+# Setze die lokale Skalierung des Lidars
+# Da SingleXFormPrim die Methode 'set_local_scale' besitzt:
+lidar_xform.set_local_scale(np.array([inv_scale, inv_scale, inv_scale]))
 
 my_lidar = wf.Lidar(lidar, measPerDeg, backWheelDrive)
 follower = wf.WallFollowerFinal(my_world, target_dist=1.5, max_speed=0.5)
@@ -134,6 +177,7 @@ while simulation_app.is_running():
             my_controller.reset()
             reset_needed = False
             follower.Init()
+            my_lidar.Init()
         dist, angles = my_lidar.GetDistArray()
         if len(dist) > 0: 
             v, omega = follower.step(dist, angles)
