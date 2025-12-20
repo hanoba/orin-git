@@ -42,39 +42,6 @@ from Fence import CreateFence, CreateWalls, CreateCylinder
 from Garten import CreateGarten
 
 
-def GetRobotBoundingBox(prim_path):
-    stage = omni.usd.get_context().get_stage()
-    prim = stage.GetPrimAtPath(prim_path)
-    
-    if not prim.IsValid():
-        print(f"Fehler: Prim unter {prim_path} nicht gefunden!")
-        return
-    
-    # Korrekte Initialisierung des BBoxCache
-    # Wir nutzen Usd.TimeCode.Default() für die Standardzeit
-    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default"])
-    
-    # Berechnet die Bounding Box im Weltkoordinatensystem
-    bbox = bbox_cache.ComputeWorldBound(prim)
-    range_box = bbox.GetRange()
-    
-    # Min- und Max-Punkte
-    min_pt = range_box.GetMin()
-    max_pt = range_box.GetMax()
-    
-    # Dimensionen berechnen
-    dims = max_pt - min_pt
-    
-    print(f"--- Bounding Box für {prim_path} ---")
-    print(f"  Länge (X): {dims[0]:.3f} m")
-    print(f"  Breite (Y): {dims[1]:.3f} m")
-    print(f"  Höhe (Z):   {dims[2]:.3f} m")
-    print(f"  Min Punkt:  {min_pt}")
-    print(f"  Max Punkt:  {max_pt}")
-    
-    return dims
-
-
 my_world = World(stage_units_in_meters=1.0)
 my_world.scene.add_default_ground_plane()
 stage = my_world.stage
@@ -104,10 +71,15 @@ try:
         camera_prim = stage.GetPrimAtPath(camera_path)
         
         if camera_prim.IsValid():
+            # 1. Kamera Setup
             usd_cam = UsdGeom.Camera(camera_prim)
             usd_cam.GetProjectionAttr().Set(UsdGeom.Tokens.orthographic)
-            # Zoom anpassen (z.B. 20 Meter Breite)
-            usd_cam.GetHorizontalApertureAttr().Set(200.0)  #20.0)
+            
+            # 2. Sichtbereich (Zoom)
+            # Wenn 200 noch zu nah ist, geh auf 500 oder 1000.
+            # Dieser Wert definiert die Breite deines Sichtfensters in Welt-Einheiten.
+            breite = 500.0
+            usd_cam.GetHorizontalApertureAttr().Set(breite)
             
             # 4. Kamera-Position setzen (Draufsicht)
             from omni.isaac.core.utils.viewports import set_camera_view
@@ -127,17 +99,11 @@ sun.CreateColorAttr(Gf.Vec3f(1.0, 0.95, 0.8))
 
 sun_prim = stage.GetPrimAtPath("/World/SunLight")
 sun_xf = UsdGeom.XformCommonAPI(sun_prim)
-#sun_xf.SetRotate((-45.0, 0.0, 0.0))  # leicht schräg
+sun_xf.SetRotate((-45.0, 0.0, 0.0))  # leicht schräg
 
 # -------------------------------------------------------
-# Zaun/Mauer
+# Garten simulieren
 # -------------------------------------------------------
-#   fenceLenX = 15.0
-#   fenceLenY =  9.0
-#   CreateFence(stage, fenceLenX=fenceLenX, fenceLenY=fenceLenY, R=0.0015)
-#   #CreateWalls(stage, size_x=fenceLenX, size_y=fenceLenY, wall_height=1.6)
-#   CreateCylinder(stage, "/World/Busch", posX=0, posY=-fenceLenY/2+0.5, dm=1.0, height=1.6)
-
 CreateGarten(stage)
 
 # -------------------------------------------------------
@@ -152,7 +118,6 @@ add_reference_to_stage(asset_path, eKarrenPath)
 robot_xform = XFormPrim(eKarrenPath)
 scaleFactor = 1.5
 robot_xform.set_local_scale(np.array([scaleFactor, scaleFactor, scaleFactor]))
-GetRobotBoundingBox(eKarrenPath)
 robot_xform.set_world_pose(position=np.array([0.0, 0.0, 0.5]))
 eKarrenWidth = 0.78
 eKarrenLength = 1.1
@@ -160,17 +125,15 @@ eKarrenLength = 1.1
 
 posX= 5.97 
 posY=-1.63 
-yaw=1*np.pi - 118.5*np.pi/180*0
+yaw = np.pi
 quat = euler_angles_to_quat([0, 0, yaw])
 my_carter = WheeledRobot(
         prim_path=eKarrenPath,
         name="eKarren",
-        #wheel_dof_names=["left_wheel", "right_wheel"],
         wheel_dof_names=["joint_wheel_left", "joint_wheel_right"],
         orientation=quat,
         create_robot=True,
         usd_path=asset_path,
-        #position=np.array([fenceLenX/4*1, fenceLenY/4*1, 0.3]),
         position=np.array([-5.00, 0, 0.3]),
     )
 my_world.scene.add(my_carter)
@@ -221,4 +184,5 @@ while simulation_app.is_running():
             v, omega = follower.step(dist, angles)
             v = -v if backWheelDrive else v
             my_carter.apply_wheel_actions(my_controller.forward(command=[v, omega]))
+            
 simulation_app.close()

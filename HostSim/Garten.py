@@ -1,27 +1,16 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Erzeugt isaac-sim Simulationsumgebung für meinen Garten.
+# Die Gartendaten sind von Moonlight/amcp übernommen.
+# HB 2025-12-20
 
 import numpy as np
 import math
 from isaacsim.core.api import World
 from isaacsim.core.api.objects import DynamicCuboid, VisualCuboid
-from isaacsim.robot.wheeled_robots.controllers.differential_controller import DifferentialController
-from isaacsim.robot.wheeled_robots.robots import WheeledRobot
-from isaacsim.sensors.physx import RotatingLidarPhysX
-from isaacsim.storage.native import get_assets_root_path
-from pxr import Gf, Sdf, UsdGeom, UsdPhysics, PhysxSchema, Usd, UsdLux
+#from isaacsim.robot.wheeled_robots.controllers.differential_controller import DifferentialController
+#from isaacsim.robot.wheeled_robots.robots import WheeledRobot
+#from isaacsim.sensors.physx import RotatingLidarPhysX
+#from isaacsim.storage.native import get_assets_root_path
+from pxr import Gf, Sdf, UsdGeom, UsdPhysics, PhysxSchema, Usd, UsdLux, Vt
 
 import omni.usd
 import omni.kit.viewport.window as vp_win
@@ -102,6 +91,7 @@ def Gartenzaun():
     #print(check, b1+b3)
 
     garten=[PA, PB, PC, PD]
+    print(f"{garten=}")
     return garten
 
 def Gartenhaus():
@@ -132,10 +122,7 @@ def Schuppen():
 # Garten
 # -------------------------------------------------------
 def CreateGarten(stage):
-    H = 1.6
-    R = 0.0015
-    S = 0.01
-    centerX =  20
+    centerX =  22
     centerY = -12
     def ZaunElement(stage, primName, A, B):
         center = np.array([centerX, centerY])
@@ -154,7 +141,13 @@ def CreateGarten(stage):
         #f.SetTranslate((m[0], m[1], 0.0))
         
     PA, PB, PC, PD = Gartenzaun()
-    ZaunElement(stage, "/World/ZaunAB", PA, PB)
+    # Gartentor hinzufügen
+    torAbstand = 8.00
+    torBreite = 0.92
+    PL = (PB[0]-torAbstand-torBreite, PB[1])    # linker Torpfosten
+    PR = (PB[0]-torAbstand, PB[1])              # rechter Torpfosten
+    ZaunElement(stage, "/World/ZaunAX", PA, PL)
+    ZaunElement(stage, "/World/ZaunYB", PR, PB)
     ZaunElement(stage, "/World/ZaunBC", PB, PC)
     ZaunElement(stage, "/World/ZaunCD", PC, PD)
     ZaunElement(stage, "/World/ZaunDA", PD, PA)
@@ -176,6 +169,15 @@ def CreateGarten(stage):
     def Strauch(stage, prim_path, mittelPunkt, dm):
         posX, posY = mittelPunkt
         CreateCylinder(stage, prim_path, posX-centerX, posY-centerY, dm, height=1.6)
+        # Farbe als RGB definieren (Werte von 0.0 bis 1.0)
+        # Hier ein Grün für den Strauch:
+        farbe = Gf.Vec3f(0.0, 1.0, 0.0)
+
+        # Das Attribut erstellen oder holen und setzen
+        # Wir müssen es in eine Liste [] packen, da displayColor ein Array ist
+        prim = stage.GetPrimAtPath(prim_path)
+        prim.CreateAttribute("primvars:displayColor", Sdf.ValueTypeNames.Color3fArray).Set(Vt.Vec3fArray([farbe]))
+
     
     tx, ty = terrasse[0]
     grasMP = (tx, ty-8.0)
