@@ -7,9 +7,10 @@
 #simulation_app = SimulationApp({"headless": False})
 
 from omni.usd import get_context
-from pxr import UsdGeom, UsdPhysics, PhysxSchema, UsdLux, Gf, Sdf
+from pxr import UsdGeom, UsdPhysics, PhysxSchema, UsdLux, Gf, Sdf, Vt
 from omni.isaac.core.utils.prims import create_prim
 import math
+import numpy as np
 
 
 class Fence:
@@ -151,6 +152,115 @@ def CreateFence(
     f.SetRotate((0, 0, 90))
     f.SetTranslate((fenceLenX/2, 0.0, fenceZ))
 
+
+def CreateCube(stage, prim_path, posX, posY, lenX, lenY, height=1.6):
+
+    # Geometrisches Cube-Prim
+    create_prim(
+        prim_path=prim_path,
+        prim_type="Cube",
+        translation=Gf.Vec3d(posX+lenX/2, posY+lenY/2, height/2),
+        scale=Gf.Vec3f(lenX, lenY, height),
+        attributes={"size": 1.0},
+    )
+
+    prim = stage.GetPrimAtPath(prim_path)
+
+    # Kollisions-API anwenden
+    UsdPhysics.CollisionAPI.Apply(prim)
+
+    # Physikalischer Body (statisch)
+    body = UsdPhysics.RigidBodyAPI.Apply(prim)
+    body.CreateRigidBodyEnabledAttr(False)  # static geometry
+
+    # PhysX-Mesh / Collider
+    collider = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+    collider.CreateDisableGravityAttr(True)
+
+
+def CreateRotatedCube(stage, prim_path, posX, posY, lenX, lenY, height=1.6, angle_deg=0):
+    from omni.isaac.core.utils.prims import create_prim, set_prim_property
+    from pxr import Gf
+    import numpy as np
+
+    # 1. Erstellen
+    create_prim(
+        prim_path=prim_path,
+        prim_type="Cube",
+        attributes={"size": 1.0}
+    )
+
+    prim = stage.GetPrimAtPath(prim_path)
+
+    xformable = UsdGeom.Xformable(prim)
+    
+    # Zuerst alle alten Ops löschen, um Konflikte zu vermeiden
+    xformable.ClearXformOpOrder()
+    
+    # Die Reihenfolge in der Liste bestimmt die Ausführung.
+    # Für Skalieren -> Drehen -> Verschieben muss die Liste so aussehen:
+    # [Translate, Rotate, Scale]
+    # Wir erzwingen die Double-Präzision (PrecisionDouble), 
+    # damit es zum existierenden "double3" passt:
+    translate_op = xformable.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble)
+    rotate_op    = xformable.AddRotateXYZOp(UsdGeom.XformOp.PrecisionDouble)
+    scale_op     = xformable.AddScaleOp(UsdGeom.XformOp.PrecisionDouble)    
+    
+    # Werte setzen
+    translate_op.Set(Gf.Vec3d(float(posX), float(posY), float(height/2)))
+    rotate_op.Set(Gf.Vec3f(0.0, 0.0, float(angle_deg)))
+    scale_op.Set(Gf.Vec3f(float(lenX), float(lenY), float(height)))
+
+    # Farbe als RGB definieren (Werte von 0.0 bis 1.0)
+    # Hier ein helles Grau für den Zaun:
+    farbe = Gf.Vec3f(1.0, 0.0, 0.0)
+
+    # Das Attribut erstellen oder holen und setzen
+    # Wir müssen es in eine Liste [] packen, da displayColor ein Array ist
+    prim.CreateAttribute("primvars:displayColor", Sdf.ValueTypeNames.Color3fArray).Set(Vt.Vec3fArray([farbe]))
+
+    
+    # Kollisions-API anwenden
+    UsdPhysics.CollisionAPI.Apply(prim)
+
+    # Physikalischer Body (statisch)
+    body = UsdPhysics.RigidBodyAPI.Apply(prim)
+    body.CreateRigidBodyEnabledAttr(False)  # static geometry
+
+    # PhysX-Mesh / Collider
+    collider = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+    collider.CreateDisableGravityAttr(True)
+
+
+
+
+def CreateCylinder(stage, prim_path, posX, posY, dm, height=1.6):
+
+    # Geometrisches Cube-Prim
+    # Create the cylinder
+    cylinder_prim = create_prim(
+        prim_path=prim_path,
+        prim_type="Cylinder",
+        position=np.array([posX, posY, 0.5*height]), # X=5, Y=0, Z=0.5 (stands on floor)
+        attributes={
+            "radius": dm/2, 
+            "height": height,
+            "axis": "Z"    # Orientation: "X", "Y", or "Z"
+        }
+    )    
+
+    prim = stage.GetPrimAtPath(prim_path)
+
+    # Kollisions-API anwenden
+    UsdPhysics.CollisionAPI.Apply(prim)
+
+    # Physikalischer Body (statisch)
+    body = UsdPhysics.RigidBodyAPI.Apply(prim)
+    body.CreateRigidBodyEnabledAttr(False)  # static geometry
+
+    # PhysX-Mesh / Collider
+    collider = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+    collider.CreateDisableGravityAttr(True)
         
 
 def CreateWalls(
@@ -160,7 +270,8 @@ def CreateWalls(
     size_y=6.0,
     wall_height=2.5,
     wall_thickness=0.1,
-    base_z=0.0):
+    base_z=0.0,
+    name = "/World/Room"):
     """
     Erzeugt 4 physikalisch feste Wände (statisch, kollidierbar).
     """
@@ -168,7 +279,7 @@ def CreateWalls(
     cx, cy, cz = center
     z_mid = base_z + wall_height * 0.5
 
-    room_root = "/World/Room"
+    room_root = name
     if not stage.GetPrimAtPath(room_root).IsValid():
         UsdGeom.Xform.Define(stage, Sdf.Path(room_root))
 

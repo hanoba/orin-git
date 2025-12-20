@@ -16,8 +16,6 @@
 from isaacsim import SimulationApp
 simulation_app = SimulationApp({"headless": False})
 
-import sys
-
 import carb
 import numpy as np
 import math
@@ -27,22 +25,24 @@ from isaacsim.robot.wheeled_robots.controllers.differential_controller import Di
 from isaacsim.robot.wheeled_robots.robots import WheeledRobot
 from isaacsim.sensors.physx import RotatingLidarPhysX
 from isaacsim.storage.native import get_assets_root_path
-from pxr import Gf
-from omni.isaac.core.utils.rotations import euler_angles_to_quat
-import omni.usd
-import WallFollower as wf
-from Fence import CreateFence, CreateWalls
+from pxr import Gf, Sdf, UsdGeom, UsdPhysics, PhysxSchema, Usd, UsdLux
 
+import omni.usd
+import omni.kit.viewport.window as vp_win
+import omni.kit.viewport.window as viewport_api
+from omni.isaac.core.utils.rotations import euler_angles_to_quat
 from omni.isaac.core.utils.stage import add_reference_to_stage
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.viewports import set_camera_view
-from omni.isaac.core.prims import XFormPrim
-from pxr import UsdLux, UsdGeom, Sdf, Gf
-
 from omni.isaac.core.utils.prims import create_prim
-from pxr import Gf, Sdf, UsdGeom, UsdPhysics, PhysxSchema, Usd
+from omni.isaac.core.prims import XFormPrim
 
-def get_robot_bounding_box(prim_path):
+import WallFollower as wf
+from Fence import CreateFence, CreateWalls, CreateCylinder
+from Garten import CreateGarten
+
+
+def GetRobotBoundingBox(prim_path):
     stage = omni.usd.get_context().get_stage()
     prim = stage.GetPrimAtPath(prim_path)
     
@@ -80,6 +80,43 @@ my_world.scene.add_default_ground_plane()
 stage = my_world.stage
 
 
+
+# -------------------------------------------------------
+# Kamera auf echte Top-View setzen
+# -------------------------------------------------------
+# 1. Wir zwingen die App kurz, das GUI zu aktualisieren
+simulation_app.update()
+
+# 2. Den Viewport über die Instanz-Suche holen
+try:
+    # 1. Alle Viewport-Instanzen holen
+    all_viewports = list(vp_win.get_viewport_window_instances())
+    
+    if all_viewports:
+        v_window = all_viewports[0]
+        
+        # 2. In 4.2 holt man die Kamera über das API-Objekt des Fensters
+        v_api = v_window.viewport_api
+        camera_path = v_api.get_active_camera()
+        
+        # 3. Die Kamera auf echte 2D-Draufsicht umstellen
+        stage = omni.usd.get_context().get_stage()
+        camera_prim = stage.GetPrimAtPath(camera_path)
+        
+        if camera_prim.IsValid():
+            usd_cam = UsdGeom.Camera(camera_prim)
+            usd_cam.GetProjectionAttr().Set(UsdGeom.Tokens.orthographic)
+            # Zoom anpassen (z.B. 20 Meter Breite)
+            usd_cam.GetHorizontalApertureAttr().Set(200.0)  #20.0)
+            
+            # 4. Kamera-Position setzen (Draufsicht)
+            from omni.isaac.core.utils.viewports import set_camera_view
+            set_camera_view(eye=[0, 0, 20], target=[0, 0, 0])
+            
+            print(f"Echte 2D-Ansicht aktiv auf: {camera_path}")
+except Exception as e:
+    print(f"Letzter Versuch fehlgeschlagen: {e}")
+
 # -------------------------------------------------------
 # Sonnenlicht (Distant Light)
 # -------------------------------------------------------
@@ -93,65 +130,62 @@ sun_xf = UsdGeom.XformCommonAPI(sun_prim)
 #sun_xf.SetRotate((-45.0, 0.0, 0.0))  # leicht schräg
 
 # -------------------------------------------------------
-# Kamera auf Top-View ausrichten
+# Zaun/Mauer
 # -------------------------------------------------------
-cam_path = "/OmniverseKit_Persp"
-cam_prim = stage.GetPrimAtPath(cam_path)
-cam_xf = UsdGeom.XformCommonAPI(cam_prim)
+#   fenceLenX = 15.0
+#   fenceLenY =  9.0
+#   CreateFence(stage, fenceLenX=fenceLenX, fenceLenY=fenceLenY, R=0.0015)
+#   #CreateWalls(stage, size_x=fenceLenX, size_y=fenceLenY, wall_height=1.6)
+#   CreateCylinder(stage, "/World/Busch", posX=0, posY=-fenceLenY/2+0.5, dm=1.0, height=1.6)
 
-cam_xf.SetTranslate((0.0, 0.0, 25.0))
-cam_xf.SetRotate((90.0, 0.0, 0.0))     # Pitch 90° = nach unten
+CreateGarten(stage)
 
-set_camera_view(
-    (0.0, 0.0, 15.0),   # eye
-    (0.0, 0.0, 0.0),    # target
-    cam_path
-)
-
-
-#asset_path = "/bin/Robots/NovaCarterScaled/nova_carter.usd"
+# -------------------------------------------------------
+# eKarren
+# -------------------------------------------------------
+eKarrenPath = "/World/eKarren"
 asset_path = "/bin/Robots/NVIDIA/NovaCarter/nova_carter.usd"
-add_reference_to_stage(asset_path, "/World/eKarren")
+add_reference_to_stage(asset_path, eKarrenPath)
 
 # 3. Skalierung & Position (Einfach und lesbar über XFormPrim)
 # XFormPrim ist wie ein "Schweizer Taschenmesser" für Objekte
-robot_xform = XFormPrim("/World/eKarren")
-robot_xform.set_local_scale(np.array([1.6, 1.6, 1.6]))
+robot_xform = XFormPrim(eKarrenPath)
+scaleFactor = 1.5
+robot_xform.set_local_scale(np.array([scaleFactor, scaleFactor, scaleFactor]))
+GetRobotBoundingBox(eKarrenPath)
 robot_xform.set_world_pose(position=np.array([0.0, 0.0, 0.5]))
+eKarrenWidth = 0.78
+eKarrenLength = 1.1
 
-fenceLenX = 15.0
-fenceLenY =  9.0
-#CreateFence(stage, fenceLenX=fenceLenX, fenceLenY=fenceLenY)
-CreateWalls(stage, size_x=fenceLenX, size_y=fenceLenY, wall_height=1.6)
 
 posX= 5.97 
 posY=-1.63 
-yaw=-118.5*np.pi/180*0
-#quat = euler_angles_to_quat([0, 0, 1*np.pi])
-quat = euler_angles_to_quat([0, 0, 1*np.pi+0*yaw])
+yaw=1*np.pi - 118.5*np.pi/180*0
+quat = euler_angles_to_quat([0, 0, yaw])
 my_carter = WheeledRobot(
-        prim_path="/World/eKarren",
+        prim_path=eKarrenPath,
         name="eKarren",
         #wheel_dof_names=["left_wheel", "right_wheel"],
         wheel_dof_names=["joint_wheel_left", "joint_wheel_right"],
         orientation=quat,
         create_robot=True,
         usd_path=asset_path,
-        position=np.array([fenceLenX/4*1, fenceLenY/4*1, 0.3*1]),
-        #position=np.array([posX, posY, 0.3]),
+        #position=np.array([fenceLenX/4*1, fenceLenY/4*1, 0.3]),
+        position=np.array([-5.00, 0, 0.3]),
     )
 my_world.scene.add(my_carter)
-#my_carter.set_local_scale(np.array([1.6, 1.6, 1.6]))
-#get_robot_bounding_box("/World/eKarren")
 
 my_controller = DifferentialController(name="simple_control", wheel_radius=0.218, wheel_base=0.68)
 
+# -------------------------------------------------------
+# Lidar
+# -------------------------------------------------------
 measPerDeg = 4
 backWheelDrive = True
 lidarX = -0.6 if backWheelDrive else 0
 lidar = my_world.scene.add(
             RotatingLidarPhysX(
-                prim_path="/World/eKarren/chassis_link/hbLidar", 
+                prim_path=f"{eKarrenPath}/chassis_link/hbLidar", 
                 name="lidar", 
                 rotation_frequency = 10,
                 fov=(360.0, 1.0),
@@ -163,10 +197,7 @@ lidar = my_world.scene.add(
 from omni.isaac.core.prims import XFormPrim
 lidar_xform = XFormPrim(lidar.prim_path)
 # Berechne den Kehrwert der Roboter-Skalierung
-inv_scale = 1.0 / 1.6  # ergibt 0.625
-
-# Setze die lokale Skalierung des Lidars
-# Da SingleXFormPrim die Methode 'set_local_scale' besitzt:
+inv_scale = 1.0 / scaleFactor
 lidar_xform.set_local_scale(np.array([inv_scale, inv_scale, inv_scale]))
 
 my_lidar = wf.Lidar(lidar, measPerDeg, backWheelDrive)
