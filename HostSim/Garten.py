@@ -166,6 +166,15 @@ def CreateGarten(stage):
     terrasse = Terrasse()
     Haus(stage, "/World/Terrasse", terrasse)
     
+    def Bassin(terrasseUntenRechts):
+        lenX = 2.40
+        lenY = 2.80
+        (x, y) = terrasseUntenRechts
+        x += 0.50
+        return [(x, y), (x+lenX, y), (x+lenX, y+lenY), (x, y+lenY)]
+    
+    Haus(stage, "/World/Bassin", Bassin(terrasse[1]))
+    
     def Strauch(stage, prim_path, mittelPunkt, dm):
         posX, posY = mittelPunkt
         CreateCylinder(stage, prim_path, posX-centerX, posY-centerY, dm, height=1.6)

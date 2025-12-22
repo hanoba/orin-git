@@ -2,14 +2,15 @@
 import numpy as np
 import math
 
-lidarX=np.zeros(360*4)
-lidarY=np.zeros(360*4)
+#lidarX=np.zeros(360*4)
+#lidarY=np.zeros(360*4)
 
 class Lidar():
     def __init__(self, lidar, measPerDeg, backWheelDrive):
         self.lidar = lidar
-        self.dist = np.zeros(360*measPerDeg) + 9.0
-        self.angles = np.zeros(360*measPerDeg) + 400.0
+        self.maxDist = 9.0
+        self.dist = np.zeros(360) + self.maxDist
+        #self.angles = np.zeros(360*measPerDeg) + 400.0
         self.measPerDeg = measPerDeg
         self.angOffset = 180 if backWheelDrive else 0      # 0°=Front 180°=Back
         self.Init()
@@ -34,23 +35,21 @@ class Lidar():
         # LiDAR-Frame holen
         frame = self.lidar.get_current_frame()
         if frame is None:
-            return [], []
+            return []
 
         new_step = frame["physics_step"]
         if new_step == self.last_step:
-            return [], []
+            return []
         self.last_step = new_step
         
         self.frameCnt += 1
         # skip first dummy frame
         if self.frameCnt == 0:
-            return [], []
+            return []
             
         global lidarX, lidarY
         pc = frame["point_cloud"].reshape(-1, 3)   # shape (N, 1, 3) – Punkte im Lidar/Robot-Frame
 
-        #self.totalPoints += numPoints
-        
         angMin =  99000
         angMax = -99000
         
@@ -61,41 +60,27 @@ class Lidar():
 
             ang = math.degrees(math.atan2(y, x))
             ang = (ang + self.angOffset) % 360.0      # Lidar 180° gedreht
+            ang = int(round(ang)) 
+            if ang==360: ang = 0
 
             r = math.hypot(x, y)            # Entfernung            
-            lidarX[self.totalPoints] = pc[i, 0]
-            lidarY[self.totalPoints] = pc[i, 1]
+            self.dist[ang] = min(r, self.dist[ang])
+            #lidarX[self.totalPoints] = pc[i, 0]
+            #lidarY[self.totalPoints] = pc[i, 1]
             
-            ### x = self.vz*pc[i, 0]
-            ### y = self.vz*pc[i, 1]
-            ### r = np.sqrt(x*x + y*y)
-            ### ang = math.atan2(y, x)*180/math.pi
-            ### if ang<0: ang += 360
-            ### elif ang>360: ang -= 360
-            
-            self.angles[self.totalPoints] = ang
-            self.dist[self.totalPoints] = r
             self.totalPoints += 1
             if ang < angMin: angMin = ang
             elif ang > angMax: angMax = ang
-            #theta = int(round((ang)))
-            #if theta<0: theta += 360*self.measPerDeg
-            #self.dist[theta] = r
-            #if theta < thetaMin: thetaMin = theta
-            #elif theta > thetaMax: thetaMax = theta
 
         self.Debug(f"{numPoints=}  {angMin=:6.2f}  {angMax=:6.2f}")
 
         if self.totalPoints >= 360*self.measPerDeg:
             self.totalPoints = 0
+            distCopy = self.dist.copy()
+            self.dist.fill(self.maxDist)
+            return distCopy
 
-            # 1. Die Indizes berechnen, die 'angles' sortieren würden
-            idx = np.argsort(self.angles)
-
-            # 2. Die Indizes auf beide Arrays anwenden
-            return self.dist[idx], self.angles[idx]
-
-        return [], []
+        return []
 
 
 
@@ -149,29 +134,18 @@ class WallFollowerFinal:
             self.state = newState
 
     # Hilfsfunktion: Sektor mit Wraparound in Grad
-    def GetSectorMin_deg(self, ranges_np, angles_np, start_deg, end_deg):
+    def GetSectorMin_deg(self, ranges_np, start_deg, end_deg):
         """Gibt Minimalradius in einen Bereich in [start_deg, end_deg) zurück."""
-        if start_deg <= end_deg:
-            indices = np.where((angles_np >= start_deg) & (angles_np <= end_deg))[0]
-        else:
-            indices = np.where((angles_np >= start_deg) | (angles_np <= end_deg))[0]
-        return np.nanmin(ranges_np[indices])  
+        if start_deg < end_deg: return np.nanmin(ranges_np[start_deg:end_deg]) 
+        elif start_deg < end_deg: return self.maxDist
+        min1 = np.nanmin(ranges_np[start_deg:])
+        min2 = np.nanmin(ranges_np[:end_deg])
+        return min(min1, min2)  
         
-        #measPerDeg = ranges_np.size // 360      # Messwerte pro Grad
-        #start_deg %= 360
-        #end_deg   %= 360
-        #start_deg *= measPerDeg
-        #end_deg *= measPerDeg
-        #if start_deg <= end_deg:
-        #    sector = ranges_np[start_deg:end_deg]
-        #else:
-        #    sector = np.concatenate((ranges_np[start_deg:], ranges_np[:end_deg]))
-        ##return np.nanmean(sector) if np.any(~np.isnan(sector)) else np.inf
-        #return np.nanmin(sector) if np.any(~np.isnan(sector)) else np.inf
 
-    def step(self, ranges, angles):
+    def step(self, ranges):
         #r = np.array(ranges, dtype=float)
-        assert ranges.size % 360 == 0
+        assert ranges.size == 360
 
         # Inf / 0 als NaN behandeln
         ranges[~np.isfinite(ranges)] = np.nan
@@ -187,9 +161,9 @@ class WallFollowerFinal:
         #    ranges = ranges[idx]
 
         # --- Sektoren (Standard: 0° vorne, 90° links, 270° rechts) ---
-        d_front     = self.GetSectorMin_deg(ranges, angles, 350, 10)   #   0° +/- 10°
-        d_right     = self.GetSectorMin_deg(ranges, angles, 270, 290)  # 280° +/- 10° rechts seitlich
-        d_right_fwd = self.GetSectorMin_deg(ranges, angles, 310, 330)  # 320° +/- 10° rechts vorne
+        d_front     = self.GetSectorMin_deg(ranges, 350, 10)   #   0° +/- 10°
+        d_right     = self.GetSectorMin_deg(ranges, 270, 290)  # 280° +/- 10° rechts seitlich
+        d_right_fwd = self.GetSectorMin_deg(ranges, 310, 330)  # 320° +/- 10° rechts vorne
 
         d_dist = d_right*self.cos10
 
@@ -288,14 +262,14 @@ class WallFollowerFinal:
                 f"{posX=:5.2f} {posY=:5.2f} {yaw=:4.1f}°"
             )
 
-        if time > 99.11 and False:
-            if not self.breakPointReached:
-                np.savetxt("/DriveX/GitHub/orin-git/HostSim/ranges.txt", ranges, fmt="%.3f")
-                np.savetxt("/DriveX/GitHub/orin-git/HostSim/angles.txt", angles, fmt="%.3f")
-                np.savetxt("/DriveX/GitHub/orin-git/HostSim/lidarX.txt", lidarX, fmt="%8.3f")
-                np.savetxt("/DriveX/GitHub/orin-git/HostSim/lidarY.txt", lidarY, fmt="%8.3f")
-                self.breakPointReached = True
-                print("Breakpoint reached")
-            return 0, 0
+        #if time > 99.11 and False:
+        #    if not self.breakPointReached:
+        #        np.savetxt("/DriveX/GitHub/orin-git/HostSim/ranges.txt", ranges, fmt="%.3f")
+        #        np.savetxt("/DriveX/GitHub/orin-git/HostSim/angles.txt", angles, fmt="%.3f")
+        #        np.savetxt("/DriveX/GitHub/orin-git/HostSim/lidarX.txt", lidarX, fmt="%8.3f")
+        #        np.savetxt("/DriveX/GitHub/orin-git/HostSim/lidarY.txt", lidarY, fmt="%8.3f")
+        #        self.breakPointReached = True
+        #        print("Breakpoint reached")
+        #    return 0, 0
         return linear, angular
 

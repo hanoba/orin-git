@@ -99,7 +99,7 @@ sun.CreateColorAttr(Gf.Vec3f(1.0, 0.95, 0.8))
 
 sun_prim = stage.GetPrimAtPath("/World/SunLight")
 sun_xf = UsdGeom.XformCommonAPI(sun_prim)
-sun_xf.SetRotate((-45.0, 0.0, 0.0))  # leicht schräg
+sun_xf.SetRotate((-15.0, 0.0, 0.0))  # leicht schräg
 
 # -------------------------------------------------------
 # Garten simulieren
@@ -164,7 +164,7 @@ inv_scale = 1.0 / scaleFactor
 lidar_xform.set_local_scale(np.array([inv_scale, inv_scale, inv_scale]))
 
 my_lidar = wf.Lidar(lidar, measPerDeg, backWheelDrive)
-follower = wf.WallFollowerFinal(my_world, target_dist=1.5, max_speed=0.5)
+follower = wf.WallFollowerFinal(my_world, target_dist=2.00, max_speed=0.5)
 
 my_world.reset()
 reset_needed = False
@@ -179,9 +179,9 @@ while simulation_app.is_running():
             reset_needed = False
             follower.Init()
             my_lidar.Init()
-        dist, angles = my_lidar.GetDistArray()
+        dist = my_lidar.GetDistArray()
         if len(dist) > 0: 
-            v, omega = follower.step(dist, angles)
+            v, omega = follower.step(dist)
             v = -v if backWheelDrive else v
             my_carter.apply_wheel_actions(my_controller.forward(command=[v, omega]))
             
