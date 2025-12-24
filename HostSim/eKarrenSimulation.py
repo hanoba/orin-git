@@ -37,7 +37,8 @@ from omni.isaac.core.utils.viewports import set_camera_view
 from omni.isaac.core.utils.prims import create_prim
 from omni.isaac.core.prims import XFormPrim
 
-import WallFollower as wf
+from WallFollower import WallFollower
+import IsaacSimLib as isl
 from Fence import CreateFence, CreateWalls, CreateCylinder
 from Garten import CreateGarten
 
@@ -118,14 +119,15 @@ add_reference_to_stage(asset_path, eKarrenPath)
 robot_xform = XFormPrim(eKarrenPath)
 scaleFactor = 1.5
 robot_xform.set_local_scale(np.array([scaleFactor, scaleFactor, scaleFactor]))
-robot_xform.set_world_pose(position=np.array([0.0, 0.0, 0.5]))
+#robot_xform.set_world_pose(position=np.array([0.0, 0.0, 0.5]))
 eKarrenWidth = 0.78
 eKarrenLength = 1.1
 
 
-posX= 5.97 
-posY=-1.63 
-yaw = np.pi
+posX=15.00  #-5.00 
+posY= 7.50  # 0.00 
+posZ= 0.30
+yaw = -np.pi+3/4*np.pi
 quat = euler_angles_to_quat([0, 0, yaw])
 my_carter = WheeledRobot(
         prim_path=eKarrenPath,
@@ -134,7 +136,7 @@ my_carter = WheeledRobot(
         orientation=quat,
         create_robot=True,
         usd_path=asset_path,
-        position=np.array([-5.00, 0, 0.3]),
+        position=np.array([posX, posY, posZ]),
     )
 my_world.scene.add(my_carter)
 
@@ -163,11 +165,15 @@ lidar_xform = XFormPrim(lidar.prim_path)
 inv_scale = 1.0 / scaleFactor
 lidar_xform.set_local_scale(np.array([inv_scale, inv_scale, inv_scale]))
 
-my_lidar = wf.Lidar(lidar, measPerDeg, backWheelDrive)
-follower = wf.WallFollowerFinal(my_world, target_dist=2.00, max_speed=0.5)
+my_lidar = isl.Lidar(lidar, measPerDeg, backWheelDrive, "127.0.0.1")
+#follower = isl.WallFollower(my_world, target_dist=2.00, max_speed=0.5)
+robotCtrl = isl.RobotCtrl()
 
 my_world.reset()
 reset_needed = False
+#carter = XFormPrim(prim_path=eKarrenPath)
+## Das hier setzt die Pose UND informiert PhysX
+#carter.set_world_pose(position=np.array([19.0, 10.0, 0.2]))
 while simulation_app.is_running():
     my_world.step(render=True)
     if my_world.is_stopped() and not reset_needed:
@@ -177,11 +183,14 @@ while simulation_app.is_running():
             my_world.reset()
             my_controller.reset()
             reset_needed = False
-            follower.Init()
+            #follower.Init()
             my_lidar.Init()
         dist = my_lidar.GetDistArray()
-        if len(dist) > 0: 
-            v, omega = follower.step(dist)
+        cmd, params = robotCtrl.GetCmd()
+        if cmd == isl.CMD_VELOCITY:
+        #if len(dist) > 0: 
+            #v, omega = follower.step(dist)
+            v, omega = params
             v = -v if backWheelDrive else v
             my_carter.apply_wheel_actions(my_controller.forward(command=[v, omega]))
             

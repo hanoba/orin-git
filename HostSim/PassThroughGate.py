@@ -4,86 +4,7 @@ import math
 import cmath
 import numpy as np
 import sys
-import ydlidar
 
-
-class Lidar():
-    def __init__(self):
-        # === Parameter anpassen ===
-        PORT = "/dev/ttyUSB0"
-        BAUD = 512000           # TG30 nutzt 512000 Baud
-
-        # === Lidar initialisieren ===
-        self.laser = ydlidar.CYdLidar()
-        self.laser.setlidaropt(ydlidar.LidarPropSerialPort, PORT)
-        self.laser.setlidaropt(ydlidar.LidarPropSerialBaudrate, BAUD)
-        self.laser.setlidaropt(ydlidar.LidarPropFixedResolution, False)
-        self.laser.setlidaropt(ydlidar.LidarPropReversion, False)
-        self.laser.setlidaropt(ydlidar.LidarPropSingleChannel, False)
-        self.laser.setlidaropt(ydlidar.LidarPropLidarType, ydlidar.TYPE_TOF)
-        self.laser.setlidaropt(ydlidar.LidarPropScanFrequency, 10.0)
-
-        ret = self.laser.initialize()
-        if not ret:
-            print("Fehler: Initialisierung fehlgeschlagen")
-            exit(1)
-
-        if not self.laser.turnOn():
-            print("Fehler: Laser konnte nicht gestartet werden")
-            exit(1)
-
-        print("LIDAR läuft – Strg+C zum Beenden")
-        self.scan = ydlidar.LaserScan()
-
-
-    def Scan(self):
-        if self.laser.doProcessSimple(self.scan):
-            # Rohdaten in Winkel/Entfernung umrechnen
-            #ang270 = 270/180*np.pi
-            #angles =  np.array([ang270 - p.angle for p in self.scan.points])
-            #angles = (angles + np.pi) % (2*np.pi) - np.pi
-            #angles =  np.array([(ang270 - p.angle + np.pi) % (2*np.pi) - np.pi for p in self.scan.points])
-            # Umrechnung in Roboterkoordinationsystem (x zeigt in Fahrtrichtung
-            #angles =  np.array([(np.pi - p.angle + np.pi) % (2*np.pi) - np.pi for p in self.scan.points])
-            angles =  np.array([(np.pi/2 - p.angle) % (2*np.pi) for p in self.scan.points])
-
-            radius  = np.array([p.range for p in self.scan.points])
-    
-            return angles, radius
-            
-        else:
-            time.sleep(0.05)
-            return [], []
-            
-    def Close(self):
-        # === Aufräumen ===
-        self.laser.turnOff()
-        self.laser.disconnecting()
-
-
-# LiDAR‑Parameter
-#LIDAR_COUNT = 180      #HB 360       # Anzahl der Strahlen (1° Raster)
-#LIDAR_MAX_RANGE = 320.0*2            # maximale Messdistanz in Pixeln
-#LIDAR_NOISE_STD = 0.5                # Gauß‑Rauschen (σ) auf Distanzmessung
-
-# Roboterkinematik
-#ROBOT_RADIUS = 16                    # nur für Zeichnung/Kollision (Kreis)
-#self.wheelBase = 2 * 16                   # Radabstand (vereinfacht)
-#self.baseSpeed = 70.0                    # Basisfahrgeschwindigkeit [px/s]#
-#self.kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
-#MAX_WHEEL_SPEED = 120.0              # Sättigung der Radspeed‑Kommandos [px/s]
-##
-## Regler‑Gains
-#K_DISTANCE = 0.8                     # aktuell nicht genutzt, belassen für Experimente
-
-# Gate‑Detektion
-#GATE_MIN_ANGULAR_WIDTH_DEG = 14      # minimale zusammenhängende freie Winkelbreite
-#GATE_FREE_RANGE_THRESH = LIDAR_MAX_RANGE * 0.92  # Schwelle ab der ein Strahl „frei“ gilt
-#self.gateReachedThreshold = 30               # Schwellwert für Erreichen des Tores
-#self.startPointThreshold = 10        # Schwellwert für Erreichen Startpunktes
-#self.targetAngleReachedThreshold = 16/180*math.pi       # Schwellwert für Ausrichtung zum Ziel
-#GATE_WIDTH_MIN = 100
-#GATE_WIDTH_MAX = 140
 
 # Zustände der einfachen Zustandsmaschine
 STATE_SEARCH = 0                     # Suchen / „patrouillieren“
@@ -95,6 +16,11 @@ STATE_ERROR = 5                      # Tor seit geraumer Zeit nicht gefunden
 
 def G(x):
     return int(x*360/math.tau)
+
+
+def wrap_angle(angle):
+    """Normiert einen Winkel auf den Bereich [-p, p]."""
+    return (angle + math.pi) % (2 * math.pi) - math.pi
 
 
 class Gate():
@@ -118,7 +44,7 @@ class Gate():
         self.vonRechts = vonRechts              # Torsuche von rechts beginnen
         self.maxWinkelRad = maxWinkel/180*np.pi # maximal Öffnungswinkel in Fahrtrichtung
         self.freeRangeDist = freeRangeDist
-        self.minInsideGatePoints = 14           # Mindestanzahl der Messwerte im Tor
+        self.minInsideGatePoints = 7            # Mindestanzahl der Messwerte im Tor
         self.gateIndexMargin = gateIndexMargin  # zur Rauschunterdrückung am Rand des Tores
         self.segBasedDetection = segBasedDetection
         self.segMinPoints = segMinPoints        # minimum number of points per segments
@@ -138,9 +64,11 @@ class Gate():
         """
         if self.segBasedDetection: 
             return self.SegBasedDetection(points)
-            
 
         n = len(radius)
+            
+        #print(f"{n=} {angle=}")
+        #print(f"{radius=}")
 
         # Suche ersten Punkt des Zaunes
         i0 = None
@@ -152,6 +80,7 @@ class Gate():
             print ("Zaun nicht gefunden")     
             return None
         
+        #print(f"Zaun gefunden {i0=}  {radius[i0]=}")
         # Suche Tor
         cur_len = 0
         i2 = 0
@@ -190,7 +119,7 @@ class Gate():
                         tor = pfosten2 - pfosten1
                         torBreite = abs(tor)
                         #print(f"{torBreite=}, {i1=}, {i2=}")
-                        #print(f"{i1=}, {i2=}, {pfosten1=}, {pfosten2=}, {G(phi1)=}°, {G(phi2)=}°")
+                        #print(f"{i1=}, {i2=}, {torBreite=}, {pfosten1=}, {pfosten2=}, {G(phi1)=}°, {G(phi2)=}°")
                         if torBreite <= self.gateWidthMax and torBreite >= self.gateWidthMin:
                             found = True
                             break
@@ -208,8 +137,13 @@ class Gate():
         return torMitte, startPoint, pfosten1, pfosten2
 
     def Preprocessing(self, angles, radius):
-        # Winkel-Filter
-        mask = (angles >= np.pi/2*0-self.maxWinkelRad) & (angles <= 0*np.pi/2+self.maxWinkelRad)
+        # Convert range 0..2*pi to -pi..pi
+        assert len(angles) == 360
+        angles = np.concatenate((angles[180:360]-2*np.pi, angles[0:180]))
+        radius = np.concatenate((radius[180:360], radius[0:180]))
+        
+        # Winkel-Filter        
+        mask = (angles >= -self.maxWinkelRad) & (angles <= self.maxWinkelRad)
         angles = angles[mask]
         radius = radius[mask]
 
@@ -219,7 +153,7 @@ class Gate():
 
         radius = np.array(radius)
 
-        if self.vonRechts:
+        if not self.vonRechts:          ############################ added "not" HB
             angles = np.flip(angles)
             radius = np.flip(radius)
 
@@ -281,8 +215,8 @@ class RobotController():
                 robot, 
                 gate, 
                 gateReachedThreshold = 0.3,         # Schwellwert für Erreichen des Tores [m]
-                startPointThreshold = 0.1,          # Schwellwert für Erreichen Startpunktes
-                baseSpeed = 0.2,                    # Basisfahrgeschwindigkeit [m/s]#
+                startPointThreshold = 0.05,          # Schwellwert für Erreichen Startpunktes
+                baseSpeed = 0.1,                    # Basisfahrgeschwindigkeit [m/s]#
                 kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
         ):
         self.robotState = STATE_SEARCH
@@ -332,12 +266,13 @@ class RobotController():
         
         if self.robotState == STATE_SEARCH:
             # roboter drehen um das Panorama zu „scannen“
-            self.robot.SetSpeed(0, 2*3.14/4)       # Nur Drehung
+            self.robot.SetSpeed(0, 0.2*3.14/4)       # Nur Drehung ########################################
             #self.robot.SetSpeed(0, 0)  #HB TEST
             result = self.gate.Detect(angles, radius)
             #sys.exit(0) #HB TEST
             # Beim ersten validen Gate wechseln wir in den Ausrichtungs/Fahrt‑Modus
             if result is not None:
+                self.robot.SetSpeed(0, 0)   #HB 
                 torMitte, startPoint, pfosten1, pfosten2 = result
                 self.targetAngle = cmath.phase(torMitte)  #HB[0]  # Winkel IN ROBOTERKOORDINATEN
                 self.SetState(STATE_GOTO_START)
@@ -354,6 +289,8 @@ class RobotController():
                     # Fehler zwischen Blickrichtung und Gate‑Mittelwinkel
                     # Hinweis: Da die LiDAR‑Winkel relativ zu theta erzeugt wurden, ist self.targetAngle
                     # bereits im Roboter‑Frame. 
+                    #HB err = wrap_angle(gate[0] - robot.theta) 
+                    #err = wrap_angle(self.targetAngle) 
                     err = self.targetAngle
                     #print(f"err={G(err)}°")  #HB
                     omega_cmd = self.kHeading * err
@@ -402,7 +339,7 @@ class RobotController():
                 self.timeOut = 10
                 # Stop‑Kriterium: geringer Abstand zum Tor
                 if abs(torMitte) <= self.gateReachedThreshold:
-                    self.timeOut = 160
+                    self.timeOut = 160/2
                     self.SetState(STATE_GATE_REACHED)
                 return torMitte, startPoint, pfosten1, pfosten2
             else: 
@@ -424,3 +361,51 @@ class RobotController():
                 self.timeOut -= 1
             
         return None
+
+
+if __name__ == "__main__":
+    import sys
+    from eKarrenLib import eKarren
+    from pyqtgraph.Qt import QtWidgets
+    from Lidar import LidarApp
+    
+    torBreite = 0.92
+    gate = Gate(
+        gateWidthMin=torBreite-0.4, 
+        gateWidthMax=torBreite+0.4, 
+        startPointDist=2.0,                 #0.6, 
+        maxWinkel = 80,
+        gateIndexMargin=0,          #HB 8
+        vonRechts=True, 
+        segBasedDetection=False,
+        freeRangeDist=9.0)
+
+    robot = eKarren(debug=True)
+    robotController = RobotController(
+            robot, 
+            gate,
+            gateReachedThreshold=0.6,   #HB 0.3,           # Schwellwert für Erreichen des Tores [m]
+            startPointThreshold=0.05, #HB 0.1,            # Schwellwert für Erreichen Startpunktes [m]
+            baseSpeed = 0.2,                    # Basisfahrgeschwindigkeit [m/s]#
+            kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
+    )
+    def ProcessLidarData(angles, radius):
+        if robotController.Ready(): 
+            return [0], [0]
+            
+        angles, radius, points = gate.Preprocessing(angles, radius)
+
+        # Autopilot
+        dt = 0.1
+        result = robotController.Run(angles, radius, dt)
+
+        if result != None: 
+            torMitte, startPoint, pfosten1, pfosten2 = result
+            return ([0, torMitte.real, startPoint.real, pfosten1.real, pfosten2.real], 
+                    [0, torMitte.imag, startPoint.imag, pfosten1.imag, pfosten2.imag])
+        return [0], [0]
+
+    app = QtWidgets.QApplication(sys.argv)
+    window = LidarApp(ProcessLidarData)
+    sys.exit(app.exec_())
+    

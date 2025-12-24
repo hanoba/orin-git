@@ -135,7 +135,7 @@ def CreateGarten(stage):
     
         #fence = Fence(stage, primName, width=dist, height=H, radius=R, step=S)
         CreateRotatedCube(stage, primName, posX=m[0], posY=m[1], lenX=dist, lenY=0.1, height=1.6, angle_deg=angle)
-        print(f"Zaunelement {primName} created {A=}, {B=}")
+        print(f"Zaunelement {primName} created {a=}, {b=}")
         #f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath(primName))
         #f.SetRotate((0, 0, angle))
         #f.SetTranslate((m[0], m[1], 0.0))
@@ -146,8 +146,8 @@ def CreateGarten(stage):
     torBreite = 0.92
     PL = (PB[0]-torAbstand-torBreite, PB[1])    # linker Torpfosten
     PR = (PB[0]-torAbstand, PB[1])              # rechter Torpfosten
-    ZaunElement(stage, "/World/ZaunAX", PA, PL)
-    ZaunElement(stage, "/World/ZaunYB", PR, PB)
+    ZaunElement(stage, "/World/ZaunAL", PA, PL)
+    ZaunElement(stage, "/World/ZaunRB", PR, PB)
     ZaunElement(stage, "/World/ZaunBC", PB, PC)
     ZaunElement(stage, "/World/ZaunCD", PC, PD)
     ZaunElement(stage, "/World/ZaunDA", PD, PA)
@@ -159,6 +159,7 @@ def CreateGarten(stage):
         lenY = posY2 - posY1
         posX = posX1 - centerX
         posY = posY1 - centerY
+        print(f"{prim_path:<20} Unten links: ({posX:6.2f},{posY:6.2f}), Oben rechts: ({posX+lenX:6.2f},{posY+lenY:6.2f})")
         CreateCube(stage, prim_path, posX, posY, lenX, lenY, height=1.6)
     
     Haus(stage, "/World/Schuppen", Schuppen())

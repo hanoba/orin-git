@@ -2,104 +2,30 @@
 import numpy as np
 import math
 
-#lidarX=np.zeros(360*4)
-#lidarY=np.zeros(360*4)
-
-class Lidar():
-    def __init__(self, lidar, measPerDeg, backWheelDrive):
-        self.lidar = lidar
-        self.maxDist = 9.0
-        self.dist = np.zeros(360) + self.maxDist
-        #self.angles = np.zeros(360*measPerDeg) + 400.0
-        self.measPerDeg = measPerDeg
-        self.angOffset = 180 if backWheelDrive else 0      # 0°=Front 180°=Back
-        self.Init()
-
-    def Init(self):
-        self.lidar.initialize()                   # wichtig
-        self.lidar.add_point_cloud_data_to_frame()
-        self.lidar.enable_visualization()
-        self.frameCnt=-1
-        self.last_step = -1
-        self.debugCnt = 0
-        self.debugCntMax = 10
-        self.totalPoints = 0
-        
-    def Debug(self, text):
-        if self.debugCnt < self.debugCntMax:
-            print(f"[Lidar.Debug] {text}")
-            
-    def GetDistArray(self):
-        self.debugCnt += 1
-        
-        # LiDAR-Frame holen
-        frame = self.lidar.get_current_frame()
-        if frame is None:
-            return []
-
-        new_step = frame["physics_step"]
-        if new_step == self.last_step:
-            return []
-        self.last_step = new_step
-        
-        self.frameCnt += 1
-        # skip first dummy frame
-        if self.frameCnt == 0:
-            return []
-            
-        global lidarX, lidarY
-        pc = frame["point_cloud"].reshape(-1, 3)   # shape (N, 1, 3) – Punkte im Lidar/Robot-Frame
-
-        angMin =  99000
-        angMax = -99000
-        
-        numPoints = len(pc[:, 0])
-        for i in range(numPoints):
-            x = pc[i, 0]
-            y = pc[i, 1]
-
-            ang = math.degrees(math.atan2(y, x))
-            ang = (ang + self.angOffset) % 360.0      # Lidar 180° gedreht
-            ang = int(round(ang)) 
-            if ang==360: ang = 0
-
-            r = math.hypot(x, y)            # Entfernung            
-            self.dist[ang] = min(r, self.dist[ang])
-            #lidarX[self.totalPoints] = pc[i, 0]
-            #lidarY[self.totalPoints] = pc[i, 1]
-            
-            self.totalPoints += 1
-            if ang < angMin: angMin = ang
-            elif ang > angMax: angMax = ang
-
-        self.Debug(f"{numPoints=}  {angMin=:6.2f}  {angMax=:6.2f}")
-
-        if self.totalPoints >= 360*self.measPerDeg:
-            self.totalPoints = 0
-            distCopy = self.dist.copy()
-            self.dist.fill(self.maxDist)
-            return distCopy
-
-        return []
-
-
 
 SEARCH = 0
 FOLLOW = 1
 AVOID  = 2
 ALIGN  = 3
-NONE   = 4
+CORNER = 4
+NONE   = 5
 
-
-class WallFollowerFinal:
-    def __init__(self, world, target_dist=0.4, max_speed=0.5):
+class WallFollower:
+    def __init__(self, target_dist=0.4, base_speed=0.5):
         # Zielabstand zur rechten Wand [m]
         self.target_dist = target_dist
         self.cos50 = math.cos(40/180*math.pi)   # winkel zwischen Wandabstand und right_front
         self.cos10 = math.cos( 0/180*math.pi)   # winkel zwischen Wandabstand und right 
 
         # Basis-Vorwärtsgeschwindigkeit
-        self.max_speed = max_speed
+        self.base_speed = base_speed
+        
+        # Paramters for corner detection
+        self.corner_thresh =9.0    # Threshold for corner detection in meter
+        self.corner_delay = 30      # Delay until turning right
+        self.corner_cnt = 0         # delay counter
+        self.corner_radius = 1.0    # corner curve radius 
+
         
         # Maximal Winkelgeschwindigkeit
         self.max_angular = 0.5
@@ -113,8 +39,8 @@ class WallFollowerFinal:
         self.front_thresh = 1.5*self.target_dist  # 0.5   # Kollisionsschutz vorne
         self.far_thresh   = 2*self.target_dist  #  1.2    # ab hier gilt "Wand verloren"
         self.Init()
-        self.world = world
-        self.breakPointReached = False
+        #self.breakPointReached = False
+        self.time = 0
 
     def Init(self):
         print("Final WallFollower started (StateMachine + PD).")
@@ -126,6 +52,7 @@ class WallFollowerFinal:
         elif newState==FOLLOW: return "FOLLOW"
         elif newState==AVOID: return "AVOID"
         elif newState==ALIGN: return "ALIGN"
+        elif newState==CORNER: return "CORNER"
         return "Unknown"
     
     def SetState(self, newState):
@@ -137,7 +64,7 @@ class WallFollowerFinal:
     def GetSectorMin_deg(self, ranges_np, start_deg, end_deg):
         """Gibt Minimalradius in einen Bereich in [start_deg, end_deg) zurück."""
         if start_deg < end_deg: return np.nanmin(ranges_np[start_deg:end_deg]) 
-        elif start_deg < end_deg: return self.maxDist
+        elif start_deg < end_deg: return self.maxDist_mm
         min1 = np.nanmin(ranges_np[start_deg:])
         min2 = np.nanmin(ranges_np[:end_deg])
         return min(min1, min2)  
@@ -174,8 +101,12 @@ class WallFollowerFinal:
         else:
             # Wand verloren? → SEARCH
             th = self.far_thresh
-            if self.state == FOLLOW: th=th*1.5    #1.2  # Hysterese
-            if self.state != ALIGN:
+            if self.state == FOLLOW: 
+                th=th*1.5    #1.2  # Hysterese
+                if d_right_fwd >= self.corner_thresh:
+                    self.SetState(CORNER)
+                    self.corner_cnt = 0
+            if self.state != ALIGN and self.state != CORNER:
                 if d_dist > th or np.isinf(d_right):
                     self.SetState(SEARCH)
                 else:
@@ -201,10 +132,10 @@ class WallFollowerFinal:
                 angular = 0
             elif d_front > d_right_fwd: 
                 angular = -self.max_angular
-                linear  = self.max_speed
+                linear  = self.base_speed
             else:
                 angular = 0    # -0.5   
-                linear = self.max_speed
+                linear = self.base_speed
             #angular = -0.2   # -0.25
             #if d_right_fwd < d_right: angular = 0.1  #HB
 
@@ -215,6 +146,13 @@ class WallFollowerFinal:
             if d_front > d_right_fwd and d_right_fwd > d_right:
                 self.SetState(FOLLOW)
 
+        elif self.state == CORNER:
+            self.corner_cnt += 1
+            linear = self.base_speed
+            angular = 0.0 if self.corner_cnt < self.corner_delay else -linear/self.corner_radius
+            if d_right_fwd < 2 * self.target_dist:
+                self.SetState(FOLLOW)
+                
         elif self.state == FOLLOW:
             # Nur wenn Wandmessung vernünftig
             if np.isfinite(d_right):
@@ -232,7 +170,7 @@ class WallFollowerFinal:
                 angular = omega
                 #if angular > self.max_angular: angular = self.max_angular
                 #elif angular <- self.max_angular: angular = -self.max_angular
-                v = self.max_speed
+                v = self.base_speed
 
                 # Bei starkem Lenkeinschlag langsam fahren
                 #if abs(omega) > 0.2:
@@ -245,23 +183,25 @@ class WallFollowerFinal:
                 angular = -0.25
 
 
-        time = self.world.current_time
-        if not self.breakPointReached:
-            from omni.isaac.core.prims import XFormPrim
-            prim = XFormPrim("/World/eKarren/chassis_link")
-            pos, quat = prim.get_world_pose()
-            posX = pos[0]
-            posY = pos[1]
-            from scipy.spatial.transform import Rotation as R
-            # (w,x,y,z) → (x,y,z,w)
-            quat_scipy = [quat[1], quat[2], quat[3], quat[0]]
-            r = R.from_quat(quat_scipy)   # (x, y, z, w)
-            yaw = r.as_euler("xyz", degrees=True)[2]
-            print(f"{time:6.2f}: {self.GetStateText(self.state)} {d_front=:.2f}  {d_dist=:.2f}  {d_right_fwd=:.2f}  "
-                f"{lateral_error=:5.2f}  {heading_error=:5.2f}  {angular=:5.2f}  {linear=:.2f}  "
-                f"{posX=:5.2f} {posY=:5.2f} {yaw=:4.1f}°"
-            )
-
+        #time = self.world.current_time
+        #if not self.breakPointReached:
+        #    from omni.isaac.core.prims import XFormPrim
+        #    prim = XFormPrim("/World/eKarren/chassis_link")
+        #    pos, quat = prim.get_world_pose()
+        #    posX = pos[0]
+        #    posY = pos[1]
+        #    from scipy.spatial.transform import Rotation as R
+        #    # (w,x,y,z) → (x,y,z,w)
+        #    quat_scipy = [quat[1], quat[2], quat[3], quat[0]]
+        #    r = R.from_quat(quat_scipy)   # (x, y, z, w)
+        #    yaw = r.as_euler("xyz", degrees=True)[2]
+        #    print(f"{time:6.2f}: {self.GetStateText(self.state)} {d_front=:.2f}  {d_dist=:.2f}  {d_right_fwd=:.2f}  "
+        #        f"{lateral_error=:5.2f}  {heading_error=:5.2f}  {angular=:5.2f}  {linear=:.2f}  "
+        #        f"{posX=:5.2f} {posY=:5.2f} {yaw=:4.1f}°"
+        #    )
+        print(f"{self.time:6d}: {self.GetStateText(self.state)} d(0°)={d_front:.2f}  d(90°)={d_dist:.2f}  d(40°)={d_right_fwd:.2f}  "
+            f"latErr={lateral_error:5.2f}  headErr={heading_error:5.2f}  ang={angular:5.2f}  lin={linear:.2f}  ")
+        self.time += 1
         #if time > 99.11 and False:
         #    if not self.breakPointReached:
         #        np.savetxt("/DriveX/GitHub/orin-git/HostSim/ranges.txt", ranges, fmt="%.3f")
@@ -273,3 +213,22 @@ class WallFollowerFinal:
         #    return 0, 0
         return linear, angular
 
+
+if __name__ == "__main__":
+    import sys
+    from eKarrenLib import eKarren
+    from pyqtgraph.Qt import QtWidgets
+    from Lidar import LidarApp
+    
+    bot = eKarren(debug=True)
+    follower = WallFollower(target_dist=2.00, base_speed=0.5)
+    
+    def ProcessLidarData(angles, dist):
+        vLinear, omega = follower.step(dist)
+        bot.SetSpeed(vLinear, omega)
+        return [0], [0]
+
+    app = QtWidgets.QApplication(sys.argv)
+    window = LidarApp(ProcessLidarData)
+    sys.exit(app.exec_())
+    
