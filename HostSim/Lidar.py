@@ -11,7 +11,7 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtWidgets, QtCore, QtGui
 
 
-if platform.system() == "Linux":
+if platform.node() != "AZ-KENKO":
     import ydlidar
     
     class Lidar():

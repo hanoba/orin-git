@@ -11,7 +11,7 @@ DEV_EKARREN_PC = 2      # send UDP commands to PC (AZ-KENKO)
 DEV_EKARREN_EMU = 3     # send UDP commands to Rosmaster
 DEV_ISAAC_SIM = 4       # send UDP commans to isaac-sim
 
-if platform.system() == "Linux":
+if platform.node() != "AZ-KENKO":
     from Rosmaster_Lib import Rosmaster     # for eKarren emulation with RosMaster X3 PLus
 
     # Constants for eKarren
