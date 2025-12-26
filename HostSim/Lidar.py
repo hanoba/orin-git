@@ -6,6 +6,7 @@ import numpy as np
 import sys
 import socket
 import select
+import struct
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtWidgets, QtCore, QtGui
 
@@ -95,17 +96,26 @@ else:
                 # select prüft den Puffer
                 ready = select.select([self.sock], [], [], 0)
                 if ready[0]:
-                    data_bytes, _ = self.sock.recvfrom(1024)
-                    
-                    # Konvertierung: 2 Bytes pro Wert (360 Werte = 720 Bytes)
-                    dist_mm = np.frombuffer(data_bytes, dtype=np.uint16)
-                    
-                    if len(dist_mm) == 360:
-                        dist = dist_mm.astype(float) / 1000.0 # mm -> Meter
-                        return self.angles_rad, dist
+                        data, addr = self.sock.recvfrom(1024)
+
+                        # Wir erwarten jetzt: (360 * 2 Bytes) + (4 * 4 Bytes für Floats) = 736 Bytes
+                        DATA_SIZE = 736
+
+                        if len(data) == DATA_SIZE:
+                            # Den Lidar-Teil abtrennen (die ersten 720 Bytes)
+                            # Wir wandeln die Bytes direkt in ein NumPy-Array um (extrem schnell)
+                            lidar_bytes = data[:720]
+                            dist_mm = np.frombuffer(lidar_bytes, dtype=np.uint16)
+            
+                            # 2. Den Odometrie- und Time-Teil abtrennen (alles ab Byte 720)
+                            odometry_time_bytes = data[720:]
+                            posX, posY, yaw, time = struct.unpack('<ffff', odometry_time_bytes)
+                        
+                            dist = dist_mm.astype(float) / 1000.0 # mm -> Meter
+                            return self.angles_rad, dist, posX, posY, yaw, time
             except (OSError, ValueError, AttributeError):
-                return None, None
-            return None, None
+                return None, None, None, None, None, None
+            return None, None, None, None, None, None
 
         def close(self):
             """Beendet die Verbindung sauber."""
@@ -123,11 +133,27 @@ else:
 class LidarApp(QtWidgets.QMainWindow):
     def __init__(self, processLidarData):
         super().__init__()
-        
+
         self.processLidarData = processLidarData
+
+        # Wir brauchen einen Container, um mehrere Dinge (Plot + Text) anzuzeigen
+        self.container = QtWidgets.QWidget()
+        self.setCentralWidget(self.container)
+
+        # Layout erstellen und an den Container binden
+        self.layout = QtWidgets.QVBoxLayout(self.container) 
+        
+        # Das Plot-Widget (Diagramm)
         self.setWindowTitle("Lidar Live-Scan")
         self.view = pg.PlotWidget(title="Entfernung in Metern (Beenden mit ESC)")
-        self.setCentralWidget(self.view)
+        self.layout.addWidget(self.view)
+        
+        #self.setCentralWidget(self.view)
+        
+        # Die Textzeile (Status-Label) hinzufügen
+        self.status_label = QtWidgets.QLabel("Initialisiere Lidar...")
+        self.status_label.setStyleSheet("color: white; background-color: black; font-size: 14px; padding: 5px;")
+        self.layout.addWidget(self.status_label)        
         
         # Design & Skalierung
         self.view.setAspectLocked(True)
@@ -157,7 +183,7 @@ class LidarApp(QtWidgets.QMainWindow):
         if self.lidar.is_closed:
             return
             
-        angles, radius = self.lidar.get_scan()
+        angles, radius, posX, posY, yaw, time = self.lidar.get_scan()
         if angles is not None and radius is not None:
             # Transformation Polar -> Kartesisch
             x1 = radius * np.cos(angles)
@@ -166,6 +192,9 @@ class LidarApp(QtWidgets.QMainWindow):
                 x2, y2 = self.processLidarData(angles, radius)
                 self.plot1.setData(x1, y1)
                 self.plot2.setData(x2, y2)
+
+                # Textzeile aktualisieren (Beispiel: Zeigt die Position des roten Punkts)       
+                self.status_label.setText(f"{time:8.2f} {posX=:.2f}m {posY=:.2f}m {yaw=:.0f}°")
 
     def closeEvent(self, event):
         """Aufräumen beim Schließen des Fensters."""

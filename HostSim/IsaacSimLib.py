@@ -3,6 +3,7 @@ import numpy as np
 import math
 import socket
 import select
+import struct
 
 #lidarX=np.zeros(360*4)
 #lidarY=np.zeros(360*4)
@@ -34,18 +35,22 @@ class Lidar():
         if self.debugCnt < self.debugCntMax:
             print(f"[Lidar.Debug] {text}")
         
-    def UdpSend(self):
+    def UdpSend(self, posX, posY, yaw, time):
         # send self.dist_mm via udp
         if self.udpIp != "":
-            # Convert to bytes
-            # Note: By default, this uses your system's byte order (usually Little Endian)
-            data_bytes = self.dist_mm.tobytes()
+            # Den Lidar-Teil direkt als Bytes nehmen (360 * 2 Bytes = 720 Bytes)
+            lidar_bytes = self.dist_mm.tobytes()
 
-            # Send via UDP
-            self.sock.sendto(data_bytes, (self.udpIp, self.udpPort))                
+            # Die Odometrie-Floats und Time packen (4 * 4 Bytes = 16 Bytes)
+            # Beachte: Hier kein SCAN_SIZE im Format-String!
+            odometry_bytes = struct.pack('<ffff', posX, posY, yaw, time)
+
+            # Beide Byte-Blöcke zusammenfügen und senden
+            packet = lidar_bytes + odometry_bytes
+            self.sock.sendto(packet, (self.udpIp, self.udpPort))                
 
 
-    def GetDistArray(self):
+    def GetDistArray(self, posX, posY, yaw, time):
         self.debugCnt += 1
         
         # LiDAR-Frame holen
@@ -95,7 +100,7 @@ class Lidar():
         if self.totalPoints >= 360*self.measPerDeg:
             self.totalPoints = 0
             distCopy = self.dist_mm.copy() / 1000
-            self.UdpSend()
+            self.UdpSend(posX, posY, yaw, time)
             self.dist_mm.fill(self.maxDist_mm)
             return distCopy
 
@@ -154,3 +159,10 @@ class RobotCtrl:
                     self.sock.close()
             except:
                 pass
+
+
+# --- Beispiel für die Verwendung in deiner Isaac-Schleife ---
+# calc = OdometryCalculator()
+# ... in der Schleife:
+# dx, dy, dtheta = calc.compute_delta(sim_x_mm, sim_y_mm, sim_yaw_rad)
+# send_to_udp(lidar_data, dx, dy, dtheta)

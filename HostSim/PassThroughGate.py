@@ -385,7 +385,7 @@ if __name__ == "__main__":
             robot, 
             gate,
             gateReachedThreshold=0.6,   #HB 0.3,           # Schwellwert für Erreichen des Tores [m]
-            startPointThreshold=0.05, #HB 0.1,            # Schwellwert für Erreichen Startpunktes [m]
+            startPointThreshold=0.1, #HB 0.1,            # Schwellwert für Erreichen Startpunktes [m]
             baseSpeed = 0.2,                    # Basisfahrgeschwindigkeit [m/s]#
             kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
     )
