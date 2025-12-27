@@ -137,10 +137,10 @@ class Gate():
         return torMitte, startPoint, pfosten1, pfosten2
 
     def Preprocessing(self, angles, radius):
-        # Convert range 0..2*pi to -pi..pi
         assert len(angles) == 360
-        angles = np.concatenate((angles[180:360]-2*np.pi, angles[0:180]))
-        radius = np.concatenate((radius[180:360], radius[0:180]))
+        # Convert range 0..2*pi to -pi..pi (no longer needed. This is the default now)
+        #angles = np.concatenate((angles[180:360]-2*np.pi, angles[0:180]))
+        #radius = np.concatenate((radius[180:360], radius[0:180]))
         
         # Winkel-Filter        
         mask = (angles >= -self.maxWinkelRad) & (angles <= self.maxWinkelRad)

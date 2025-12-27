@@ -81,17 +81,22 @@ else:
             self.sock.setblocking(False)
             self.is_closed = False
             #print(f"Höre auf UDP-Daten unter {ip}:{port}...")
-            self.angles_rad = np.deg2rad(np.arange(360, dtype=float))
+            
+            # Winkel erzeugen von 0° bis 359° (die Winkel sind immer gleich)
+            angles = np.deg2rad(np.arange(360, dtype=float))
+
+            # umsortieren von 0° bis 359° auf -180° bis 179°
+            self.angles_rad = np.concatenate((angles[180:360]-2*np.pi, angles[0:180]))
 
         def get_scan(self):
             """Prüft auf neue Daten ohne zu blockieren."""
             if self.is_closed:
-                return None, None
+                return None, None, None, None, None, None
                 
             try:
                 # Überprüfung des Dateideskriptors
                 if self.sock.fileno() == -1:
-                    return None, None
+                    return None, None, None, None, None, None
                     
                 # select prüft den Puffer
                 ready = select.select([self.sock], [], [], 0)
@@ -105,7 +110,10 @@ else:
                             # Den Lidar-Teil abtrennen (die ersten 720 Bytes)
                             # Wir wandeln die Bytes direkt in ein NumPy-Array um (extrem schnell)
                             lidar_bytes = data[:720]
-                            dist_mm = np.frombuffer(lidar_bytes, dtype=np.uint16)
+                            radius = np.frombuffer(lidar_bytes, dtype=np.uint16)
+                            
+                            # umsortieren von 0° bis 360° auf -180° bis 180°
+                            dist_mm = np.concatenate((radius[180:360], radius[0:180]))
             
                             # 2. Den Odometrie- und Time-Teil abtrennen (alles ab Byte 720)
                             odometry_time_bytes = data[720:]

@@ -62,6 +62,8 @@ class WallFollower:
 
     # Hilfsfunktion: Sektor mit Wraparound in Grad
     def GetSectorMin_deg(self, ranges_np, start_deg, end_deg):
+        start_deg += 180
+        end_deg += 180
         """Gibt Minimalradius in einen Bereich in [start_deg, end_deg) zurück."""
         if start_deg < end_deg: return np.nanmin(ranges_np[start_deg:end_deg]) 
         elif start_deg < end_deg: return self.maxDist_mm
@@ -88,9 +90,9 @@ class WallFollower:
         #    ranges = ranges[idx]
 
         # --- Sektoren (Standard: 0° vorne, 90° links, 270° rechts) ---
-        d_front     = self.GetSectorMin_deg(ranges, 350, 10)   #   0° +/- 10°
-        d_right     = self.GetSectorMin_deg(ranges, 270, 290)  # 280° +/- 10° rechts seitlich
-        d_right_fwd = self.GetSectorMin_deg(ranges, 310, 330)  # 320° +/- 10° rechts vorne
+        d_front     = self.GetSectorMin_deg(ranges, -10, 10)   #   0° +/- 10°
+        d_right     = self.GetSectorMin_deg(ranges, -90,-70)   # 280° +/- 10° rechts seitlich
+        d_right_fwd = self.GetSectorMin_deg(ranges, -50,-30)   # 320° +/- 10° rechts vorne
 
         d_dist = d_right*self.cos10
 
