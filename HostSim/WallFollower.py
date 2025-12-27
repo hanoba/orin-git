@@ -62,8 +62,8 @@ class WallFollower:
 
     # Hilfsfunktion: Sektor mit Wraparound in Grad
     def GetSectorMin_deg(self, ranges_np, start_deg, end_deg):
-        start_deg += 180
-        end_deg += 180
+        start_deg += 120
+        end_deg += 120
         """Gibt Minimalradius in einen Bereich in [start_deg, end_deg) zurück."""
         if start_deg < end_deg: return np.nanmin(ranges_np[start_deg:end_deg]) 
         elif start_deg < end_deg: return self.maxDist_mm
@@ -74,7 +74,8 @@ class WallFollower:
 
     def step(self, ranges):
         #r = np.array(ranges, dtype=float)
-        assert ranges.size == 360
+        from Lidar import LidarMaxAngle
+        assert ranges.size == 2*LidarMaxAngle
 
         # Inf / 0 als NaN behandeln
         ranges[~np.isfinite(ranges)] = np.nan

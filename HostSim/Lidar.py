@@ -10,6 +10,9 @@ import struct
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtWidgets, QtCore, QtGui
 
+# angle range = -120 ... 120 = -LidarMaxAngle ... LidarMaxAngle
+LidarMaxAngle = 120
+
 
 if platform.node() != "AZ-KENKO":
     import ydlidar
@@ -84,9 +87,9 @@ else:
             
             # Winkel erzeugen von 0° bis 359° (die Winkel sind immer gleich)
             angles = np.deg2rad(np.arange(360, dtype=float))
-
+            
             # umsortieren von 0° bis 359° auf -180° bis 179°
-            self.angles_rad = np.concatenate((angles[180:360]-2*np.pi, angles[0:180]))
+            self.angles_rad = np.concatenate((angles[360-LidarMaxAngle:360]-2*np.pi, angles[0:LidarMaxAngle]))
 
         def get_scan(self):
             """Prüft auf neue Daten ohne zu blockieren."""
@@ -112,8 +115,8 @@ else:
                             lidar_bytes = data[:720]
                             radius = np.frombuffer(lidar_bytes, dtype=np.uint16)
                             
-                            # umsortieren von 0° bis 360° auf -180° bis 180°
-                            dist_mm = np.concatenate((radius[180:360], radius[0:180]))
+                            # umsortieren von 0° bis 360° auf -120° bis 120° (ROS2 kann 360 Werte nicht verarbeiten)
+                            dist_mm = np.concatenate((radius[360-LidarMaxAngle:360], radius[0:LidarMaxAngle]))
             
                             # 2. Den Odometrie- und Time-Teil abtrennen (alles ab Byte 720)
                             odometry_time_bytes = data[720:]
@@ -121,6 +124,7 @@ else:
                         
                             dist = dist_mm.astype(float) / 1000.0 # mm -> Meter
                             return self.angles_rad, dist, posX, posY, yaw, time
+                        print(f"LidarUdp: Ungültige LaserScan-Daten empfangen len={len(data)}")
             except (OSError, ValueError, AttributeError):
                 return None, None, None, None, None, None
             return None, None, None, None, None, None
