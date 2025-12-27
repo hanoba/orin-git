@@ -103,8 +103,8 @@ else:
                 if ready[0]:
                         data, addr = self.sock.recvfrom(1024)
 
-                        # Wir erwarten jetzt: (360 * 2 Bytes) + (4 * 4 Bytes für Floats) = 736 Bytes
-                        DATA_SIZE = 736
+                        # Wir erwarten jetzt: (360 * 2 Bytes) + (3 * 4 Bytes für Floats) + (1 * 8 Bytes für double) = 740 Bytes
+                        DATA_SIZE = 740
 
                         if len(data) == DATA_SIZE:
                             # Den Lidar-Teil abtrennen (die ersten 720 Bytes)
@@ -117,7 +117,7 @@ else:
             
                             # 2. Den Odometrie- und Time-Teil abtrennen (alles ab Byte 720)
                             odometry_time_bytes = data[720:]
-                            posX, posY, yaw, time = struct.unpack('<ffff', odometry_time_bytes)
+                            posX, posY, yaw, time = struct.unpack('<fffd', odometry_time_bytes)
                         
                             dist = dist_mm.astype(float) / 1000.0 # mm -> Meter
                             return self.angles_rad, dist, posX, posY, yaw, time

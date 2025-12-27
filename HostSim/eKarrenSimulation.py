@@ -37,6 +37,9 @@ from omni.isaac.core.utils.viewports import set_camera_view
 from omni.isaac.core.utils.prims import create_prim
 from omni.isaac.core.prims import XFormPrim
 
+# Zugriff auf die interne Sim-Uhr
+from omni.timeline import get_timeline_interface
+
 from WallFollower import WallFollower
 import IsaacSimLib as isl
 from Fence import CreateFence, CreateWalls, CreateCylinder
@@ -53,9 +56,11 @@ measPerDeg = 4
 my_world = World(stage_units_in_meters=1.0)
 my_world.scene.add_default_ground_plane()
 stage = my_world.stage
+timeline = get_timeline_interface()
 
 def GetPositionAndTime():
-    time = my_world.current_time
+    #time = my_world.current_time
+    time = timeline.get_current_time()
     prim = XFormPrim("/World/eKarren/chassis_link")
     pos, quat = prim.get_world_pose()
     posX = pos[0]

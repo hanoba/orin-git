@@ -43,7 +43,7 @@ class Lidar():
 
             # Die Odometrie-Floats und Time packen (4 * 4 Bytes = 16 Bytes)
             # Beachte: Hier kein SCAN_SIZE im Format-String!
-            odometry_bytes = struct.pack('<ffff', posX, posY, yaw, time)
+            odometry_bytes = struct.pack('<fffd', posX, posY, yaw, time)
 
             # Beide Byte-Blöcke zusammenfügen und senden
             packet = lidar_bytes + odometry_bytes
