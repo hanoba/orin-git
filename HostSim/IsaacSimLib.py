@@ -41,7 +41,7 @@ class Lidar():
             # Den Lidar-Teil direkt als Bytes nehmen (360 * 2 Bytes = 720 Bytes)
             lidar_bytes = self.dist_mm.tobytes()
 
-            # Die Odometrie-Floats und Time packen (4 * 4 Bytes = 16 Bytes)
+            # Die Odometrie-Floats und Time (Double) packen (3*4 + 1*8 Bytes = 20 Bytes)
             # Beachte: Hier kein SCAN_SIZE im Format-String!
             odometry_bytes = struct.pack('<fffd', posX, posY, yaw, time)
 

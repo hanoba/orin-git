@@ -70,6 +70,9 @@ def GetPositionAndTime():
     quat_scipy = [quat[1], quat[2], quat[3], quat[0]]
     r = R.from_quat(quat_scipy)   # (x, y, z, w)
     yaw = r.as_euler("xyz", degrees=True)[2]
+    if backWheelDrive: 
+        yaw += 180
+        if yaw > 360: yaw -= 360
     return posX, posY, yaw, time
 
 def SetCamera():

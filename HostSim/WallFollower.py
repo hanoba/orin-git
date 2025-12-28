@@ -81,19 +81,10 @@ class WallFollower:
         ranges[~np.isfinite(ranges)] = np.nan
         ranges[ranges <= 0.0] = np.nan
         
-        ## Falls der Scan nicht 360 Werte hat, auf 360 „normalisieren“
-        ## (vereinfachend: bei den meisten 360°-Scannern ist das der Fall,
-        ##  sonst müsste man über angle_min/angle_increment gehen).
-        #if ranges.size != 360:
-        #    print(f"ERROR {ranges.size=}")
-        #    # grobe, aber robuste Resampling-Lösung
-        #    idx = np.linspace(0, ranges.size - 1, 360).astype(int)
-        #    ranges = ranges[idx]
-
         # --- Sektoren (Standard: 0° vorne, 90° links, 270° rechts) ---
-        d_front     = self.GetSectorMin_deg(ranges, -10, 10)   #   0° +/- 10°
-        d_right     = self.GetSectorMin_deg(ranges, -90,-70)   # 280° +/- 10° rechts seitlich
+        d_front     = self.GetSectorMin_deg(ranges, -10, 10)   #   0° +/- 10° vorne
         d_right_fwd = self.GetSectorMin_deg(ranges, -50,-30)   # 320° +/- 10° rechts vorne
+        d_right     = self.GetSectorMin_deg(ranges, -90,-70)   # 280° +/- 10° rechts seitlich
 
         d_dist = d_right*self.cos10
 
@@ -185,35 +176,9 @@ class WallFollower:
                 linear  = 0.25
                 angular = -0.25
 
-
-        #time = self.world.current_time
-        #if not self.breakPointReached:
-        #    from omni.isaac.core.prims import XFormPrim
-        #    prim = XFormPrim("/World/eKarren/chassis_link")
-        #    pos, quat = prim.get_world_pose()
-        #    posX = pos[0]
-        #    posY = pos[1]
-        #    from scipy.spatial.transform import Rotation as R
-        #    # (w,x,y,z) → (x,y,z,w)
-        #    quat_scipy = [quat[1], quat[2], quat[3], quat[0]]
-        #    r = R.from_quat(quat_scipy)   # (x, y, z, w)
-        #    yaw = r.as_euler("xyz", degrees=True)[2]
-        #    print(f"{time:6.2f}: {self.GetStateText(self.state)} {d_front=:.2f}  {d_dist=:.2f}  {d_right_fwd=:.2f}  "
-        #        f"{lateral_error=:5.2f}  {heading_error=:5.2f}  {angular=:5.2f}  {linear=:.2f}  "
-        #        f"{posX=:5.2f} {posY=:5.2f} {yaw=:4.1f}°"
-        #    )
         print(f"{self.time:6d}: {self.GetStateText(self.state)} d(0°)={d_front:.2f}  d(90°)={d_dist:.2f}  d(40°)={d_right_fwd:.2f}  "
             f"latErr={lateral_error:5.2f}  headErr={heading_error:5.2f}  ang={angular:5.2f}  lin={linear:.2f}  ")
         self.time += 1
-        #if time > 99.11 and False:
-        #    if not self.breakPointReached:
-        #        np.savetxt("/DriveX/GitHub/orin-git/HostSim/ranges.txt", ranges, fmt="%.3f")
-        #        np.savetxt("/DriveX/GitHub/orin-git/HostSim/angles.txt", angles, fmt="%.3f")
-        #        np.savetxt("/DriveX/GitHub/orin-git/HostSim/lidarX.txt", lidarX, fmt="%8.3f")
-        #        np.savetxt("/DriveX/GitHub/orin-git/HostSim/lidarY.txt", lidarY, fmt="%8.3f")
-        #        self.breakPointReached = True
-        #        print("Breakpoint reached")
-        #    return 0, 0
         return linear, angular
 
 
