@@ -1,0 +1,22 @@
+slam_toolbox:
+  ros__parameters:
+    use_sim_time: true
+    
+    # Frames
+    base_frame: base_link
+    odom_frame: odom
+    map_frame: map
+    scan_topic: /scan
+    
+    # WICHTIG: Toleranz-Einstellungen
+    transform_timeout: 0.5    # Wartet 0.5s auf TF
+    tf_buffer_duration: 30.0  # Behält 30s Geschichte
+    minimum_time_interval: 0.1 # Verarbeitet max 10 Scans pro Sekunde (entlastet Queue)
+    throttle_scans: 1         # Verarbeitet jeden Scan (oder erhöhe auf 2 falls CPU am Limit)
+    
+    # Solver
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    
