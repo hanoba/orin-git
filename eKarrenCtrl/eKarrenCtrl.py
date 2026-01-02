@@ -5,12 +5,16 @@
 # Projekt: Robotersteuerung mit yolo11n-pose
 # Autor: Harald Bauer 
 # Datum: 2025-12-06
-# Beschreibung: Steuert eKarren oder Rosmaster in Echtzeit basierend auf Handposition und -größe,
-#               erkannt durch YOLO11-Pose-Inferenz auf Jetson/TensorRT.
+# Beschreibung: 
+# Roboter (eKarren oder Rosmaster) verfolgt eine Person basierend auf 
+# erkannter Körperposition und -größe. Zur Body-Pose-Erkennung wird
+# YOLO11-Pose-Inferenz auf Jetson/TensorRT verwendet.
+# Steruerung: Rechte Hand oben: Starte Personenverfolgung
+#             Linke Hand oben: Personenverfolgung beenden
 # ==============================================================
 
 # ============================================================================
-# Robotersteuerung mit Handverfolgung über YOLO-HandPose
+# Robotersteuerung mit Personenverfolgung über YOLO-Pose
 # ============================================================================
 # Dieses Skript nutzt eine Kamera und ein Body-Pose-Erkennungsnetz (YOLO11-Pose, um
 # um Gesten Bewegungen einer Person zu erkennen und einen Roboter (Rosmaster) zu steuern.
