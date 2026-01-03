@@ -58,6 +58,48 @@ my_world.scene.add_default_ground_plane()
 stage = my_world.stage
 timeline = get_timeline_interface()
 
+
+from omni.isaac.core.utils.prims import get_prim_at_path, get_all_matching_child_prims
+from pxr import PhysxSchema
+
+def stabilize_nova_carter(carter_root="/World/Nova_Carter",
+                          chassis_damping=(4.0, 0.8),
+                          wheel_damping=10.0):
+    """
+    Stabilisiert Nova Carter:
+    - chassis_link: Angular + Linear Damping
+    - alle Räder (Articulation Drives): Angular Damping
+    """
+
+    stage = get_prim_at_path("/World").GetStage()
+
+    # 1️⃣ Chassis Damping
+    chassis = get_prim_at_path(f"{carter_root}/chassis_link")
+    if chassis:
+        rb_api = PhysxSchema.PhysxRigidBodyAPI.Apply(chassis)
+        rb_api.CreateAngularDampingAttr().Set(chassis_damping[0])
+        rb_api.CreateLinearDampingAttr().Set(chassis_damping[1])
+        print(f"[NovaCarter] Chassis damping gesetzt: Angular={chassis_damping[0]}, Linear={chassis_damping[1]}")
+    else:
+        print("[NovaCarter] chassis_link nicht gefunden!")
+
+    # 2️⃣ Räder Damping
+    all_prims = get_all_matching_child_prims(carter_root, lambda p: True)
+    wheel_count = 0
+    for prim in all_prims:
+        # Wir suchen alle Articulation Joints (Revolute / Hinge)
+        if prim.GetTypeName() in ["PhysxRevoluteJoint", "PhysxSphericalJoint"]:
+            # Angular Damping direkt auf das Drive-Attribute setzen
+            # Name des Attributes: "angularDrive.damping"
+            attr = prim.GetAttribute("angularDrive.damping")
+            if attr:
+                attr.Set(wheel_damping)
+                wheel_count += 1
+                print(f"[NovaCarter] Wheel drive damping gesetzt: {prim.GetPath()} -> {wheel_damping}")
+
+    if wheel_count == 0:
+        print("[NovaCarter] Keine Wheel Drives gefunden!")
+
 def GetPositionAndTime():
     #time = my_world.current_time
     time = timeline.get_current_time()
@@ -139,6 +181,8 @@ def CreateRobot(posX, posY, yaw):
     asset_path = "/bin/Robots/NVIDIA/NovaCarter/nova_carter.usd"
     add_reference_to_stage(asset_path, eKarrenPath)
 
+    stabilize_nova_carter(eKarrenPath)
+    
     # 3. Skalierung & Position (Einfach und lesbar über XFormPrim)
     # XFormPrim ist wie ein "Schweizer Taschenmesser" für Objekte
     from omni.isaac.core.prims import XFormPrim
@@ -214,10 +258,10 @@ while simulation_app.is_running():
             my_lidar.Init()
         posX, posY, yaw, time = GetPositionAndTime()
         dist = my_lidar.GetDistArray(posX, posY, yaw, time)
-        cmd, params = robotCtrl.GetCmd()
-        if cmd == isl.CMD_VELOCITY:
         #if len(dist) > 0: 
             #v, omega = follower.step(dist)
+        cmd, params = robotCtrl.GetCmd()
+        if cmd == isl.CMD_VELOCITY:
             v, omega = params
             v = -v if backWheelDrive else v
             my_carter.apply_wheel_actions(my_controller.forward(command=[v, omega]))
