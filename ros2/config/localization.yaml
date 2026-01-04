@@ -1,0 +1,39 @@
+slam_toolbox:
+  ros__parameters:
+    use_sim_time: true
+
+    # Modus von 'async' oder 'mapping' auf 'localization' ändern
+    mode: localization
+
+    # Den Pfad zu deiner Karte (OHNE Dateiendung!)
+    map_file_name: /home/harald/orin-git/ros2/meine_karte2
+    map_start_pose: [0.0, 0.0, 0.0]  # [x, y, yaw]
+    
+    # Frames
+    base_frame: base_link
+    odom_frame: odom
+    map_frame: map
+    scan_topic: /scan
+
+    # Erhöhe die Such-Toleranz
+    distance_variance_penalty: 0.1      # Standard ist oft 0.5, kleiner machen
+    angle_variance_penalty: 0.1
+    
+    # Senke die Hürde für ein Match
+    minimum_score: 0.1                  # Erlaube auch "schlechte" Übereinstimmungen zum Einrasten
+    
+    # Vergrößere den Suchbereich beim 2D Pose Estimate
+    link_match_maximum_distance: 4.0    # Sucht im Umkreis von 4 Metern nach Übereinstimmung
+    
+    # WICHTIG: Toleranz-Einstellungen
+    transform_timeout: 2.0    # Wartet 0.5s auf TF
+    tf_buffer_duration: 30.0  # Behält 30s Geschichte
+    minimum_time_interval: 0.1 # Verarbeitet max 10 Scans pro Sekunde (entlastet Queue)
+    throttle_scans: 1         # Verarbeitet jeden Scan (oder erhöhe auf 2 falls CPU am Limit)
+    
+    # Solver
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    

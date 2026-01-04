@@ -11,7 +11,7 @@ CORNER = 4
 NONE   = 5
 
 class WallFollower:
-    def __init__(self, target_dist=0.4, base_speed=0.5):
+    def __init__(self, target_dist=0.4, base_speed=0.5, debug=False):
         # Zielabstand zur rechten Wand [m]
         self.target_dist = target_dist
         self.cos50 = math.cos(40/180*math.pi)   # winkel zwischen Wandabstand und right_front
@@ -19,6 +19,8 @@ class WallFollower:
 
         # Basis-Vorwärtsgeschwindigkeit
         self.base_speed = base_speed
+        
+        self.debugFlag = debug
         
         # Paramters for corner detection
         self.corner_thresh =9.0    # Threshold for corner detection in meter
@@ -57,7 +59,7 @@ class WallFollower:
     
     def SetState(self, newState):
         if newState != self.state:
-            print(f"State: {self.GetStateText(newState)}")
+            if self.debugFlag: print(f"State: {self.GetStateText(newState)}")
             self.state = newState
 
     # Hilfsfunktion: Sektor mit Wraparound in Grad
@@ -176,7 +178,8 @@ class WallFollower:
                 linear  = 0.25
                 angular = -0.25
 
-        print(f"{self.time:6d}: {self.GetStateText(self.state)} d(0°)={d_front:.2f}  d(90°)={d_dist:.2f}  d(40°)={d_right_fwd:.2f}  "
+        if self.debugFlag:
+            print(f"{self.time:6d}: {self.GetStateText(self.state)} d(0°)={d_front:.2f}  d(90°)={d_dist:.2f}  d(40°)={d_right_fwd:.2f}  "
             f"latErr={lateral_error:5.2f}  headErr={heading_error:5.2f}  ang={angular:5.2f}  lin={linear:.2f}  ")
         self.time += 1
         return linear, angular

@@ -24,12 +24,12 @@ class WallFollowerNode(Node):
         
         self.get_logger().info("Wall Follower gestartet...")
         
-        self.wallFollower = WallFollower(target_dist=2.00, base_speed=0.5)
+        self.wallFollower = WallFollower(target_dist=2.00, base_speed=0.5, debug=False)
         self.cnt = 0
 
     def scan_callback(self, msg):
         self.cnt += 1
-        if self.cnt % 10 == 0: self.get_logger().info(f"scan_callback #{self.cnt}")
+        if self.cnt % 50 == 0: self.get_logger().info(f"scan_callback #{self.cnt}")
         ranges_np = np.array(msg.ranges)
         vLinear, omega = self.wallFollower.step(ranges_np)    
         drive_msg = Twist()
