@@ -20,6 +20,11 @@ from Lidar import LidarMaxAngle
 class IsaacBridge(Node):
     def __init__(self):
         super().__init__('isaac_bridge')
+
+        # ROS2 Parameter deklarieren (Name, Standardwert)
+        self.declare_parameter('publish_odom_tf', True)
+        self.publishOdomTf = self.get_parameter('publish_odom_tf').get_parameter_value().bool_value
+        self.get_logger().info(f"publish_odom_tf={self.publishOdomTf}")
         
         #qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT)
         clock_qos = QoSProfile(
@@ -35,8 +40,8 @@ class IsaacBridge(Node):
             history=HistoryPolicy.KEEP_LAST,
             depth=1)
         #self.clock_pub = self.create_publisher(Clock, '/clock', 10)
-        #self.scan_pub = self.create_publisher(LaserScan, '/scan', qos_profile_sensor_data)
-        self.scan_pub = self.create_publisher(LaserScan, '/scan', qos_profile)
+        self.scan_pub = self.create_publisher(LaserScan, '/scan', qos_profile_sensor_data)
+        #self.scan_pub = self.create_publisher(LaserScan, '/scan', qos_profile)
         self.tf_broadcaster = TransformBroadcaster(self)
         
         # Subscriber für Fahrbefehle von ROS 2
@@ -138,17 +143,18 @@ class IsaacBridge(Node):
                 clock_msg.clock = current_time.to_msg()
                 self.clock_pub.publish(clock_msg)
                 
-                # --- PUBLISH TF ---
-                t = TransformStamped()
-                t.header.stamp = tf_time.to_msg()
-                t.header.frame_id = 'odom'
-                t.child_frame_id = 'base_link'
-                t.transform.translation.x = float(posX)
-                t.transform.translation.y = float(posY)
-                t.transform.translation.z = 0.0
-                t.transform.rotation.z = math.sin(theta / 2.0)
-                t.transform.rotation.w = math.cos(theta / 2.0)
-                self.tf_broadcaster.sendTransform(t)
+                if self.publishOdomTf:
+                    # --- PUBLISH TF ---
+                    t = TransformStamped()
+                    t.header.stamp = tf_time.to_msg()
+                    t.header.frame_id = 'odom'
+                    t.child_frame_id = 'base_link'
+                    t.transform.translation.x = float(posX)
+                    t.transform.translation.y = float(posY)
+                    t.transform.translation.z = 0.0
+                    t.transform.rotation.z = math.sin(theta / 2.0)
+                    t.transform.rotation.w = math.cos(theta / 2.0)
+                    self.tf_broadcaster.sendTransform(t)
 
                 # Kleine Erfolgsmeldung alle 100 Pakete
                 if not hasattr(self, 'count'): self.count = 0

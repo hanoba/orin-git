@@ -24,5 +24,5 @@ cd /home/harald/orin-git/ros2
 ros2 run tf2_ros static_transform_publisher 0.4 0 0 0 0 0 base_link lidar --ros-args -p use_sim_time:=true &
 rviz2 -d config/Map.rviz --ros-args -p use_sim_time:=true &
 python3 WallFollowerNode.py  --ros-args -p use_sim_time:=true &
-ros2 launch slam_toolbox online_async_launch.py slam_params_file:=config/my_slam_params.yaml &
+ros2 launch slam_toolbox online_async_launch.py slam_params_file:=config/slam_params.yaml &
 python3 bridge.py 

@@ -4,9 +4,10 @@ slam_toolbox:
 
     # Modus von 'async' oder 'mapping' auf 'localization' ändern
     mode: localization
+    pub_map_to_odom: true
 
     # Den Pfad zu deiner Karte (OHNE Dateiendung!)
-    map_file_name: /home/harald/orin-git/ros2/meine_karte2
+    map_file_name: /home/harald/orin-git/ros2/map_res_10cm
     map_start_pose: [0.0, 0.0, 0.0]  # [x, y, yaw]
     
     # Frames
@@ -16,8 +17,8 @@ slam_toolbox:
     scan_topic: /scan
 
     # Erhöhe die Such-Toleranz
-    distance_variance_penalty: 0.1      # Standard ist oft 0.5, kleiner machen
-    angle_variance_penalty: 0.1
+    distance_variance_penalty: 0.5      # Standard ist oft 0.5, kleiner machen
+    angle_variance_penalty: 0.5
     
     # Senke die Hürde für ein Match
     minimum_score: 0.1                  # Erlaube auch "schlechte" Übereinstimmungen zum Einrasten
@@ -25,15 +26,33 @@ slam_toolbox:
     # Vergrößere den Suchbereich beim 2D Pose Estimate
     link_match_maximum_distance: 4.0    # Sucht im Umkreis von 4 Metern nach Übereinstimmung
     
+    # Vergrößere das Suchfenster für das Scan-Matching
+    # Ohne Odometrie muss er in einem größeren Bereich nach der Wand suchen
+    scan_matching_maximum_distance: 10.0
+
+    # 3. Vergrößere den Suchraum (Pixel-Ebene)
+    # Das hilft, wenn die Grob-Positionierung falsch liegt
+    correlation_search_space_dimension: 2.0  # Standard ca 0.5
+    correlation_search_space_resolution: 0.05
+    
+    # ZWINGE Updates, auch wenn Odom "0" meldet:
+    minimum_travel_distance: 0.0   # Standard ist oft 0.5
+    minimum_travel_heading: 0.0    # Standard ist oft 0.5
+
+    # WICHTIG: Erhöhe das Intervall für die Pose-Veröffentlichung
+    # Wenn keine Odom da ist, muss die Toolbox die Map->Base Transformation öfter senden
+    map_update_interval: 1.0       # Standard ist oft 5.0, setze es auf 0.5 für Localization
+    
     # WICHTIG: Toleranz-Einstellungen
-    transform_timeout: 2.0    # Wartet 0.5s auf TF
+    transform_timeout: 1.0    # Wartet 0.5s auf TF
     tf_buffer_duration: 30.0  # Behält 30s Geschichte
     minimum_time_interval: 0.1 # Verarbeitet max 10 Scans pro Sekunde (entlastet Queue)
-    throttle_scans: 1         # Verarbeitet jeden Scan (oder erhöhe auf 2 falls CPU am Limit)
+    throttle_scans: 5         # Verarbeitet jeden Scan (oder erhöhe auf 2 falls CPU am Limit)
     
     # Solver
     solver_plugin: solver_plugins::CeresSolver
     ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
     ceres_preconditioner: SCHUR_JACOBI
     ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_num_threads: 8
     
