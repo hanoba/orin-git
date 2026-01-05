@@ -1,0 +1,55 @@
+amcl:
+  ros__parameters:
+    use_sim_time: true
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    global_frame_id: "map"
+    scan_topic: "/scan"
+
+    # --- DER "RUHE-MODUS" FÜR LANGE GERADEN ---
+    # Nur alle halbe Meter rechnen! Das verhindert, dass die Wolke
+    # auf der Geraden "nervös" wird und zerfällt.
+    update_min_d: 0.5
+    # Aber beim Drehen (Ecken!) sofort reagieren
+    update_min_a: 0.1
+
+    # --- PRÄZISION ---
+    # Wir brauchen viele Partikel, um die wenigen Features (Ecken) sicher zu treffen
+    min_particles: 1000
+    max_particles: 5000  
+    kld_err: 0.01
+    kld_z: 0.99
+    resample_interval: 1
+
+    # --- ODOMETRIE (Asymmetrisch) ---
+    # alpha3 (Translation durch Translation): 0.05 -> Wir vertrauen darauf, dass er geradeaus fährt
+    # alpha1 (Rotation durch Rotation): 0.2 -> Hier erlauben wir Fehler
+    robot_model_type: "nav2_amcl::DifferentialMotionModel"
+    alpha1: 0.2   # Rotation-Noise
+    alpha2: 0.05  # Drift beim Geradeausfahren
+    alpha3: 0.05  # Fehler in der Distanzmessung (sehr niedrig!)
+    alpha4: 0.05  # Fehler in der Distanz beim Drehen
+
+    # --- LASER (Scharf gestellt) ---
+    laser_model_type: "likelihood_field"
+    # Max Range auf 30m, damit er das Ende des Korridors so früh wie möglich sieht!
+    laser_max_range: 30.0 
+    laser_min_range: 0.4
+    
+    # Suchradius wieder moderat, damit er nicht auf die falsche Seite der Mauer springt
+    laser_likelihood_max_dist: 2.0 
+    
+    # Viele Strahlen nutzen, um jede kleine Unregelmäßigkeit in der Mauer zu finden
+    max_beams: 180 
+    
+    # Hohes Vertrauen in die Karte
+    z_hit: 0.9
+    z_rand: 0.1
+    z_short: 0.05
+    z_max: 0.05
+
+    # Recovery
+    recovery_alpha_slow: 0.001
+    recovery_alpha_fast: 0.1
+    always_reset_initial_pose: true
+    

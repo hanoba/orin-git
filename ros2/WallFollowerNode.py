@@ -24,7 +24,7 @@ class WallFollowerNode(Node):
         
         self.get_logger().info("Wall Follower gestartet...")
         
-        self.wallFollower = WallFollower(target_dist=2.00, base_speed=0.2, debug=False)
+        self.wallFollower = WallFollower(target_dist=2.00, base_speed=0.5, debug=False)
         self.cnt = 0
 
     def scan_callback(self, msg):

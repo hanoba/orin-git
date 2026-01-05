@@ -1,0 +1,23 @@
+amcl:
+  ros__parameters:
+    use_sim_time: true
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    global_frame_id: "map"
+    scan_topic: "/scan"
+    
+    # Partikel-Anzahl (reicht für den Garten völlig aus)
+    min_particles: 500
+    max_particles: 2000
+    
+    # Wie genau soll AMCL beim Start suchen?
+    # Erhöhe diese Werte, wenn dein Startpunkt ungenau ist
+    initial_pose: [0.0, 0.0, 0.0]
+    
+    # Laser Modell (Likelihood Field ist am schnellsten)
+    laser_model_type: "likelihood_field"
+    laser_max_range: 50.0
+    
+    # Update-Schwellen (AMCL rechnet erst, wenn der Roboter sich bewegt)
+    update_min_d: 0.1  # alle 10cm
+    update_min_a: 0.1  # oder alle ~5 Grad

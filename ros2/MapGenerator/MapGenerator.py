@@ -1,5 +1,6 @@
 import numpy as np
 import yaml
+from pathlib import Path
 
 #   0: Wand (Schwarz)
 # 254: Frei (Weiß)
@@ -68,7 +69,7 @@ class PGMMap:
                 x -= 1
                 err += 2 * (y - x) + 1
 
-    def save_map(self, base_filename):
+    def save_map(self, base_filename, nx=0.0, ny=0.0):
         """Speichert .pgm (P5 binär) und .yaml Datei."""
         pgm_filename = f"{base_filename}.pgm"
         yaml_filename = f"{base_filename}.yaml"
@@ -79,9 +80,9 @@ class PGMMap:
             f.write(self.data.tobytes())
 
         mode = "trinary"
-        origin = [0.0, 0.0, 0.0]
+        origin = [nx, ny, 0.0]
         metadata = {
-            'image': pgm_filename,
+            'image': Path(pgm_filename).name,
             'mode': mode,
             'resolution': self.resolution,
             'origin': origin,

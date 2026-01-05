@@ -3,6 +3,7 @@
 # HB 2025-12-20
 
 from MapGenerator import PGMMap
+from Nullpunkt import Nullpunkt
 import math
 
 def Move(poly, mx, my):
@@ -102,10 +103,10 @@ def Schuppen():
 # -------------------------------------------------------
 # Garten
 # -------------------------------------------------------
-def CreateGarten():
-    mapX = 1000
-    mapY =  600
-    res = 0.05
+def CreateGarten(res_cm):
+    mapX = int(5000 / res_cm + 0.5)
+    mapY = int(3000 / res_cm + 0.5)
+    res = res_cm*0.01
     map = PGMMap(mapX, mapY, resolution=res)
     map.draw_rectangle(0, 0, mapX, mapY, value=254) # Hintergrund weiß
     
@@ -171,6 +172,8 @@ def CreateGarten():
     Strauch("Strauch", strauchMP, strauchDM)
 
     # Speichern
-    map.save_map("garten_map2")
+    nx, ny = Nullpunkt(res)
+    map.save_map(f"../map/garten_map_{res_cm}cm", nx, ny)
 
-CreateGarten()
+CreateGarten(5)
+CreateGarten(10)

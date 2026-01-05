@@ -23,8 +23,13 @@ class IsaacBridge(Node):
 
         # ROS2 Parameter deklarieren (Name, Standardwert)
         self.declare_parameter('publish_odom_tf', True)
-        self.publishOdomTf = self.get_parameter('publish_odom_tf').get_parameter_value().bool_value
+        self.declare_parameter('lidarRangeMax', 50.0)
+        self.declare_parameter('lidarRangeMin', 0.1)
+        self.publishOdomTf = self.get_parameter('publish_odom_tf').value
+        self.lidarRangeMax = self.get_parameter('lidarRangeMax').value
+        self.lidarRangeMin = self.get_parameter('lidarRangeMin').value
         self.get_logger().info(f"publish_odom_tf={self.publishOdomTf}")
+        self.get_logger().info(f"lidarRangeMax={self.lidarRangeMax}   lidarRangeMin={self.lidarRangeMin}")
         
         #qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT)
         clock_qos = QoSProfile(
@@ -118,8 +123,8 @@ class IsaacBridge(Node):
                 scan.angle_increment = (scan.angle_max - scan.angle_min) / (num_readings - 1)
                 scan.angle_max = scan.angle_min + (scan.angle_increment * (num_readings - 1))
 
-                scan.range_min = 0.1
-                scan.range_max = 80.0
+                scan.range_min = self.lidarRangeMin
+                scan.range_max = self.lidarRangeMax
                 
                 dist = np.clip(dist, scan.range_min, scan.range_max)
                 scan.ranges = dist.tolist()

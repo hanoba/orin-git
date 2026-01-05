@@ -1,0 +1,59 @@
+amcl:
+  ros__parameters:
+    use_sim_time: true
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    global_frame_id: "map"
+    scan_topic: "/scan"
+    
+    # --- PARTIKEL ---
+    min_particles: 500
+    max_particles: 3000  # Leicht erhöht, damit bei schnellen Drehungen Reserve da ist
+    kld_err: 0.01
+    kld_z: 0.99
+    
+    # --- INIT ---
+    # initial_pose: [0.0, 0.0, 0.0]
+    # Wichtig, damit er den Typ-Konflikt in RViz vermeidet
+    always_reset_initial_pose: true 
+    
+    # --- LASER MODELL (Dein 50m Fix) ---
+    laser_model_type: "likelihood_field"
+    laser_max_range: 20.0  # PERFEKT! So lassen.
+    laser_min_range: 0.2
+    
+    # Hilft bei Drehungen: Mehr Strahlen auswerten, um die Ecke sicher zu erwischen
+    max_beams: 100 
+    
+    # Wichtig: Falls die Odometrie in der Kurve etwas "schleudert",
+    # fängt dieser Radius den Roboter wieder ein.
+    laser_likelihood_max_dist: 2.0
+    
+    # --- GEWICHTUNG ---
+    # Hohes Vertrauen in die Karte (da du jetzt weit siehst)
+    z_hit: 0.9
+    z_rand: 0.1
+    z_short: 0.05
+    z_max: 0.05
+    
+    # --- UPDATE-SCHWELLEN ---
+    # Geradeaus: Ruhiger (20cm), verhindert Aufschaukeln im Korridor
+    update_min_d: 0.20
+    # Drehung: Aggressiv (ca. 6 Grad), damit er die Kurve live mitbekommt
+    update_min_a: 0.10
+    
+    # --- ODOMETRIE RAUSCHMODELL (WICHTIG FÜR KURVEN) ---
+    robot_model_type: "nav2_amcl::DifferentialMotionModel"
+    # alpha1 = Rotationsrauschen durch Rotation.
+    # Leicht erhöht (0.25), damit er beim Drehen Fehlertoleranter ist.
+    alpha1: 0.25 
+    alpha2: 0.2
+    alpha3: 0.2
+    alpha4: 0.2
+    
+    # --- SYSTEM / LATENZ ---
+    # Puffer für WSL2 Latenz bei schnellen Drehungen
+    transform_tolerance: 1.5 
+    recovery_alpha_slow: 0.001
+    recovery_alpha_fast: 0.1
+    
