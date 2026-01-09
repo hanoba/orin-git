@@ -35,23 +35,26 @@ class Lidar():
         if self.debugCnt < self.debugCntMax:
             print(f"[Lidar.Debug] {text}")
         
-    def UdpSend(self, posX, posY, yaw, time):
+    def UdpSendLidarData(self):
         # send self.dist_mm via udp
         if self.udpIp != "":
             # Den Lidar-Teil direkt als Bytes nehmen (360 * 2 Bytes = 720 Bytes)
             lidar_bytes = self.dist_mm.tobytes()
+            self.sock.sendto(lidar_bytes, (self.udpIp, self.udpPort))                
 
+        
+    def UdpSendPositionAndTime(self, posX, posY, yaw, time):
+        # send self.dist_mm via udp
+        if self.udpIp != "":
             # Die Odometrie-Floats und Time (Double) packen (3*4 + 1*8 Bytes = 20 Bytes)
-            # Beachte: Hier kein SCAN_SIZE im Format-String!
             odometry_bytes = struct.pack('<fffd', posX, posY, yaw, time)
-
-            # Beide Byte-Blöcke zusammenfügen und senden
-            packet = lidar_bytes + odometry_bytes
-            self.sock.sendto(packet, (self.udpIp, self.udpPort))                
-
+            self.sock.sendto(odometry_bytes, (self.udpIp, self.udpPort))                
 
     def GetDistArray(self, posX, posY, yaw, time):
         self.debugCnt += 1
+        
+        # Send Postion and Time
+        self.UdpSendPositionAndTime(posX, posY, yaw, time)
         
         # LiDAR-Frame holen
         frame = self.lidar.get_current_frame()
@@ -82,6 +85,13 @@ class Lidar():
             ang = math.degrees(math.atan2(y, x))
             ang = (ang + self.angOffset) % 360.0      # Lidar 180° gedreht
             ang = int(round(ang)) 
+            if i==0: ang0=ang
+            elif i==numPoints-1: ang239=ang
+            
+            self.totalPoints += 1
+            if ang < angMin: angMin = ang
+            elif ang > angMax: angMax = ang
+
             if ang==360: ang = 0
 
             r = math.hypot(x, y)
@@ -90,17 +100,13 @@ class Lidar():
             self.dist_mm[ang] = min(r, self.dist_mm[ang])
             #lidarX[self.totalPoints] = pc[i, 0]
             #lidarY[self.totalPoints] = pc[i, 1]
-            
-            self.totalPoints += 1
-            if ang < angMin: angMin = ang
-            elif ang > angMax: angMax = ang
 
-        self.Debug(f"{numPoints=}  {angMin=:6.2f}  {angMax=:6.2f}")
+        self.Debug(f"{numPoints=}  {angMin=:6.2f}  {angMax=:6.2f}     {ang0=:6.2f}  {ang239=:6.2f}")
 
         if self.totalPoints >= 360*self.measPerDeg:
             self.totalPoints = 0
             distCopy = self.dist_mm.copy() / 1000
-            self.UdpSend(posX, posY, yaw, time)
+            self.UdpSendLidarData()
             self.dist_mm.fill(self.maxDist_mm)
             return distCopy
 
