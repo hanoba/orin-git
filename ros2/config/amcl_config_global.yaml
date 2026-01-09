@@ -1,0 +1,66 @@
+amcl:
+  ros__parameters:
+    use_sim_time: true
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    global_frame_id: "map"
+    scan_topic: "/scan"
+    
+    # -------------------------------------------------------------
+    # WICHTIG FÜR "GLOBAL LOCALIZATION" (ICH WEISS NICHT WO ICH BIN)
+    # -------------------------------------------------------------
+    
+    # Start-Position (Dient nur noch als Mittelpunkt der riesigen Wolke)
+    initial_pose: [-7.0, 8.0, 0.0]
+
+    # Die Unsicherheit beim Start (Covariance).
+    # Werte > 200.0 bedeuten: "Ich habe keine Ahnung, wo ich bin"
+    # Das verteilt die Partikel über einen Radius von ca. 30-50m um den Startpunkt.
+    initial_cov_xx: 500.0   # Unsicherheit in X (Meter^2)
+    initial_cov_yy: 500.0   # Unsicherheit in Y (Meter^2)
+    initial_cov_aa: 10.0    # Unsicherheit im Winkel (Rad^2) -> 360 Grad Unwissenheit
+
+    # Partikel-Anzahl: Wir brauchen AM ANFANG viele, um den ganzen Garten abzudecken
+    min_particles: 15000     # Erhöht! Damit die Wolke dicht genug ist
+    max_particles: 30000    # Erlaubt temporär sehr viele Partikel beim Start
+
+    # -------------------------------------------------------------
+    
+    # Laser Modell
+    laser_model_type: "likelihood_field"
+    # WICHTIG: Nutze die volle Sichtweite (wie besprochen)
+    laser_max_range: -1.0 
+    
+    # Update-Schwellen (AMCL rechnet erst, wenn der Roboter sich bewegt)
+    update_min_d: 0.05  # alle 5cm
+    update_min_a: 0.1   # oder alle ~5 Grad
+
+    # Dein 50m-Drift-Fix ("Wurst-Taktik")
+    alpha3: 0.8    
+    
+    # Toleranz für den Baum
+    laser_likelihood_max_dist: 4.0 
+    
+    # Die Karte "unscharf" machen
+    sigma_hit: 1.0    
+    
+    # Gewichtung (Deine guten Werte)
+    z_hit: 0.8    
+    z_rand: 0.2   
+    z_short: 0.05
+    z_max: 0.05
+    
+    # Weniger Strahlen für weniger "Wand-Dominanz"
+    laser_max_beams: 60 
+    
+    # Zwang zur Wahrheit (Sehr wichtig bei großen Fehlern)
+    do_beamskip: false
+
+    # Recovery: Aggressives Neusortieren, wenn er merkt, dass er falsch liegt
+    recovery_alpha_slow: 0.005   
+    recovery_alpha_fast: 0.2
+
+    initial_pose: [0.0, 0.0, 0.0]
+    initial_cov_xx: 200.0  # Entspricht ca. 10m Streuung
+    initial_cov_yy: 200.0
+    initial_cov_aa: 3.14   # 180 Grad Unsicherheit in der Richtung

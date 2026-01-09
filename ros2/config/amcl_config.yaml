@@ -6,54 +6,50 @@ amcl:
     global_frame_id: "map"
     scan_topic: "/scan"
     
-    # --- PARTIKEL ---
-    min_particles: 500
-    max_particles: 3000  # Leicht erhöht, damit bei schnellen Drehungen Reserve da ist
-    kld_err: 0.01
-    kld_z: 0.99
+    # Partikel-Anzahl (reicht für den Garten völlig aus)
+    min_particles: 4000
+    max_particles: 8000
     
-    # --- INIT ---
-    # initial_pose: [0.0, 0.0, 0.0]
-    # Wichtig, damit er den Typ-Konflikt in RViz vermeidet
-    always_reset_initial_pose: true 
+    # Wie genau soll AMCL beim Start suchen?
+    # Erhöhe diese Werte, wenn dein Startpunkt ungenau ist
+    initial_pose: [0.0, 0.0, 0.0]
     
-    # --- LASER MODELL (Dein 50m Fix) ---
+    # Laser Modell (Likelihood Field ist am schnellsten)
     laser_model_type: "likelihood_field"
-    laser_max_range: 20.0  # PERFEKT! So lassen.
-    laser_min_range: 0.2
+    #laser_max_range: 50.0
     
-    # Hilft bei Drehungen: Mehr Strahlen auswerten, um die Ecke sicher zu erwischen
-    max_beams: 100 
+    # Update-Schwellen (AMCL rechnet erst, wenn der Roboter sich bewegt)
+    update_min_d: 0.05  # alle 5cm
+    update_min_a: 0.1  # oder alle ~5 Grad
+
+    # Wenn rf2o z.B. 5% Fehler hat (50m fahren -> 2.5m falsch), brauchen wir hier viel Rauschen
+    alpha3: 0.8    # Standard ist 0.2. Geh auf 0.8 oder 1.0! 
+                   # Das zieht die Wolke in Fahrtrichtung extrem auseinander.
+
+    laser_likelihood_max_dist: 4.0  # Erlaubt, dass die Karte "ungenauer" ist
     
-    # Wichtig: Falls die Odometrie in der Kurve etwas "schleudert",
-    # fängt dieser Radius den Roboter wieder ein.
-    laser_likelihood_max_dist: 2.0
+    # 2. Die Karte "unscharf" machen, damit der versetzte Baum noch erkannt wird
+    sigma_hit: 1.0    # <--- SEHR WICHTIG (Versuch Werte zwischen 0.5 und 1.0)
     
-    # --- GEWICHTUNG ---
-    # Hohes Vertrauen in die Karte (da du jetzt weit siehst)
-    z_hit: 0.9
-    z_rand: 0.1
+    # 3. Gewichtung: Echten Treffern mehr glauben als Rauschen
+    #z_hit: 0.95
+    #z_rand: 0.05
     z_short: 0.05
     z_max: 0.05
     
-    # --- UPDATE-SCHWELLEN ---
-    # Geradeaus: Ruhiger (20cm), verhindert Aufschaukeln im Korridor
-    update_min_d: 0.20
-    # Drehung: Aggressiv (ca. 6 Grad), damit er die Kurve live mitbekommt
-    update_min_a: 0.10
+    # 4. Weniger Strahlen nutzen, damit die langen Wände nicht alles überstimmen
+    laser_max_beams: 90 #50  
     
-    # --- ODOMETRIE RAUSCHMODELL (WICHTIG FÜR KURVEN) ---
-    robot_model_type: "nav2_amcl::DifferentialMotionModel"
-    # alpha1 = Rotationsrauschen durch Rotation.
-    # Leicht erhöht (0.25), damit er beim Drehen Fehlertoleranter ist.
-    alpha1: 0.25 
-    alpha2: 0.2
-    alpha3: 0.2
-    alpha4: 0.2
-    
-    # --- SYSTEM / LATENZ ---
-    # Puffer für WSL2 Latenz bei schnellen Drehungen
-    transform_tolerance: 1.5 
-    recovery_alpha_slow: 0.001
-    recovery_alpha_fast: 0.1
-    
+    # 6. Odometrie Rauschen (wie besprochen)
+    do_beamskip: false
+
+    # Recovery: Erlaube AMCL, wild zu raten, wenn nichts mehr passt
+    recovery_alpha_slow: 0.005   # Erhöhen (Standard 0.001)
+    recovery_alpha_fast: 0.2     # Erhöhen (Standard 0.1)
+
+    # Reset-Schwellwert: Wie schlecht muss es laufen, damit er resettet?
+    # Leider hardcoded, aber wir können über z_hit steuern:
+    z_hit: 0.8    # Etwas senken (vorher 0.95). 
+                  # Wenn wir das senken und z_rand erhöhen, triggert Recovery leichter.
+    z_rand: 0.2   # Erhöhen! Sagt: "Es gibt oft unerklärliche Messungen, probier mal was anderes."
+   

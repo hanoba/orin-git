@@ -18,12 +18,21 @@ cleanup() {
 # Trap auf SIGINT (Strg+C)
 trap cleanup SIGINT SIGTERM
 
-clear
-echo "🚀 Starte Nodes..."
+# --- 1. NETZWERK-FIX (WICHTIG!) ---
+# Damit CycloneDDS genug Ports in WSL2 findet und nicht abstürzt:
+export ROS_DOMAIN_ID=15
+export ROS_LOCALHOST_ONLY=1
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+export CYCLONEDDS_URI='<CycloneDDS><Domain><Discovery><MaxAutoParticipantIndex>500</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
 
+# Pfad zur Karte
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
 LASER_MAX_RANGE=20.0
 AMCL_CONFIG_FILE=./config/amcl_config.yaml
+
+
+clear
+echo "🚀 Starte Nodes... Lidar Range = $LASER_MAX_RANGE m"
 
 cd /home/harald/orin-git/ros2
 ros2 daemon start
@@ -43,15 +52,27 @@ ros2 run rf2o_laser_odometry rf2o_laser_odometry_node \
   -p odom_frame_id:=odom \
   -p use_sim_time:=true \
   -p freq:=10.0 \
+  -p odom_topic:=/rf2o_odom \
   -p init_pose_from_topic:=\"\"  &
 
 #  -p tf_timeout:=0.2 \
 
 
+
+# Compass Fusion Node (Kombiniert Laser-Speed + Isaac-Winkel -> Perfektes Odom & TF)
+python3 CompassFusionNode.py --ros-args -p use_sim_time:=true &
+
+echo "⏳ Warte kurz auf Odometrie-Stream..."
+sleep 2
+
+
 echo "🚀 Starte AMCL-Lokalisierung..."
 
 # Map Server (lädt das Bild)
-ros2 run nav2_map_server map_server --ros-args -p yaml_filename:=$MAP_YAML -p use_sim_time:=true &
+ros2 run nav2_map_server map_server \
+    --ros-args \
+    -p yaml_filename:=$MAP_YAML \
+    -p use_sim_time:=true &
 
 # AMCL (der Lokalisierer)
 ros2 run nav2_amcl amcl \
@@ -59,6 +80,9 @@ ros2 run nav2_amcl amcl \
     --params-file $AMCL_CONFIG_FILE \
     -p laser_max_range:=$LASER_MAX_RANGE \
     -p use_sim_time:=true &
+
+#    -r /particle_cloud:=/particle_cloud_pose_array 
+
 
 # Lifecycle Manager (WICHTIG: Er schaltet Map Server und AMCL erst scharf)
 ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args \
@@ -80,9 +104,9 @@ ros2 topic pub -1 /initialpose geometry_msgs/msg/PoseWithCovarianceStamped "{
   pose: {pose: {position: {x: 0.0, y: 0.0, z: 0.0}, orientation: {w: 1.0}}}
 }" 
 
-echo "✅ AMCL ist aktiv!"
+echo "✅ System läuft! Fusion Odometrie & AMCL aktiv."
 
-sleep 3
+sleep 2
 
 # WallFollower
 python3 WallFollowerNode.py  --ros-args -p use_sim_time:=true 

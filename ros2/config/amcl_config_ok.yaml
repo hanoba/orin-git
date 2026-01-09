@@ -16,7 +16,7 @@ amcl:
     
     # Laser Modell (Likelihood Field ist am schnellsten)
     laser_model_type: "likelihood_field"
-    laser_max_range: 50.0
+    #laser_max_range: 50.0
     
     # Update-Schwellen (AMCL rechnet erst, wenn der Roboter sich bewegt)
     update_min_d: 0.1  # alle 10cm

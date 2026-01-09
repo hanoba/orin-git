@@ -6,6 +6,7 @@ from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy, Du
 from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import TransformStamped, Twist
+from std_msgs.msg import Float32
 from tf2_ros import TransformBroadcaster
 import socket
 import struct
@@ -31,7 +32,6 @@ class IsaacBridge(Node):
         self.get_logger().info(f"publish_odom_tf={self.publishOdomTf}")
         self.get_logger().info(f"lidarRangeMax={self.lidarRangeMax}   lidarRangeMin={self.lidarRangeMin}")
         
-        #qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT)
         clock_qos = QoSProfile(
             depth=1,
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -39,14 +39,8 @@ class IsaacBridge(Node):
             
         self.clock_pub = self.create_publisher(Clock, '/clock', clock_qos)
 
-        # Definiere ein robustes QoS-Profil
-        qos_profile = QoSProfile(
-            reliability=ReliabilityPolicy.RELIABLE, # Das löst die Warnung aus der Welt
-            history=HistoryPolicy.KEEP_LAST,
-            depth=1)
-        #self.clock_pub = self.create_publisher(Clock, '/clock', 10)
         self.scan_pub = self.create_publisher(LaserScan, '/scan', qos_profile_sensor_data)
-        #self.scan_pub = self.create_publisher(LaserScan, '/scan', qos_profile)
+        self.angle_pub = self.create_publisher(Float32, '/compass_heading', qos_profile_sensor_data)
         self.tf_broadcaster = TransformBroadcaster(self)
         
         # Subscriber für Fahrbefehle von ROS 2
@@ -147,7 +141,12 @@ class IsaacBridge(Node):
                 clock_msg = Clock()
                 clock_msg.clock = current_time.to_msg()
                 self.clock_pub.publish(clock_msg)
-                
+
+                # --- PUBLISH THETA ---
+                msg = Float32()
+                msg.data = float(theta)
+                self.angle_pub.publish(msg)
+        
                 if self.publishOdomTf:
                     # --- PUBLISH TF ---
                     t = TransformStamped()

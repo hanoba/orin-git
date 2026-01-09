@@ -23,7 +23,7 @@ echo "🚀 Starte Nodes..."
 
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
 LASER_MAX_RANGE=20.0
-AMCL_CONFIG_FILE=./config/amcl_config.yaml
+AMCL_CONFIG_FILE=./config/amcl_config_global.yaml
 
 cd /home/harald/orin-git/ros2
 ros2 daemon start
@@ -77,7 +77,7 @@ sleep 3
 # Orientation "w: 1.0" bedeutet Ausrichtung in x-Richtung - Theta=0°
 ros2 topic pub -1 /initialpose geometry_msgs/msg/PoseWithCovarianceStamped "{
   header: {frame_id: 'map'},
-  pose: {pose: {position: {x: 0.0, y: 0.0, z: 0.0}, orientation: {w: 1.0}}}
+  pose: {pose: {position: {x: -7.0, y: 8.0, z: 0.0}, orientation: {w: 1.0}}}
 }" 
 
 echo "✅ AMCL ist aktiv!"
@@ -85,6 +85,7 @@ echo "✅ AMCL ist aktiv!"
 sleep 3
 
 # WallFollower
-python3 WallFollowerNode.py  --ros-args -p use_sim_time:=true 
+#python3 WallFollowerNode.py  --ros-args -p use_sim_time:=true 
+ros2 run rqt_robot_steering rqt_robot_steering &
 
 wait
