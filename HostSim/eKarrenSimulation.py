@@ -47,9 +47,9 @@ from Garten import CreateGarten
 
 # Robot & Lidar parameters
 backWheelDrive = True
-posX = 15.00
-posY = 7.50
-yaw = -np.pi+3/4*np.pi
+posX = 0.0  # 15.00
+posY = 0.0  # 7.50
+yaw = np.pi # -np.pi+3/4*np.pi
 scaleFactor = 1.5
 measPerDeg = 4
 
@@ -240,7 +240,7 @@ my_carter = CreateRobot(posX, posY, yaw)
 lidar = CreateLidar()
 
 my_controller = DifferentialController(name="simple_control", wheel_radius=0.218, wheel_base=0.68)
-my_lidar = isl.Lidar(lidar, measPerDeg, backWheelDrive, "127.0.0.1")
+udpBridge = isl.UdpBridge(lidar, measPerDeg, backWheelDrive, "127.0.0.1")
 robotCtrl = isl.RobotCtrl()
 
 my_world.reset()
@@ -255,9 +255,9 @@ while simulation_app.is_running():
             my_controller.reset()
             reset_needed = False
             #follower.Init()
-            my_lidar.Init()
+            udpBridge.Init()
         posX, posY, yaw, time = GetPositionAndTime()
-        dist = my_lidar.GetDistArray(posX, posY, yaw, time)
+        udpBridge.SendData(posX, posY, yaw, time)
         #if len(dist) > 0: 
             #v, omega = follower.step(dist)
         cmd, params = robotCtrl.GetCmd()
