@@ -101,7 +101,7 @@ class Lidar():
             #lidarX[self.totalPoints] = pc[i, 0]
             #lidarY[self.totalPoints] = pc[i, 1]
 
-        self.Debug(f"{numPoints=}  {angMin=:6.2f}  {angMax=:6.2f}     {ang0=:6.2f}  {ang239=:6.2f}")
+        self.Debug(f"{self.last_step:6d}: {numPoints=}  {angMin=:6.2f}  {angMax=:6.2f}     {ang0=:6.2f}  {ang239=:6.2f}")
 
         if self.totalPoints >= 360*self.measPerDeg:
             self.totalPoints = 0
