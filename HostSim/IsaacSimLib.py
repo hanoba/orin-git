@@ -4,6 +4,7 @@ import math
 import socket
 import select
 import struct
+from params import LidarMaxAngle
 
 #lidarX=np.zeros(360*4)
 #lidarY=np.zeros(360*4)
@@ -30,6 +31,7 @@ class Lidar():
         self.debugCnt = 0
         self.debugCntMax = 10
         self.totalPoints = 0
+        self.Debug(f"Lidar sensor initialized")
         
     def Debug(self, text):
         if self.debugCnt < self.debugCntMax:
@@ -101,9 +103,13 @@ class Lidar():
             #lidarX[self.totalPoints] = pc[i, 0]
             #lidarY[self.totalPoints] = pc[i, 1]
 
-        self.Debug(f"{numPoints=}  {angMin=:6.2f}  {angMax=:6.2f}     {ang0=:6.2f}  {ang239=:6.2f}")
+        self.Debug(f"{self.last_step:6d}: {numPoints=}  {angMin=:6.2f}  {angMax=:6.2f}     {ang0=:6.2f}  {ang239=:6.2f}")
 
-        if self.totalPoints >= 360*self.measPerDeg:
+        #if self.totalPoints >= 360*self.measPerDeg:
+
+        # Zum richtigen Zeitpunkt senden damit der Abtastzeitpunkt des Bereichs
+        # von -LidarMaxAngle bis +LidarMaxAngle kontinuierlich ist
+        if angMax == LidarMaxAngle and self.totalPoints >= 360*self.measPerDeg:
             self.totalPoints = 0
             distCopy = self.dist_mm.copy() / 1000
             self.UdpSendLidarData()
