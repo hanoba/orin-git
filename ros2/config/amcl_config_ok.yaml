@@ -21,3 +21,5 @@ amcl:
     # Update-Schwellen (AMCL rechnet erst, wenn der Roboter sich bewegt)
     update_min_d: 0.1  # alle 10cm
     update_min_a: 0.1  # oder alle ~5 Grad
+    
+    transform_tolerance: 1.0

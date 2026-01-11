@@ -22,8 +22,8 @@ clear
 echo "🚀 Starte Nodes..."
 
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
-LASER_MAX_RANGE=20.0
-AMCL_CONFIG_FILE=./config/amcl_config.yaml
+LASER_MAX_RANGE=50.0
+AMCL_CONFIG_FILE=./config/amcl_config_ok.yaml
 
 cd /home/harald/orin-git/ros2
 ros2 daemon start

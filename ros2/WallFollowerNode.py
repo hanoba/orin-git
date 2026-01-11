@@ -22,14 +22,16 @@ class WallFollowerNode(Node):
         # 2. Publisher für die Fahrbefehle
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         
-        self.get_logger().info("Wall Follower gestartet...")
+        self.get_logger().info(f"Wall Follower gestartet...")
         
         self.wallFollower = WallFollower(target_dist=2.00, base_speed=0.5, debug=False)
         self.cnt = 0
 
     def scan_callback(self, msg):
         self.cnt += 1
-        if self.cnt % 50 == 0: self.get_logger().info(f"scan_callback #{self.cnt}")
+        if self.cnt % 50 == 1: 
+            now = self.get_clock().now().nanoseconds * 1e-9
+            self.get_logger().info(f"[{now:.3f}] scan_callback #{self.cnt}")
         ranges_np = np.array(msg.ranges)
         vLinear, omega = self.wallFollower.step(ranges_np)    
         drive_msg = Twist()
