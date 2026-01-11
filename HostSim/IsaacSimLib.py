@@ -12,7 +12,7 @@ from params import LidarMaxAngle
 class Lidar():
     def __init__(self, lidar, measPerDeg, backWheelDrive, udpIp=""):
         self.lidar = lidar
-        self.maxDist_mm = 10000
+        self.maxDist_mm = 65000
         self.dist_mm = np.zeros(360, dtype=np.uint16) + self.maxDist_mm
         #self.angles = np.zeros(360*measPerDeg) + 400.0
         self.measPerDeg = measPerDeg
