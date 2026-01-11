@@ -1,0 +1,55 @@
+amcl:
+  ros__parameters:
+    use_sim_time: true
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    global_frame_id: "map"
+    scan_topic: "/scan"
+    
+    # Partikel-Anzahl (reicht für den Garten völlig aus)
+    min_particles: 4000
+    max_particles: 8000
+    
+    # Wie genau soll AMCL beim Start suchen?
+    # Erhöhe diese Werte, wenn dein Startpunkt ungenau ist
+    initial_pose: [0.0, 0.0, 0.0]
+    
+    # Laser Modell (Likelihood Field ist am schnellsten)
+    laser_model_type: "likelihood_field"
+    #laser_max_range: 50.0
+    
+    # Update-Schwellen (AMCL rechnet erst, wenn der Roboter sich bewegt)
+    update_min_d: 0.05  # alle 5cm
+    update_min_a: 0.1  # oder alle ~5 Grad
+
+    # Wenn rf2o z.B. 5% Fehler hat (50m fahren -> 2.5m falsch), brauchen wir hier viel Rauschen
+    alpha3: 0.8    # Standard ist 0.2. Geh auf 0.8 oder 1.0! 
+                   # Das zieht die Wolke in Fahrtrichtung extrem auseinander.
+
+    laser_likelihood_max_dist: 4.0  # Erlaubt, dass die Karte "ungenauer" ist
+    
+    # 2. Die Karte "unscharf" machen, damit der versetzte Baum noch erkannt wird
+    sigma_hit: 1.0    # <--- SEHR WICHTIG (Versuch Werte zwischen 0.5 und 1.0)
+    
+    # 3. Gewichtung: Echten Treffern mehr glauben als Rauschen
+    #z_hit: 0.95
+    #z_rand: 0.05
+    z_short: 0.05
+    z_max: 0.05
+    
+    # 4. Weniger Strahlen nutzen, damit die langen Wände nicht alles überstimmen
+    laser_max_beams: 90 #50  
+    
+    # 6. Odometrie Rauschen (wie besprochen)
+    do_beamskip: false
+
+    # Recovery: Erlaube AMCL, wild zu raten, wenn nichts mehr passt
+    recovery_alpha_slow: 0.005   # Erhöhen (Standard 0.001)
+    recovery_alpha_fast: 0.2     # Erhöhen (Standard 0.1)
+
+    # Reset-Schwellwert: Wie schlecht muss es laufen, damit er resettet?
+    # Leider hardcoded, aber wir können über z_hit steuern:
+    z_hit: 0.8    # Etwas senken (vorher 0.95). 
+                  # Wenn wir das senken und z_rand erhöhen, triggert Recovery leichter.
+    z_rand: 0.2   # Erhöhen! Sagt: "Es gibt oft unerklärliche Messungen, probier mal was anderes."
+   
