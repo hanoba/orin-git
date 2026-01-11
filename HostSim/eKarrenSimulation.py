@@ -47,9 +47,9 @@ from Garten import CreateGarten
 
 # Robot & Lidar parameters
 backWheelDrive = True
-posX = 15.00
-posY = 7.50
-yaw = -np.pi+3/4*np.pi
+posX = 0.0        #15.00
+posY = 0.0        #7.50
+yaw =  -np.pi     #-np.pi+3/4*np.pi
 scaleFactor = 1.5
 measPerDeg = 4
 

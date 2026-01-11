@@ -105,11 +105,12 @@ class Lidar():
 
         self.Debug(f"{self.last_step:6d}: {numPoints=}  {angMin=:6.2f}  {angMax=:6.2f}     {ang0=:6.2f}  {ang239=:6.2f}")
 
-        #if self.totalPoints >= 360*self.measPerDeg:
 
         # Zum richtigen Zeitpunkt senden damit der Abtastzeitpunkt des Bereichs
         # von -LidarMaxAngle bis +LidarMaxAngle kontinuierlich ist
-        if angMax == LidarMaxAngle and self.totalPoints >= 360*self.measPerDeg:
+        #if angMax == LidarMaxAngle and self.totalPoints >= 360*self.measPerDeg:
+
+        if self.totalPoints >= 360*self.measPerDeg:
             self.totalPoints = 0
             distCopy = self.dist_mm.copy() / 1000
             self.UdpSendLidarData()
