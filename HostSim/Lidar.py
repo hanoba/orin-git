@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# This file includes the following classes:
+# - LidarYd:  Handles YDLIDAR TG30
+# - LidarUdp: Handles lidar data received via UDP from Isaac-Sim
+# - LidarApp: Generic app to display and process lidar data
 import platform
 import math
 import numpy as np
@@ -9,68 +13,66 @@ import select
 import struct
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtWidgets, QtCore, QtGui
+from params import LidarMaxAngle
 
-# angle range = -120 ... 120 = -LidarMaxAngle ... LidarMaxAngle
-LidarMaxAngle = 120
+if platform.node() != "AZ-KENKO":
+    import ydlidar
+
+class LidarYd():
+    def __init__(self):
+        # === Parameter anpassen ===
+        PORT = "/dev/ttyUSB0"
+        BAUD = 512000           # TG30 nutzt 512000 Baud
+
+        # === Lidar initialisieren ===
+        self.laser = ydlidar.CYdLidar()
+        self.laser.setlidaropt(ydlidar.LidarPropSerialPort, PORT)
+        self.laser.setlidaropt(ydlidar.LidarPropSerialBaudrate, BAUD)
+        self.laser.setlidaropt(ydlidar.LidarPropFixedResolution, False)
+        self.laser.setlidaropt(ydlidar.LidarPropReversion, False)
+        self.laser.setlidaropt(ydlidar.LidarPropSingleChannel, False)
+        self.laser.setlidaropt(ydlidar.LidarPropLidarType, ydlidar.TYPE_TOF)
+        self.laser.setlidaropt(ydlidar.LidarPropScanFrequency, 10.0)
+
+        ret = self.laser.initialize()
+        if not ret:
+            print("Fehler: Initialisierung fehlgeschlagen")
+            exit(1)
+
+        if not self.laser.turnOn():
+            print("Fehler: Laser konnte nicht gestartet werden")
+            exit(1)
+
+        print("LIDAR läuft – Strg+C zum Beenden")
+        self.scan = ydlidar.LaserScan()
 
 
-#if platform.node() != "AZ-KENKO":
-#    import ydlidar
-#    
-#    class Lidar():
-#        def __init__(self):
-#            # === Parameter anpassen ===
-#            PORT = "/dev/ttyUSB0"
-#            BAUD = 512000           # TG30 nutzt 512000 Baud
-#    
-#            # === Lidar initialisieren ===
-#            self.laser = ydlidar.CYdLidar()
-#            self.laser.setlidaropt(ydlidar.LidarPropSerialPort, PORT)
-#            self.laser.setlidaropt(ydlidar.LidarPropSerialBaudrate, BAUD)
-#            self.laser.setlidaropt(ydlidar.LidarPropFixedResolution, False)
-#            self.laser.setlidaropt(ydlidar.LidarPropReversion, False)
-#            self.laser.setlidaropt(ydlidar.LidarPropSingleChannel, False)
-#            self.laser.setlidaropt(ydlidar.LidarPropLidarType, ydlidar.TYPE_TOF)
-#            self.laser.setlidaropt(ydlidar.LidarPropScanFrequency, 10.0)
-#    
-#            ret = self.laser.initialize()
-#            if not ret:
-#                print("Fehler: Initialisierung fehlgeschlagen")
-#                exit(1)
-#    
-#            if not self.laser.turnOn():
-#                print("Fehler: Laser konnte nicht gestartet werden")
-#                exit(1)
-#    
-#            print("LIDAR läuft – Strg+C zum Beenden")
-#            self.scan = ydlidar.LaserScan()
-#    
-#    
-#        def Scan(self):
-#            if self.laser.doProcessSimple(self.scan):
-#                # Rohdaten in Winkel/Entfernung umrechnen
-#                #ang270 = 270/180*np.pi
-#                #angles =  np.array([ang270 - p.angle for p in self.scan.points])
-#                #angles = (angles + np.pi) % (2*np.pi) - np.pi
-#                #angles =  np.array([(ang270 - p.angle + np.pi) % (2*np.pi) - np.pi for p in self.scan.points])
-#                # Umrechnung in Roboterkoordinationsystem (x zeigt in Fahrtrichtung
-#                #angles =  np.array([(np.pi - p.angle + np.pi) % (2*np.pi) - np.pi for p in self.scan.points])
-#                angles =  np.array([(np.pi/2 - p.angle) % (2*np.pi) for p in self.scan.points])
-#    
-#                radius  = np.array([p.range for p in self.scan.points])
-#        
-#                return angles, radius
-#                
-#            else:
-#                time.sleep(0.05)
-#                return [], []
-#                
-#        def Close(self):
-#            # === Aufräumen ===
-#            self.laser.turnOff()
-#            self.laser.disconnecting()
-#else:
-class Lidar:
+    def Scan(self):
+        if self.laser.doProcessSimple(self.scan):
+            # Rohdaten in Winkel/Entfernung umrechnen
+            #ang270 = 270/180*np.pi
+            #angles =  np.array([ang270 - p.angle for p in self.scan.points])
+            #angles = (angles + np.pi) % (2*np.pi) - np.pi
+            #angles =  np.array([(ang270 - p.angle + np.pi) % (2*np.pi) - np.pi for p in self.scan.points])
+            # Umrechnung in Roboterkoordinationsystem (x zeigt in Fahrtrichtung
+            #angles =  np.array([(np.pi - p.angle + np.pi) % (2*np.pi) - np.pi for p in self.scan.points])
+            angles =  np.array([(np.pi/2 - p.angle) % (2*np.pi) for p in self.scan.points])
+
+            radius  = np.array([p.range for p in self.scan.points])
+    
+            return angles, radius
+            
+        else:
+            time.sleep(0.05)
+            return [], []
+            
+    def Close(self):
+        # === Aufräumen ===
+        self.laser.turnOff()
+        self.laser.disconnecting()
+
+
+class LidarUdp:
     def __init__(self, ip="127.0.0.1", port=5005):
         self.udpIp = ip
         self.udpPort = port
@@ -107,9 +109,13 @@ class Lidar:
             if self.sock.fileno() == -1:
                 return None, None, None, None, None, None
                 
-            # select prüft den Puffer
-            ready = select.select([self.sock], [], [], 0)
-            if ready[0]:
+            # solange lesen, bis kein Lidar-Paket mehr gefunden wurde
+            while True:
+                # select prüft den Puffer
+                ready = select.select([self.sock], [], [], 0)
+                if not ready[0]:
+                    break
+                    
                 data, addr = self.sock.recvfrom(1024)
 
                 # (3 * 4 Bytes für Floats) + (1 * 8 Bytes für double) = 20 Bytes
@@ -149,6 +155,12 @@ class Lidar:
             except:
                 pass
 
+
+# Diese Klasse macht folgendes:
+# - liest periodisch Lidar-Daten ein 
+# - ruft die Funktion processLidarData() zur Verarbeitung dieser Daten auf
+# - zeigt die Lidar-Punktwolke auf dem Bildschirm an
+# Die Klasse wird in "WallFollower.py" und "PassThrougGate.py" verwendet.
 class LidarApp(QtWidgets.QMainWindow):
     def __init__(self, processLidarData):
         super().__init__()
@@ -184,7 +196,7 @@ class LidarApp(QtWidgets.QMainWindow):
         self.plot1 = self.view.plot(pen=None, symbol='o', symbolSize=4, symbolBrush=(0, 255, 0))
         self.plot2 = self.view.plot(pen=None, symbol='o', symbolSize=8, symbolBrush=(255, 0, 0))
         
-        self.lidar = Lidar()
+        self.lidar = LidarUdp() if platform.node() == "AZ-KENKO" else LidarYd()
         
         # Haupt-Timer für Grafik-Updates (ca. 50 FPS)
         self.timer = QtCore.QTimer()
