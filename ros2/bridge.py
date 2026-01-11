@@ -102,7 +102,7 @@ class IsaacBridge(Node):
             if dataLen == 720:
                 self.lidarCounter += 1
                 # skip initial lidar frames
-                if self.lidarCounter > 2:
+                if self.lidarCounter > 0:
                     # Sicherstellen, dass wir uint16 lesen (2 Byte pro Wert)
                     radius = np.frombuffer(data, dtype=np.uint16)
                     
@@ -114,7 +114,6 @@ class IsaacBridge(Node):
                     dist = dist_mm.astype(np.float32) / 1000.0
     
                     # --- PUBLISH SCAN ---
-                    #scanTime = self.sim_time_sec-self.scanDuration
                     scanTime = self.sim_time_sec
                     scan_time = Time(seconds=scanTime)
                     scan = LaserScan()
@@ -176,7 +175,7 @@ class IsaacBridge(Node):
                 self.count += 1
                 if self.count % 100 == 0:
                     self.get_logger().info(
-                        f"Sende Position & Time #{self.count} bei SimTime {self.sim_time_sec:.2f}  {posX=:6.2f} {posY=:6.2f} {int(theta_deg)}°")
+                        f"[{self.sim_time_sec:.3f}] Sende Position & Time #{self.count}  {posX=:6.2f} {posY=:6.2f} {int(theta_deg)}°")
             else:
                 self.get_logger().error(f"Wrong UDP data length: {dataLen} bytes")            
         except Exception as e:
