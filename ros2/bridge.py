@@ -36,6 +36,8 @@ class IsaacBridge(Node):
         self.get_logger().info(f"publish_odom_tf={self.publishOdomTf}")
         self.get_logger().info(f"lidarRangeMax={self.lidarRangeMax}   lidarRangeMin={self.lidarRangeMin}")
         
+        self.lidarCounter = 0
+        
         clock_qos = QoSProfile(
             depth=1,
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -98,38 +100,42 @@ class IsaacBridge(Node):
         try:
             dataLen = len(data)
             if dataLen == 720:
-                # Sicherstellen, dass wir uint16 lesen (2 Byte pro Wert)
-                radius = np.frombuffer(data, dtype=np.uint16)
-                
-                # Umsortieren von 0° bis 360° auf -120° bis 120° = -LidarMaxAngle bis LidarMaxAngle 
-                # (ROS2 kann 360 Werte nicht verarbeiten, daher reduzierter Winkelbereich)
-                dist_mm = np.concatenate((radius[360-LidarMaxAngle:360], radius[0:LidarMaxAngle]))
-                
-                # WICHTIG: Explizit nach float32 konvertieren für ROS!
-                dist = dist_mm.astype(np.float32) / 1000.0
-
-                # --- PUBLISH SCAN ---
-                scanTime = self.sim_time_sec-self.scanDuration
-                scan_time = Time(seconds=scanTime)
-                scan = LaserScan()
-                scan.header.stamp = scan_time.to_msg()
-                scan.header.frame_id = 'lidar'      # wenn Lidar vor der Achsenmitte montiert ist (BackWheelDrive)
-                #scan.header.frame_id = 'base_link'  # wenn Lidar direkt in Achsenmitte montiert ist
-                scan.time_increment = self.scanTimeInc
-                scan.angle_min = math.radians(-LidarMaxAngle)
-                scan.angle_max = math.radians(LidarMaxAngle-1)
-                num_readings = 2*LidarMaxAngle
-                scan.angle_increment = (scan.angle_max - scan.angle_min) / (num_readings - 1)
-                scan.angle_max = scan.angle_min + (scan.angle_increment * (num_readings - 1))
-
-                scan.range_min = self.lidarRangeMin
-                scan.range_max = self.lidarRangeMax
-                
-                dist = np.clip(dist, scan.range_min, scan.range_max)
-                scan.ranges = dist.tolist()
-
-                #count = int(round((scan.angle_max - scan.angle_min) / scan.angle_increment))
-                self.scan_pub.publish(scan)
+                self.lidarCounter += 1
+                # skip initial lidar frames
+                if self.lidarCounter > 2:
+                    # Sicherstellen, dass wir uint16 lesen (2 Byte pro Wert)
+                    radius = np.frombuffer(data, dtype=np.uint16)
+                    
+                    # Umsortieren von 0° bis 360° auf -120° bis 120° = -LidarMaxAngle bis LidarMaxAngle 
+                    # (ROS2 kann 360 Werte nicht verarbeiten, daher reduzierter Winkelbereich)
+                    dist_mm = np.concatenate((radius[360-LidarMaxAngle:360], radius[0:LidarMaxAngle]))
+                    
+                    # WICHTIG: Explizit nach float32 konvertieren für ROS!
+                    dist = dist_mm.astype(np.float32) / 1000.0
+    
+                    # --- PUBLISH SCAN ---
+                    #scanTime = self.sim_time_sec-self.scanDuration
+                    scanTime = self.sim_time_sec
+                    scan_time = Time(seconds=scanTime)
+                    scan = LaserScan()
+                    scan.header.stamp = scan_time.to_msg()
+                    scan.header.frame_id = 'lidar'      # wenn Lidar vor der Achsenmitte montiert ist (BackWheelDrive)
+                    #scan.header.frame_id = 'base_link'  # wenn Lidar direkt in Achsenmitte montiert ist
+                    #scan.time_increment = self.scanTimeInc
+                    scan.angle_min = math.radians(-LidarMaxAngle)
+                    scan.angle_max = math.radians(LidarMaxAngle-1)
+                    num_readings = 2*LidarMaxAngle
+                    scan.angle_increment = (scan.angle_max - scan.angle_min) / (num_readings - 1)
+                    scan.angle_max = scan.angle_min + (scan.angle_increment * (num_readings - 1))
+    
+                    scan.range_min = self.lidarRangeMin
+                    scan.range_max = self.lidarRangeMax
+                    
+                    dist = np.clip(dist, scan.range_min, scan.range_max)
+                    scan.ranges = dist.tolist()
+    
+                    #count = int(round((scan.angle_max - scan.angle_min) / scan.angle_increment))
+                    self.scan_pub.publish(scan)
                 
             elif dataLen == 20:
                 # 2. Odometrie entpacken
