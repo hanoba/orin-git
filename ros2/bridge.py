@@ -42,12 +42,20 @@ class IsaacBridge(Node):
             depth=1,
             reliability=ReliabilityPolicy.BEST_EFFORT,
             durability=DurabilityPolicy.TRANSIENT_LOCAL)
-            
         self.clock_pub = self.create_publisher(Clock, '/clock', clock_qos)
 
-        self.scan_pub = self.create_publisher(LaserScan, '/scan', qos_profile_sensor_data)
+        # Custom Profil: Wir akzeptieren nur den EINEN neuesten Scan.
+        # Alles was älter ist, wird sofort gelöscht.
+        custom_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,  # Schnell, keine Garantien (wie UDP)
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,                                    # <--- WICHTIG: Puffergröße auf 1 zwingen!
+            durability=DurabilityPolicy.VOLATILE)
+        self.scan_pub = self.create_publisher(LaserScan, '/scan', custom_qos)   #qos_profile_sensor_data)
+        
         self.angle_pub = self.create_publisher(Float32, '/compass_heading', qos_profile_sensor_data)
-        self.tf_broadcaster = TransformBroadcaster(self)
+        if self.publishOdomTf:
+            self.tf_broadcaster = TransformBroadcaster(self)
         
         # Subscriber für Fahrbefehle von ROS 2
         self.cmd_sub = self.create_subscription(
@@ -102,6 +110,7 @@ class IsaacBridge(Node):
             if dataLen == 720:
                 self.lidarCounter += 1
                 # skip initial lidar frames
+                #if self.lidarCounter % 5 == 0:
                 if self.lidarCounter > 0:
                     # Sicherstellen, dass wir uint16 lesen (2 Byte pro Wert)
                     radius = np.frombuffer(data, dtype=np.uint16)
@@ -114,10 +123,22 @@ class IsaacBridge(Node):
                     dist = dist_mm.astype(np.float32) / 1000.0
     
                     # --- PUBLISH SCAN ---
-                    scanTime = self.sim_time_sec
-                    scan_time = Time(seconds=scanTime)
                     scan = LaserScan()
-                    scan.header.stamp = scan_time.to_msg()
+                    # 2. Zur Sicherheit: time_increment nullen
+                    scan.time_increment = 0.0
+
+                    if False:
+                        now = self.get_clock().now()
+
+                        # Wir schieben den Scan 50ms in die Vergangenheit, damit der EKF Zeit hatte, 
+                        # die Position für diesen Moment bereits zu berechnen.
+                        scan.header.stamp = (now - rclpy.duration.Duration(seconds=0.2)).to_msg()
+
+                        # 3. Debug Print ZUR KONTROLLE (Was steht wirklich in der Nachricht?)
+                        #print(f"DEBUG: Bridge Time ist {now.nanoseconds/1e9}, aber Nachricht Header ist {scan.header.stamp.sec}.{scan.header.stamp.nanosec}")
+                    else:
+                        current_sim_time = Time(seconds=self.sim_time_sec)
+                        scan.header.stamp = current_sim_time.to_msg()
                     scan.header.frame_id = 'lidar'      # wenn Lidar vor der Achsenmitte montiert ist (BackWheelDrive)
                     #scan.header.frame_id = 'base_link'  # wenn Lidar direkt in Achsenmitte montiert ist
                     #scan.time_increment = self.scanTimeInc
