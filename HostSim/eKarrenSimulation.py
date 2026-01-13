@@ -44,12 +44,17 @@ from WallFollower import WallFollower
 import IsaacSimLib as isl
 from Fence import CreateFence, CreateWalls, CreateCylinder
 from Garten import CreateGarten
+import params
 
 # Robot & Lidar parameters
 backWheelDrive = True
-posX = 0.0        #15.00
-posY = 0.0        #7.50
-yaw =  -np.pi     #-np.pi+3/4*np.pi
+#posX = 0.0        #15.00
+#posY = 0.0        #7.50
+#yaw =  -np.pi     #-np.pi+3/4*np.pi
+posX = params.RobotInitX
+posY = params.RobotInitY
+yaw =  params.RobotInitTheta
+
 scaleFactor = 1.5
 measPerDeg = 4
 
