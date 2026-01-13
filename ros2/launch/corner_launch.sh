@@ -23,21 +23,21 @@ cd /home/harald/orin-git/ros2
 ros2 daemon start
 
 # 1. Bridge
-python3 bridge.py &
+taskset -c 16,17 python3 bridge.py &
 
 # 2. Statischer Transform
-ros2 run tf2_ros static_transform_publisher 0.4 0 0 0 0 0 base_link lidar --ros-args -p use_sim_time:=true &
+taskset -c 18-31 ros2 run tf2_ros static_transform_publisher 0.4 0 0 0 0 0 base_link lidar --ros-args -p use_sim_time:=true &
 
 # 3. Unser neuer Python Ecken-Detektor (ersetzt das komplexe C++ Paket)
-python3 CornerDetectorNode.py --ros-args -p use_sim_time:=true &
+taskset -c 4 python3 CornerDetectorNode.py --ros-args -p use_sim_time:=true &
 
 # 4. RViz
-rviz2 -d config/Corner.rviz --ros-args -p use_sim_time:=true &
+taskset -c 18-31 rviz2 -d config/Corner.rviz --ros-args -p use_sim_time:=true &
 
 # 5. Wall Follower
 #python3 WallFollowerNode.py --ros-args -p use_sim_time:=true &
 
-ros2 run rqt_robot_steering rqt_robot_steering &
+taskset -c 16-31 ros2 run rqt_robot_steering rqt_robot_steering &
 
 echo "✅ Alle Systeme laufen."
 wait
