@@ -6,6 +6,10 @@ from geometry_msgs.msg import Point
 from rclpy.qos import qos_profile_sensor_data
 import numpy as np
 import time
+import sys
+
+sys.path.append('../HostSim')
+import params
 
 class SmartCornerDetector(Node):
     def __init__(self):
@@ -13,7 +17,7 @@ class SmartCornerDetector(Node):
         self.declare_parameter('distance_threshold', 0.05) 
         self.declare_parameter('min_points', 6)
         # NEU: Wenn Punkte weiter als 50cm auseinander liegen -> Tor/Lücke
-        self.declare_parameter('max_gap', 0.50) 
+        self.declare_parameter('max_gap', 5.50) 
 
         self.sub = self.create_subscription(LaserScan, '/scan', self.scan_callback, qos_profile_sensor_data)
         self.marker_pub = self.create_publisher(MarkerArray, '/garden_features', 10)
@@ -91,16 +95,8 @@ class SmartCornerDetector(Node):
 
         return split_lines, best_mask
 
-    def scan_callback(self, msg):
-        if self.is_processing: return
-        self.is_processing = True
 
-        start_zeit = time.perf_counter() # Zeitnahme startet
-        ranges = np.array(msg.ranges)
-        valid = np.isfinite(ranges) & (ranges > 0.1) & (ranges < 30.0)
-        angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
-        points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[valid]
-
+    def RansacLineDetection(self, points):
         all_detected_walls = []
         temp_points = points.copy()
 
@@ -112,8 +108,11 @@ class SmartCornerDetector(Node):
             
             all_detected_walls.extend(lines)
             temp_points = temp_points[~mask]
-
-        # Visualisierung (Stabil mit festen IDs)
+        return all_detected_walls
+    
+    
+    def PublishMarkers(self, all_detected_walls):
+            # Visualisierung (Stabil mit festen IDs)
         markers = MarkerArray()
         # Vorhandene Marker löschen (einfachste Art für Tor-Visualisierung)
         m_del = Marker()
@@ -122,22 +121,99 @@ class SmartCornerDetector(Node):
         m_del.action = 3 # DELETEALL
         markers.markers.append(m_del)
 
+        current_time = self.get_clock().now().to_msg()
+        frame_id = "lidar"
+        z_height = -0.1 # Die Höhe, auf der alles gezeichnet wird
+
         for i, (start, end) in enumerate(all_detected_walls):
-            m = Marker()
-            m.header.frame_id = "lidar"  # ODER msg.header.frame_id vom LaserScan
-            m.header.stamp = self.get_clock().now().to_msg() # Aktuelle Zeit setzen!
+            # ============================================
+            # Linien-Marker
+            # ============================================
+            m_line = Marker()
+            m_line.header.frame_id = frame_id
+            m_line.header.stamp = current_time
+            m_line.ns = "walls_lines" # Namespace geändert zur Unterscheidung
+            m_line.id = i
+            m_line.type = Marker.LINE_STRIP
+            m_line.action = Marker.ADD
+            m_line.scale.x = 0.15  # Linienbreite
+            m_line.color.g = 1.0; m_line.color.a = 0.8 # Grün, leicht transparent
             
-            #m.header = msg.header
-            m.ns = "walls"
-            m.id = i
-            m.type = Marker.LINE_STRIP
-            m.action = Marker.ADD
-            m.scale.x = 0.15; m.color.g = 1.0; m.color.a = 0.8
-            m.points = [Point(x=float(start[0]), y=float(start[1]), z=-0.1), 
-                        Point(x=float(end[0]), y=float(end[1]), z=-0.1)]
-            markers.markers.append(m)
+            # Start- und Endpunkte für die Linie setzen
+            p_start = Point(x=float(start[0]), y=float(start[1]), z=z_height)
+            p_end = Point(x=float(end[0]), y=float(end[1]), z=z_height)
+            m_line.points = [p_start, p_end]
+            
+            markers.markers.append(m_line)
+
+            # ============================================
+            # Marker für den Start-Kreis
+            # ============================================
+            m_start_sphere = Marker()
+            m_start_sphere.header.frame_id = frame_id
+            m_start_sphere.header.stamp = current_time
+            m_start_sphere.ns = "walls_endpoints" # Neuer Namespace für die Punkte
+            # Wir brauchen eine eindeutige ID. Trick: Wir nutzen gerade Zahlen für Starts.
+            m_start_sphere.id = i * 2 
+            m_start_sphere.type = Marker.SPHERE # Typ ist jetzt eine Kugel
+            m_start_sphere.action = Marker.ADD
+            
+            # Größe der Kugel (Durchmesser in x, y, z)
+            # Machen wir sie etwas dicker als die Linie (0.25m vs 0.15m)
+            m_start_sphere.scale.x = 0.25
+            m_start_sphere.scale.y = 0.25
+            m_start_sphere.scale.z = 0.25
+            
+            # Farbe: Machen wir die Endpunkte ROT, damit sie auffallen
+            m_start_sphere.color.r = 1.0
+            m_start_sphere.color.a = 1.0 # Voll sichtbar
+            
+            # Position setzen (Sphären nutzen pose.position, nicht points!)
+            m_start_sphere.pose.position = p_start
+            # WICHTIG: Eine Orientierung muss gesetzt sein, auch wenn sie neutral ist
+            m_start_sphere.pose.orientation.w = 1.0
+            
+            markers.markers.append(m_start_sphere)
+
+            # ============================================
+            # Marker für den End-Kreis (Kugel)
+            # ============================================
+            # Wir kopieren die Eigenschaften des Start-Markers und passen nur ID und Position an
+            m_end_sphere = Marker()
+            # Kopiere Header und generelle Infos vom Start-Marker
+            m_end_sphere.header = m_start_sphere.header
+            m_end_sphere.ns = m_start_sphere.ns
+            m_end_sphere.type = m_start_sphere.type
+            m_end_sphere.action = m_start_sphere.action
+            m_end_sphere.scale = m_start_sphere.scale
+            m_end_sphere.color = m_start_sphere.color
+            m_end_sphere.pose.orientation = m_start_sphere.pose.orientation
+
+            # ID: Ungerade Zahl für das Ende, damit sie eindeutig bleibt
+            m_end_sphere.id = i * 2 + 1
+            
+            # Position auf den Endpunkt setzen
+            m_end_sphere.pose.position = p_end
+            
+            markers.markers.append(m_end_sphere)
 
         self.marker_pub.publish(markers)
+
+    
+    def scan_callback(self, msg):
+        if self.is_processing: return
+        self.is_processing = True
+
+        start_zeit = time.perf_counter() # Zeitnahme startet
+        ranges = np.array(msg.ranges)
+        valid = np.isfinite(ranges) & (ranges > params.LidarRangeMin) & (ranges < params.LidarRangeMax)
+        #valid = np.isfinite(ranges) & (ranges > 0.1) & (ranges < 30.0)
+        angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
+        points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[valid]
+
+        all_detected_walls = self.RansacLineDetection(points)
+        self.PublishMarkers(all_detected_walls)
+
         self.is_processing = False
         
         ende_zeit = time.perf_counter() # Zeitnahme endet

@@ -2,6 +2,8 @@ import numpy as np
 
 # angle range = -120 ... 120 = -LidarMaxAngle ... LidarMaxAngle
 LidarMaxAngle = 120
+LidarRangeMin = 0.1
+LidarRangeMax = 20.0
 LidarFreq_Hz = 10
 
 # Abstand des Lidar in X-Richtung vom Mittelpunkt der Achse
