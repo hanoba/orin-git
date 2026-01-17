@@ -24,6 +24,8 @@ from omni.isaac.core.prims import XFormPrim
 
 from Fence import CreateFence, CreateWalls, CreateCube, CreateCylinder, Fence, CreateRotatedCube
 
+wallThickness = 0.01
+
 def Move(poly, mx, my):
     length = len(poly)
     for i in range(length):
@@ -134,7 +136,7 @@ def CreateGarten(stage):
         dist = math.dist(a, b)
     
         #fence = Fence(stage, primName, width=dist, height=H, radius=R, step=S)
-        CreateRotatedCube(stage, primName, posX=m[0], posY=m[1], lenX=dist, lenY=0.1, height=1.6, angle_deg=angle)
+        CreateRotatedCube(stage, primName, posX=m[0], posY=m[1], lenX=dist, lenY=wallThickness, height=1.6, angle_deg=angle)
         print(f"Zaunelement {primName} created {a=}, {b=}")
         #f = UsdGeom.XformCommonAPI(stage.GetPrimAtPath(primName))
         #f.SetRotate((0, 0, angle))

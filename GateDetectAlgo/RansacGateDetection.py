@@ -20,8 +20,8 @@ class SmartCornerDetector():
         self.min_points = 6
         self.numIter = 40
 
-        # Wenn Punkte weiter als 50cm auseinander liegen -> Tor/Lücke
-        self.max_gap = 0.50
+        # Wenn Punkte weiter als max_gap auseinander liegen -> Tor/Lücke
+        self.max_gap = 0.60 #0.50
 
     def find_intersection(self, line1, line2):
         p1, p2 = line1; p3, p4 = line2
@@ -155,9 +155,9 @@ def Preprocessing(angles, radius):
     
 
 def main():
-    num = 0
+    num = 1
     if num==0: name, xMin, xMax, yMin, yMax, distMin = "wald_raw.xlsx"        ,  -6,  8,  0, 10, 2.0  
-    if num==1: name, xMin, xMax, yMin, yMax, distMin = "garten-tor.xlsx"      ,  -4,  4,  0,  4, 2.0
+    if num==1: name, xMin, xMax, yMin, yMax, distMin = "garten-tor.xlsx"      ,  -4, 10,  -4,  8, 2.0
     if num==2: name, xMin, xMax, yMin, yMax, distMin = "schuppen-aussen.xlsx" ,  -6,  8,  0,  6, 1.0
     if num==3: name, xMin, xMax, yMin, yMax, distMin = "schuppen-innen.xlsx"  ,  -4,  4,  0,  3, 0.5
 

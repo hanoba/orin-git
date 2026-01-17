@@ -47,7 +47,7 @@ from Garten import CreateGarten
 import params
 
 # Robot & Lidar parameters
-backWheelDrive = True
+backWheelDrive = params.BackWheelDrive
 #posX = 0.0        #15.00
 #posY = 0.0        #7.50
 #yaw =  -np.pi     #-np.pi+3/4*np.pi
@@ -183,10 +183,15 @@ def SetLight():
 # -------------------------------------------------------
 def CreateRobot(posX, posY, yaw):
     eKarrenPath = "/World/eKarren"
-    asset_path = "/bin/Robots/NVIDIA/NovaCarter/nova_carter.usd"
+    if True:
+        asset_path = "/bin/Robots/NVIDIA/NovaCarter/nova_carter.usd"
+        wheelDofNames=["joint_wheel_left", "joint_wheel_right"]
+    else:
+        asset_path = "/bin/Robots/Turtlebot/Turtlebot3/turtlebot3_burger.usd"
+        wheelDofNames=["wheel_left_joint", "wheel_right_joint"]
     add_reference_to_stage(asset_path, eKarrenPath)
 
-    stabilize_nova_carter(eKarrenPath)
+    #stabilize_nova_carter(eKarrenPath)
     
     # 3. Skalierung & Position (Einfach und lesbar über XFormPrim)
     # XFormPrim ist wie ein "Schweizer Taschenmesser" für Objekte
@@ -194,14 +199,14 @@ def CreateRobot(posX, posY, yaw):
     robot_xform = XFormPrim(eKarrenPath)
     robot_xform.set_local_scale(np.array([scaleFactor, scaleFactor, scaleFactor]))
     #robot_xform.set_world_pose(position=np.array([0.0, 0.0, 0.5]))
-    eKarrenWidth = 0.78
-    eKarrenLength = 1.1
-    posZ= 0.30
+    #eKarrenWidth = 0.78
+    #eKarrenLength = 1.1
+    posZ= 0.1
     quat = euler_angles_to_quat([0, 0, yaw])
     my_carter = WheeledRobot(
             prim_path=eKarrenPath,
             name="eKarren",
-            wheel_dof_names=["joint_wheel_left", "joint_wheel_right"],
+            wheel_dof_names=wheelDofNames,
             orientation=quat,
             create_robot=True,
             usd_path=asset_path,
@@ -214,7 +219,7 @@ def CreateRobot(posX, posY, yaw):
 # Create Lidar
 # -------------------------------------------------------
 def CreateLidar():
-    lidarX = -0.40*scaleFactor if backWheelDrive else 0
+    lidarX = -params.LidarX*scaleFactor if backWheelDrive else 0
     lidarZ = 0.34*scaleFactor
     lidar = my_world.scene.add(
                 RotatingLidarPhysX(

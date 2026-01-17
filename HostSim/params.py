@@ -4,12 +4,18 @@ import numpy as np
 LidarMaxAngle = 120
 LidarFreq_Hz = 10
 
-config = 1
+# Abstand des Lidar in X-Richtung vom Mittelpunkt der Achse
+#LidarX = 0.4
+LidarX = 0.0
+
+config = 0
 if config==1:
+    BackWheelDrive = True
     RobotInitX = 15.00
     RobotInitY = 7.50
     RobotInitTheta =  -np.pi+3/4*np.pi
 else:
+    BackWheelDrive = False
     RobotInitX = 0.0
     RobotInitY = 0.0
-    RobotInitTheta =  -np.pi
+    RobotInitTheta = 0.0  # -np.pi
