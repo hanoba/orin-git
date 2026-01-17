@@ -117,13 +117,21 @@ class SmartCornerDetector(Node):
         markers = MarkerArray()
         # Vorhandene Marker löschen (einfachste Art für Tor-Visualisierung)
         m_del = Marker()
+        m_del.header.frame_id = "lidar"
+        m_del.header.stamp = self.get_clock().now().to_msg()
         m_del.action = 3 # DELETEALL
         markers.markers.append(m_del)
 
         for i, (start, end) in enumerate(all_detected_walls):
             m = Marker()
-            m.header = msg.header; m.ns = "walls"; m.id = i
-            m.type = Marker.LINE_STRIP; m.action = Marker.ADD
+            m.header.frame_id = "lidar"  # ODER msg.header.frame_id vom LaserScan
+            m.header.stamp = self.get_clock().now().to_msg() # Aktuelle Zeit setzen!
+            
+            #m.header = msg.header
+            m.ns = "walls"
+            m.id = i
+            m.type = Marker.LINE_STRIP
+            m.action = Marker.ADD
             m.scale.x = 0.15; m.color.g = 1.0; m.color.a = 0.8
             m.points = [Point(x=float(start[0]), y=float(start[1]), z=-0.1), 
                         Point(x=float(end[0]), y=float(end[1]), z=-0.1)]
