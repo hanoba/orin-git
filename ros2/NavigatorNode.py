@@ -3,6 +3,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
+from geometry_msgs.msg import Twist
 from rclpy.qos import qos_profile_sensor_data
 from std_msgs.msg import Float32
 import numpy as np
@@ -12,9 +13,9 @@ import sys
 sys.path.append('../HostSim')
 import params
 
-class SmartCornerDetector(Node):
+class Navigator(Node):
     def __init__(self):
-        super().__init__('smart_corner_detector')
+        super().__init__('navigator')
         self.declare_parameter('distance_threshold', 0.05) 
         self.declare_parameter('min_points', 6)
         # NEU: Wenn Punkte weiter als 50cm auseinander liegen -> Tor/Lücke
@@ -36,10 +37,30 @@ class SmartCornerDetector(Node):
         )
         self.is_processing = False
         self.max_gap = self.get_parameter('max_gap').value
-        self.heading = 0
+        self.theta = 0
+        self.K_head = 1.0
+                
+        # Publisher für die Fahrbefehle
+        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        
 
     def compass_callback(self, msg):
-        self.heading = msg.data
+        self.theta = msg.data
+                
+        # Nach Norden ausrichten
+        self.SetTheta(-np.pi/2)
+
+
+    def SetTheta(self, wantedTheta):
+        vLinear = 0.0
+        e = wantedTheta - self.theta
+        if abs(e) < 0.02: omega = 0.0
+        else: omega = self.K_head*e
+        drive_msg = Twist()
+        drive_msg.linear.x = float(vLinear)
+        drive_msg.angular.z = float(omega)
+        self.cmd_pub.publish(drive_msg)
+
 
     def find_intersection(self, line1, line2):
         p1, p2 = line1; p3, p4 = line2
@@ -229,18 +250,18 @@ class SmartCornerDetector(Node):
 
         all_detected_walls = self.RansacLineDetection(points)
         self.PublishMarkers(all_detected_walls)
-
-        self.is_processing = False
         
         ende_zeit = time.perf_counter() # Zeitnahme endet
         dauer_ms = (ende_zeit - start_zeit) * 1000 # Umrechnung in Millisekunden
         
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
-        self.get_logger().info(f"⏱️ Rechenzeit: {dauer_ms:.2f} ms  Theta={np.rad2deg(self.heading):.0f}°", throttle_duration_sec=1.0)
+        self.get_logger().info(f"⏱️ Rechenzeit: {dauer_ms:.2f} ms  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=1.0)
+
+        self.is_processing = False
 
 def main():
     rclpy.init()
-    node = SmartCornerDetector()
+    node = Navigator()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()

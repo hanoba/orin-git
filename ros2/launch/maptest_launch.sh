@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# ransac_launch.sh
+
+MY_PID=$$
+
+cleanup() {
+    echo -e "\n🛑 Beende alle Prozesse (Ground Truth Mode)..."
+    pkill -P $MY_PID
+    pkill -f "python3 bridge.py"
+    pkill -f "python3 WallFollowerNode.py"
+    pkill -f "python3 CornerDetectorNode.py"
+    pkill -f "static_transform_publisher"
+    pkill -f "rviz2"
+    pkill -f "map_server"
+    pkill -f "lifecycle_manager"
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM
+
+# --- 1. NETZWERK-FIX ---
+export ROS_DOMAIN_ID=15
+export ROS_LOCALHOST_ONLY=1
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+export CYCLONEDDS_URI='<CycloneDDS><Domain><Discovery><MaxAutoParticipantIndex>500</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
+
+# Pfade
+MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
+LASER_MAX_RANGE=20.0
+LIDAR_X=0.0
+
+clear
+echo "🚀 Starte System im GROUND TRUTH Modus..."
+
+cd /home/harald/orin-git/ros2
+ros2 daemon start
+
+# --- 2. CORE KOMPONENTEN ---
+
+# Bridge: JETZT MIT publish_odom_tf:=true (Ground Truth übernimmt Positionierung)
+python3 bridge.py --ros-args \
+    -p publish_odom_tf:=true \
+    -p lidarRangeMax:=$LASER_MAX_RANGE &
+
+# Statischer Transform: Lidar zu base_link
+ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar --ros-args -p use_sim_time:=true &
+
+# Transform 2 (NEU): Map -> Odom (Ersetzt AMCL)
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom --ros-args -p use_sim_time:=true &
+
+# Map Server (Damit wir die Karte im Hintergrund sehen)
+ros2 run nav2_map_server map_server \
+    --ros-args \
+    -p yaml_filename:=$MAP_YAML \
+    -p use_sim_time:=true &
+
+# Lifecycle Manager (Nur für den Map Server)
+ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args \
+  -p node_names:="['map_server']" \
+  -p autostart:=true \
+  -p use_sim_time:=true &
+
+# --- 3. FEATURE EXTRACTION & NAVIGATION ---
+
+echo "🚀 Starte Corner Detector..."
+python3 CornerDetectorNode.py --ros-args -p use_sim_time:=true &
+
+# RViz (Mit deiner Ransac-Config)
+rviz2 -d config/ransac.rviz --ros-args -p use_sim_time:=true &
+
+#echo "⏳ Warte auf Initialisierung..."
+#sleep 3
+
+echo "✅ System läuft mit Ground Truth von der Bridge."
+
+# WallFollower starten
+# python3 WallFollowerNode.py --ros-args -p use_sim_time:=true 
+
+ros2 run rqt_robot_steering rqt_robot_steering
