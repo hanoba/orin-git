@@ -37,8 +37,8 @@ class Navigator(Node):
         )
         self.is_processing = False
         self.max_gap = self.get_parameter('max_gap').value
-        self.theta = 0
-        self.K_head = 1.0
+        self.theta = 0.0
+        self.K_head = 0.5
                 
         # Publisher für die Fahrbefehle
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
