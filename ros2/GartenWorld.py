@@ -79,10 +79,12 @@ class World:
         a = np.array(A) - center
         b = np.array(B) - center
         self.segments.append(Segment(X(a[0]), Y(a[1]), X(b[0]), Y(b[1])))
-        print(f"Line created {a=}, {b=}")
+        #print(f"Line created {a=}, {b=}")
 
     def Haus(self, name, eckPunkte):
-        print(f"{eckPunkte=}")
+        #print(f"{eckPunkte=}")
+        Length(name+"South", eckPunkte[0], eckPunkte[1])
+        Length(name+"East",  eckPunkte[1], eckPunkte[2])
         posX1, posY1 = eckPunkte[0]
         posX2, posY2 = eckPunkte[2]
         lenX = posX2 - posX1
@@ -90,7 +92,7 @@ class World:
         
         posX = posX1    #- centerX
         posY = posY1    #- centerY
-        print(f"{name:<20} Unten links: ({posX:6.2f},{posY:6.2f}), Oben rechts: ({posX+lenX:6.2f},{posY+lenY:6.2f})")
+        print(f"Creating {name:<12}: Unten links = ({posX:6.2f},{posY:6.2f}), Oben rechts = ({posX+lenX:6.2f},{posY+lenY:6.2f})")
         self.Line( (posX,       posY     ), (posX+lenX, posY     ) )
         self.Line( (posX+lenX,  posY     ), (posX+lenX, posY+lenY) )
         self.Line( (posX+lenX,  posY+lenY), (posX,      posY+lenY) )
@@ -162,6 +164,18 @@ def Move(poly, mx, my):
         poly[i] = (x+mx,y+my)
     return
 
+def Winkel(text, A, B):
+    vektor = np.array(B) - np.array(A)
+    winkel_rad = np.arctan2(vektor[1], vektor[0])
+    winkel_deg = np.rad2deg(winkel_rad)
+    print(f"Theta{text}_rad = {winkel_rad:8.5f}    # {winkel_deg:6.1f}°")
+    return winkel_rad
+
+def Length(text, A, B):
+    vektor = np.array(B) - np.array(A)
+    dist = np.linalg.norm(vektor)
+    print(f"Len{text} = {dist:5.2f}")
+    return dist
 
 def Gartenzaun():
     # Messwerte Bosch Laserentfernungsmesser
@@ -221,6 +235,12 @@ def Gartenzaun():
     check=math.sqrt((PD[0]-PC[0])**2+(PD[1]-PC[1])**2)
     #print(check, b1+b3)
 
+    # Winkel ausgeben
+    Winkel("WallNorth", PA, PB)
+    Winkel("WallEast ", PC, PB)
+    Winkel("WallSouth", PD, PC)
+    Winkel("WallWest ", PD, PA)
+    
     garten=[PA, PB, PC, PD]
     print(f"{garten=}")
     return garten
@@ -248,4 +268,6 @@ def Schuppen():
     Move(schuppen,mx,my)
     return schuppen
 
-
+if __name__ == '__main__':
+    world = World()
+    world.CreateGarten()

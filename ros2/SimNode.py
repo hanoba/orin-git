@@ -5,7 +5,7 @@ from rclpy.duration import Duration
 from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import TransformStamped, Twist
+from geometry_msgs.msg import TransformStamped, Twist, PoseStamped
 from std_msgs.msg import Float32
 from tf2_ros import TransformBroadcaster
 import socket
@@ -64,14 +64,19 @@ class SimNode(Node):
             self.cmd_vel_callback, 
             10)
         
+        # Subscriber für das RViz Tool erstellen
+        self.goal_sub = self.create_subscription(
+            PoseStamped,
+            '/goal_pose',           # Das Standard-Topic von RViz2
+            self.GoalCallback,
+            10                      # Queue size
+        )
 
         #self.create_timer(0.005, self.poll_udp)
         
         # Diese Meldung hat gefehlt:
         self.get_logger().info("Simulation running...")
         
-        self.sim_time_sec = 0.0
-
 
     def cmd_vel_callback(self, msg):
         """Wird aufgerufen, wenn ROS2 einen Fahrbefehl sendet."""
@@ -80,29 +85,39 @@ class SimNode(Node):
         self.sim.SetRobotSpeed(vLinear, omega)
 
 
+    def get_yaw_from_quaternion(self, q):
+        """Rechnet Quaternion (x,y,z,w) in Euler-Winkel (Yaw/Theta) um"""
+        # Formel für Yaw (Rotation um Z-Achse)
+        siny_cosp = 2 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
+        return yaw
+
+    def GoalCallback(self, msg):
+        """Wird aufgerufen, wenn man in RViz '2D Goal Pose' klickt"""
+        target_x = msg.pose.position.x
+        target_y = msg.pose.position.y
+        
+        # WICHTIG: RViz sendet Quaternions. Wir brauchen Theta (Yaw).
+        q = msg.pose.orientation
+        target_theta = self.get_yaw_from_quaternion(q)
+        self.sim.robot.SetPose(target_x, target_y, target_theta)
+        
+        self.get_logger().info(f"Neues Ziel empfangen: X={target_x:.2f}, Y={target_y:.2f}")
+
+
     def PublishLidarData(self, dist):
         # --- PUBLISH SCAN ---
         scan = LaserScan()
         # 2. Zur Sicherheit: time_increment nullen
         scan.time_increment = 0.0
-
-        if False:
-            now = self.get_clock().now()
-
-            # Wir schieben den Scan 50ms in die Vergangenheit, damit der EKF Zeit hatte, 
-            # die Position für diesen Moment bereits zu berechnen.
-            scan.header.stamp = (now - rclpy.duration.Duration(seconds=0.2)).to_msg()
-
-            # 3. Debug Print ZUR KONTROLLE (Was steht wirklich in der Nachricht?)
-            #print(f"DEBUG: Bridge Time ist {now.nanoseconds/1e9}, aber Nachricht Header ist {scan.header.stamp.sec}.{scan.header.stamp.nanosec}")
-        else:
-            current_sim_time = Time(seconds=self.sim_time_sec)
-            scan.header.stamp = current_sim_time.to_msg()
+        current_sim_time = Time(seconds=self.sim.sim_time_sec)
+        scan.header.stamp = current_sim_time.to_msg()
         scan.header.frame_id = 'lidar'      # wenn Lidar vor der Achsenmitte montiert ist (BackWheelDrive)
         #scan.header.frame_id = 'base_link'  # wenn Lidar direkt in Achsenmitte montiert ist
         #scan.time_increment = self.scanTimeInc
-        scan.angle_min = math.radians(-LidarMaxAngle)
-        scan.angle_max = math.radians(LidarMaxAngle-1)
+        scan.angle_min = math.radians(1-LidarMaxAngle)
+        scan.angle_max = math.radians(LidarMaxAngle)
         num_readings = 2*LidarMaxAngle
         scan.angle_increment = (scan.angle_max - scan.angle_min) / (num_readings - 1)
         scan.angle_max = scan.angle_min + (scan.angle_increment * (num_readings - 1))
@@ -116,9 +131,9 @@ class SimNode(Node):
         #count = int(round((scan.angle_max - scan.angle_min) / scan.angle_increment))
         self.scan_pub.publish(scan)
                 
-    def PublishPositionAndTime(self, posX, posY, theta, simTimeSec):
+    def PublishPositionAndTime(self, posX, posY, theta):
         # Compute time
-        current_time = Time(seconds=simTimeSec)
+        current_time = Time(seconds=self.sim.sim_time_sec)
         tf_offset = Duration(seconds=0.1)
         tf_time = current_time   #+ tf_offset
         
@@ -148,8 +163,7 @@ class SimNode(Node):
         # Kleine Erfolgsmeldung alle 100 Pakete
         theta_deg = int(np.rad2deg(theta))
         self.get_logger().info(
-            f"[{simTimeSec:.3f}] Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°", throttle_duration_sec=1.0)
-
+            f"[{self.sim.sim_time_sec:.3f}] Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°", throttle_duration_sec=1.0)
 
 import sys
 
@@ -166,11 +180,11 @@ def main():
             rclpy.spin_once(node, timeout_sec=0)
 
             # B. Simulations-Schritt
-            x, y, theta, time, radius = sim.Step()
+            x, y, theta, radius = sim.Step()
             
             # C. Nur publizieren, wenn wir nicht gerade herunterfahren
             if rclpy.ok() and not sim.pause:
-                node.PublishPositionAndTime(x, y, theta, time)
+                node.PublishPositionAndTime(x, y, theta)
                 if len(radius) > 0: 
                     node.PublishLidarData(radius)
             

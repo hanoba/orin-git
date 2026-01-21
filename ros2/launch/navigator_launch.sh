@@ -7,7 +7,7 @@ MY_PID=$$
 cleanup() {
     echo -e "\n🛑 Beende alle Prozesse (Ground Truth Mode)..."
     pkill -P $MY_PID
-    pkill -f "python3 bridge.py"
+    pkill -f "python3 SimNode.py"
     pkill -f "python3 WallFollowerNode.py"
     pkill -f "python3 CornerDetectorNode.py"
     pkill -f "static_transform_publisher"
@@ -38,7 +38,7 @@ ros2 daemon start
 # --- 2. CORE KOMPONENTEN ---
 
 # Bridge: JETZT MIT publish_odom_tf:=true (Ground Truth übernimmt Positionierung)
-python3 bridge.py --ros-args \
+python3 SimNode.py --ros-args \
     -p publish_odom_tf:=true &
 
 # Statischer Transform: Lidar zu base_link
@@ -46,6 +46,9 @@ ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar -
 
 # Transform 2 (NEU): Map -> Odom (Ersetzt AMCL)
 ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom --ros-args -p use_sim_time:=true &
+
+# RViz
+rviz2 -d config/ransac.rviz --ros-args -p use_sim_time:=true &
 
 # Map Server (Damit wir die Karte im Hintergrund sehen)
 ros2 run nav2_map_server map_server \
@@ -64,10 +67,7 @@ sleep 3
 
 # --- 3. FEATURE EXTRACTION & NAVIGATION ---
 echo "🚀 Starte Navigator..."
-python3 NavigatorNode.py --ros-args -p use_sim_time:=true &
-
-# RViz (Mit deiner Ransac-Config)
-rviz2 -d config/ransac.rviz --ros-args -p use_sim_time:=true 
+python3 NavigatorNode.py --ros-args -p use_sim_time:=true
 
 echo "✅ System läuft mit Ground Truth von der Bridge."
 

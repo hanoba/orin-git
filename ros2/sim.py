@@ -13,10 +13,11 @@
 #
 # Bedienung
 #  - ESC: Beenden
-#  - R: LiDAR‑Strahlen an/aus
+#  - L: LiDAR‑Strahlen an/aus
 #  - M: manuellen Modus ein/aus (Pfeiltasten steuern v und omega indirekt)
 #  - D: Debugmode ein/aus
-#  - SPACE: Reset an Ausgangsposition vor dem Tor
+#  - R: Reset zur Ausgangsposition (Sim-Zeit läuft weiter)
+#  - SPACE: Simulation pausieren/fortsetzen
 #
 # Skalierung
 #  - Alle Längen in Pixeln. Geschwindigkeit in Pixel/s. Zeit in Sekunden.
@@ -165,16 +166,19 @@ def cast_lidar(world: World, px, py, theta=0.0):
 class DiffDriveRobot:
     """Kinematik (teilweise optimiert mit NumPy)."""
     def __init__(self, x, y, theta):
-        self.x = self.x0 = X(x)
-        self.y = self.y0 = Y(y)
-        self.theta = self.theta0 = -theta
         self.v_l = 0.0
         self.v_r = 0.0
         self.state = STATE_SEARCH
         self.target_angle = -math.pi
+        self.SetPose(x, y, theta)
 
+    def SetPose(self, x, y, theta):
+        self.x = self.x0 = X(x)
+        self.y = self.y0 = Y(y)
+        self.theta = self.theta0 = -theta
+            
     def GetPose(self):
-        return self.x*MetersPerPixel, self.y*MetersPerPixel, self.theta
+        return Xm(self.x), Ym(self.y), -self.theta
         
     def Reset(self):
         self.x = self.x0 
@@ -205,7 +209,7 @@ class DiffDriveRobot:
         self.y += v * math.sin(self.theta) * dt
 
     def draw(self, surf):
-        pygame.draw.circle(surf, ROBOT_COLOR, (int(self.x), int(self.y)), ROBOT_RADIUS, 2)
+        pygame.draw.circle(surf, ROBOT_COLOR, ((self.x), (self.y)), ROBOT_RADIUS, 2)
         hx = self.x + math.cos(self.theta) * ROBOT_RADIUS
         hy = self.y + math.sin(self.theta) * ROBOT_RADIUS
         pygame.draw.line(surf, ROBOT_COLOR, (self.x, self.y), (hx, hy), 2)
@@ -213,8 +217,8 @@ class DiffDriveRobot:
     def drawPoint(self, surf, point):
         # cmath wird hier beibehalten, da 'point' vermutlich complex ist (aus RobotLib2)
         p = point * cmath.exp(1j * self.theta)
-        x = int(self.x + p.real)
-        y = int(self.y + p.imag)
+        x = (self.x + p.real)
+        y = (self.y + p.imag)
         pygame.draw.circle(surf, POINT_COLOR, (x, y), POINT_RADIUS, 2)
 
     def SetColor(self, r, g, b):
@@ -264,7 +268,7 @@ def draw_lidar_rays(surf, robot: DiffDriveRobot, hits):
         hx, hy, d = val[0], val[1], val[2]
         pygame.draw.line(surf, LIDAR_RAY_COLOR, (robot.x, robot.y), (hx, hy), 1)
         if d < LIDAR_MAX_RANGE * 0.999:
-            pygame.draw.circle(surf, LIDAR_HIT_COLOR, (int(hx), int(hy)), 2)
+            pygame.draw.circle(surf, LIDAR_HIT_COLOR, ((hx), (hy)), 2)
 
 class Simulation:
     def __init__(self):
@@ -272,8 +276,8 @@ class Simulation:
         self.robot = DiffDriveRobot(
             x=params.RobotInitX,
             y=params.RobotInitY,
-            theta=np.pi/2)  #params.RobotInitTheta)
-        self.robot.SetSpeed(0.0,1.0)
+            theta=params.RobotInitTheta)
+        self.robot.SetSpeed(0.0,0.0)
     
         pygame.init()
         info = pygame.display.Info()
@@ -284,7 +288,7 @@ class Simulation:
         # screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
         # Für Fenstermodus (besser zum Debuggen):
         self.screen = pygame.display.set_mode((WIN_W, WIN_H))
-        self.map = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
+        self.map = pygame.Surface((WIN_W, WIN_H))
         self.world = World()
         self.world.draw(self.map)
 
@@ -330,24 +334,14 @@ class Simulation:
                 elif event.key == pygame.K_d:
                     self.debugMode = not self.debugMode
 
-        self.screen.fill(BG_COLOR)
-        self.screen.blit(self.map, (50, 50))
+        #self.screen.fill(BG_COLOR)
+        self.screen.blit(self.map, (0, 0))
 
         # --- NumPy LiDAR (10Hz) ---
         if self.numSteps % 3 == 0:
             self.lidar_hits, angles, radius = cast_lidar(self.world, self.robot.x, self.robot.y, self.robot.theta)
             radius = np.flip(radius*MetersPerPixel)
         else: radius = []
-            
-        # Textausgabe mit 3Hz
-        if self.numSteps % 10 == 0:
-            theta_deg = 360 - np.rad2deg(self.robot.theta)
-            if theta_deg > 180: theta_deg -= 360
-            txt = (
-                f"{self.sim_time_sec:.3f}  FPS: {self.clock.get_fps():3.0f}  "
-                f"x={Xm(self.robot.x):6.2f}  y={Ym(self.robot.y):6.2f}  theta={theta_deg:3.0f}°"
-            )
-            self.bitBlock = self.font.render(txt, True, (220, 220, 220))
 
         if self.show_rays:
             draw_lidar_rays(self.screen, self.robot, self.lidar_hits)
@@ -375,6 +369,19 @@ class Simulation:
             self.robot.step(self.dt)
             resolve_collisions(self.robot, self.world)
 
+        x, y, theta = self.robot.GetPose()
+            
+        # Textausgabe mit 3Hz
+        if self.numSteps % 10 == 0:
+            theta_deg = 360 - np.rad2deg(self.robot.theta)
+            if theta_deg > 180: theta_deg -= 360
+            txt = (
+                f"{self.sim_time_sec:.3f}  FPS: {self.clock.get_fps():3.0f}  "
+                f"x={x:6.2f}  y={y:6.2f}  theta={theta_deg:3.0f}°"
+            )
+            self.bitBlock = self.font.render(txt, True, (220, 220, 220))
+
+
         self.robot.draw(self.screen)
         
         
@@ -387,8 +394,7 @@ class Simulation:
         self.numSteps += 1
         self.sim_time_sec += self.dt
         
-        x, y, theta = self.robot.GetPose()
-        return x, y, theta, self.sim_time_sec, radius
+        return x, y, theta, radius
         
     def Quit(self):
         pygame.quit()
