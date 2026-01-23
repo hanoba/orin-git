@@ -88,6 +88,11 @@ STATE_ALIGN_AND_GO = 2               # Ausrichten auf Gate und zufahren
 STATE_GATE_REACHED = 3               # Distance to gate less than GATE_REACHED_THRE
 STATE_DONE = 4                       # hinter dem Tor angehalten
 
+
+def NormalizeAngle(angle_rad):
+    return (angle_rad + math.pi) % math.tau - np.pi
+
+
 # -------------------------
 # LiDAR‑Simulation (NumPy Optimized)
 # -------------------------
@@ -176,6 +181,9 @@ class DiffDriveRobot:
         self.x = self.x0 = X(x)
         self.y = self.y0 = Y(y)
         self.theta = self.theta0 = -theta
+
+    def Turn(self, deltaTheta):
+        self.theta = NormalizeAngle(self.theta - deltaTheta)
             
     def GetPose(self):
         return Xm(self.x), Ym(self.y), -self.theta
@@ -333,6 +341,15 @@ class Simulation:
                     self.pause = not self.pause
                 elif event.key == pygame.K_d:
                     self.debugMode = not self.debugMode
+                elif event.key == pygame.K_t:
+                    self.robot.Turn(np.pi/12)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                # Entpacken des Tupels
+                mouse_x, mouse_y = event.pos
+                xm = Xm(mouse_x)
+                ym = Ym(mouse_y)
+                self.robot.SetPose(xm, ym, 0.0)
+                
 
         #self.screen.fill(BG_COLOR)
         self.screen.blit(self.map, (0, 0))

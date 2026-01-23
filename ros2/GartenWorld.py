@@ -124,10 +124,11 @@ class World:
         self.Haus("Terrasse", terrasse)
         
         def Bassin(terrasseUntenRechts):
-            lenX = 2.40
-            lenY = 2.80
+            lenX = 2.10 #2.40
+            lenY = 2.50 #2.80
             (x, y) = terrasseUntenRechts
             x += 0.50
+            y += 0.40   # 0.0
             return [(x, y), (x+lenX, y), (x+lenX, y+lenY), (x, y+lenY)]
         
         self.Haus("Bassin", Bassin(terrasse[1]))
@@ -154,7 +155,12 @@ class World:
         
         strauchMP = (tx+13.00, ty-8.00)
         strauchDM = 2.00    
-        Strauch("Strauch", strauchMP, strauchDM)
+        Strauch("Strauch1", strauchMP, strauchDM)
+        Strauch("Strauch2", (22-7.0, 8.0-12), 1.0)
+        Strauch("Strauch3", (22+1.0, 8.0-12), 3.0)
+        Strauch("Baum",     (22+3.0, 9.0-12), 3.0)
+        Strauch("Lampe",    (22-3.0, 8.0-12), 0.05)
+        
 
 
 def Move(poly, mx, my):

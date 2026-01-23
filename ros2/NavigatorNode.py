@@ -43,14 +43,20 @@ STATE_INIT        = 0
 STATE_CHECK_NORTH = 1
 STATE_CHECK_SOUTH = 2
 
-def WinkelNorm(angle_rad):
+def NormalizeAngle(angle_rad):
     return (angle_rad + math.pi) % math.tau - np.pi
 
-def CheckWinkel(winkel_rad, value_rad):
+def CheckAngle(angle_rad, value_rad):
     MaxDiff = np.deg2rad(5.0)
-    diff1 = WinkelNorm(winkel_rad - value_rad)
-    diff2 = WinkelNorm(winkel_rad + math.pi - value_rad)
+    diff1 = NormalizeAngle(angle_rad - value_rad)
+    diff2 = NormalizeAngle(angle_rad + math.pi - value_rad)
     return abs(diff1) < MaxDiff or abs(diff2) < MaxDiff 
+
+def CheckAngleResult_deg(angle_rad, value_rad):
+    MaxDiff = np.deg2rad(5.0)
+    diff1 = NormalizeAngle(angle_rad - value_rad)
+    diff2 = NormalizeAngle(angle_rad + math.pi - value_rad)
+    return np.rad2deg(min(abs(diff1), abs(diff2)))
 
 def CheckLength(vektorLen, value):
     Margin = 0.50
@@ -58,10 +64,15 @@ def CheckLength(vektorLen, value):
     if vektorLen > value + Margin: return False
     return True
 
+def LineEquation(A, B):
+    # Berechne die Parameter a und b der Geraden y=a*x+b, die durch die Punkte A und B geht
+    a = (B[1] - A[1]) / (B[0] - A[0])
+    b = A[1] - a*A[0]
+    return a, b
+
 def DistY(start, end):
-    # Berechne die parameter a und b der Geraden y=a*x+b, die durch die Punkte start und end geht
-    a = (end[1] - start[1]) / (end[0] - start[0])
-    b = start[1] - a*start[0]
+    """ Berechne den Abstand in Y-Richtung von der Geraden, die durch die Punkte start und end geht """
+    a, b = LineEquation(start, end)
     return b
 
 
@@ -101,11 +112,13 @@ class Navigator(Node):
         self.max_gap = self.get_parameter('max_gap').value
         self.theta = 0.0
         self.wantedTheta = 0.0
-        self.wantedThetaReached = False
+        self.wantedThetaReached = True
         self.K_head = 1.0
-        self.omegaMax = 2.0
+        self.angularMax = 2.0
+        self.angular = 0.0
+        self.linear = 0.0
         self.state = STATE_INIT
-        self.counter = 0
+        self.simTimeSec = 0.0
                 
         # Publisher für die Fahrbefehle
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -113,24 +126,25 @@ class Navigator(Node):
     def SetWantedTheta(self, wantedTheta):
         self.wantedTheta = wantedTheta
         self.wantedThetaReached = False
-        print(f"{self.wantedTheta=}")
+        self.get_logger().info(f"[{self.simTimeSec:.3f}] [SetWantedTheta] wantedTheta={self.wantedTheta}")
 
     def CompassCallback(self, msg):
-        self.theta = (msg.data + math.pi) % math.tau - np.pi
-        e = self.wantedTheta - self.theta
-        e = (e + math.pi) % math.tau - np.pi
-        e = np.clip(e, -self.omegaMax, self.omegaMax)
-        #print(f"{self.theta=}  {e=}  {self.wantedTheta=}")        
-        omega = 0.0
-        if abs(e) < 0.002 and not self.wantedThetaReached: 
-            self.wantedThetaReachedTime = self.get_clock().now().nanoseconds / 1e9
-            self.wantedThetaReached = True
-            print("wantedThetaReached")
-        elif not self.wantedThetaReached: 
-            omega = e * self.K_head
+        self.theta = NormalizeAngle(msg.data)
+        if not self.wantedThetaReached:
+            e = self.wantedTheta - self.theta
+            e = (e + math.pi) % math.tau - np.pi
+            e = np.clip(e, -self.angularMax, self.angularMax)
+            #print(f"{self.theta=}  {e=}  {self.wantedTheta=}")        
+            if abs(e) < 0.002: 
+                self.wantedThetaReachedTime = self.get_clock().now().nanoseconds / 1e9
+                self.wantedThetaReached = True
+                self.get_logger().info(f"[{self.wantedThetaReachedTime:.3f}] [CompassCallback] wantedThetaReached")
+                self.angular = 0.0
+            else: 
+                self.angular = e * self.K_head
         drive_msg = Twist()
-        drive_msg.linear.x = float(0.0)
-        drive_msg.angular.z = float(omega)
+        drive_msg.linear.x = float(self.linear)
+        drive_msg.angular.z = float(self.angular)
         self.cmd_pub.publish(drive_msg)
 
     def ScanCallback(self, msg):
@@ -157,7 +171,7 @@ class Navigator(Node):
         dauer_ms = (ende_zeit - start_zeit) * 1000 # Umrechnung in Millisekunden
         
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
-        self.get_logger().info(f"⏱️ Rechenzeit WallDetector: {dauer_ms:.2f} ms  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=1.0)
+        self.get_logger().info(f"[{self.simTimeSec:.3f}] [Walldetector] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=1.0)
         return all_detected_walls
 
     
@@ -173,7 +187,8 @@ class Navigator(Node):
             [s,  c]
         ])
         a = np.array(all_detected_walls)
-        self.get_logger().info(f"all_detected_walls: {a.shape=}  {a.dtype=} {a.ndim=} {a.size=}", throttle_duration_sec=1.0)
+        # self.get_logger().info(f"[{self.simTimeSec:.3f}] [Localization] all_detected_walls: {a.shape=}  {a.dtype=} {a.ndim=} {a.size=}",
+        #     throttle_duration_sec=1.0)
         for start, end in a:   # all_detected_walls:
             # Drehung durch Matrix-Multiplikation (Dot Product)
             # Wir transponieren die Matrix (.T), damit (N,2) * (2,2) funktioniert        
@@ -181,19 +196,31 @@ class Navigator(Node):
             end = np.dot(end, rotation_matrix.T)
             vektor = end - start
             vektorLen = np.linalg.norm(vektor)
-            winkel_rad = np.arctan2(vektor[1], vektor[0])
-            print(f"{start=}  {end=}  {vektorLen=:5.2f}m  {np.rad2deg(winkel_rad):.0f}°")
-            if CheckWinkel(winkel_rad, ThetaWallSouth_rad) and vektorLen > 10.0:
+            angle_rad = np.arctan2(vektor[1], vektor[0])
+            #self.get_logger().info(f"[{self.simTimeSec:.3f}] [Localization] {start=}  {end=}  {vektorLen=:5.2f}m  {np.rad2deg(angle_rad):.0f}°")
+            if CheckAngle(angle_rad, ThetaWallSouth_rad) and vektorLen > 10.0:
                 y = -DistY(start, end)
-                print(f"Theta={theta_deg:.0f}° WallSouth detected {y:5.2f}m südlich vom Robotor")
-            elif CheckWinkel(winkel_rad, ThetaWallNorth_rad) and vektorLen > 8.0:
+                self.get_logger().info(f"[{self.simTimeSec:.3f}] [Localization] Theta={theta_deg:.0f}° WallSouth erkannt {y:5.2f}m südlich vom Robotor")
+            if CheckAngle(angle_rad, ThetaWallNorth_rad) and vektorLen > 8.0:
                 y = (start[1] + end[1]) / 2
-                print(f"Theta={theta_deg:.0f}° WallNorth detected {y:5.2f}m nördlich vom Robotor")
-            elif (CheckWinkel(winkel_rad, ThetaSchuppenEast_rad) and 
-                  CheckLength(vektorLen, LenSchuppenEast) and
-                  start[0] < 0 and end[0] < 0):
+                self.get_logger().info(f"[{self.simTimeSec:.3f}] [Localization] Theta={theta_deg:.0f}° WallNorth erkannt {y:5.2f}m nördlich vom Robotor")
+            if (CheckAngle(angle_rad, ThetaSchuppenEast_rad) and 
+                CheckLength(vektorLen, LenSchuppenEast) and
+                start[0] < 0 and end[0] < 0
+            ):
                 x = (start[0] + end[0]) / 2
-                print(f"Theta={theta_deg:.0f}° Schuppen detected ({vektorLen:5.2f}m breit) {x:5.2f}m westlich vom Robotor")
+                self.get_logger().info( 
+                    f"[{self.simTimeSec:.3f}] [Localization] Theta={theta_deg:.0f}° "
+                    f"Schuppen erkannt ({vektorLen:.2f}m breit) {x:5.2f}m westlich vom Robotor")                    
+            #self.get_logger().info(f"{CheckAngleResult_deg(angle_rad, ThetaSchuppenSouth_rad)=:.1f}° {np.rad2deg(angle_rad)=:.1f}°")      
+            if (CheckAngle(angle_rad, ThetaSchuppenSouth_rad) and 
+                CheckLength(vektorLen, LenSchuppenSouth) and
+                start[1] > 0 and end[1] > 0
+            ):
+                y = DistY(start, end)
+                self.get_logger().info( 
+                    f"[{self.simTimeSec:.3f}] [Localization] Theta={theta_deg:.0f}° "
+                    f"Schuppen erkannt ({vektorLen:.2f}m breit) {y:5.2f}m nördlich vom Robotor")
 
 
             #  ThetaWallNorth_rad     =  0.00000    #    0.0°
@@ -205,24 +232,23 @@ class Navigator(Node):
 
     
     def StateMachine(self, scan_msg):
-        now = self.get_clock().now().nanoseconds / 1e9
+        self.simTimeSec = self.get_clock().now().nanoseconds / 1e9
         all_detected_walls = self.Walldetector(scan_msg)
         PublishMarkers(self.marker_pub, all_detected_walls)
-        self.counter += 1
         if self.state == STATE_INIT:     
             # Nach Norden ausrichten
             self.SetWantedTheta(np.pi/2)
             self.state = STATE_CHECK_NORTH
             
         elif self.state == STATE_CHECK_NORTH:
-            if self.wantedThetaReached and now > self.wantedThetaReachedTime + 0.0:
+            if self.wantedThetaReached and self.simTimeSec > self.wantedThetaReachedTime + 0.5:
                 self.Localization(self.theta, all_detected_walls)
                 # Nach Süden ausrichten
                 self.SetWantedTheta(-np.pi/2)
                 self.state = STATE_CHECK_SOUTH
                 
         elif self.state == STATE_CHECK_SOUTH:
-            if self.wantedThetaReached and now > self.wantedThetaReachedTime + 0.0:
+            if self.wantedThetaReached and self.simTimeSec > self.wantedThetaReachedTime + 0.5:
                 self.Localization(self.theta, all_detected_walls)
                 self.state = STATE_INIT
 
