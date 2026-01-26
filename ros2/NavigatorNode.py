@@ -11,6 +11,7 @@ import time
 import sys
 import math
 from Ransac import LineDetection, PublishMarkers
+from GartenWorld import Localization
 
 sys.path.append('../HostSim')
 import params
@@ -65,7 +66,7 @@ def CheckLength(vektorLen, value):
     return True
 
 def LineEquation(A, B):
-    # Berechne die Parameter a und b der Geraden y=a*x+b, die durch die Punkte A und B geht
+    """ Berechne die Parameter a und b der Geraden y=a*x+b, die durch die Punkte A und B geht """
     a = (B[1] - A[1]) / (B[0] - A[0])
     b = A[1] - a*A[0]
     return a, b
@@ -171,11 +172,11 @@ class Navigator(Node):
         dauer_ms = (ende_zeit - start_zeit) * 1000 # Umrechnung in Millisekunden
         
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
-        self.get_logger().info(f"[{self.simTimeSec:.3f}] [Walldetector] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=1.0)
+        self.get_logger().info(f"[{self.simTimeSec:.3f}] [Walldetector] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=100.0)
         return all_detected_walls
 
     
-    def Localization(self, theta, all_detected_walls):
+    def OLDLocalization(self, theta, all_detected_walls):
         theta_deg = np.rad2deg(theta)
         c, s = np.cos(theta), np.sin(theta)
         # 3. Rotationsmatrix erstellen
@@ -230,26 +231,73 @@ class Navigator(Node):
             #  ThetaSchuppenEast_rad  =  np.pi/2    #   90.0°
             #  ThetaSchuppenSouth_rad =  0.00000    #    0.0°
 
+    def ImproveEquations(self, A, b, info):
+        """ Verwende nur Zäune zur Lokalisierung, wenn mindesten zwei Zäune erkannt wurden """
+        """ (dient zur Reduzierung von Fehlerkennungen) """
+        numEq = len(self.b)
+        zaunN = 0
+        zaunE = 0
+        zaunS = 0
+        for i in range(numEq):
+            if info[i] == "ZaunN": zaunN = 1
+            elif info[i] == "ZaunE": zaunE = 1
+            elif info[i] == "ZaunS": zaunS = 1
+        if zaunN + zaunE + zaunS < 2:
+            return np.array(A), np.array(b), info
+        Anew = []
+        bnew = []
+        infoNew = []
+        n = 0
+        for i in range(numEq):
+            if info[i]=="ZaunN" or info[i]=="ZaunE" or info[i]=="ZaunS":
+                Anew.append(A[i])
+                bnew.append(b[i])
+                infoNew.append(info[i])
+            else: n += 1
+        print(f"{n} equations removed")
+        return np.array(Anew), np.array(bnew), infoNew
     
     def StateMachine(self, scan_msg):
         self.simTimeSec = self.get_clock().now().nanoseconds / 1e9
-        all_detected_walls = self.Walldetector(scan_msg)
-        PublishMarkers(self.marker_pub, all_detected_walls)
+        detectedWalls = self.Walldetector(scan_msg)
+        #Localization(self.theta, all_detected_walls)
+        #PublishMarkers(self.marker_pub, all_detected_walls)
         if self.state == STATE_INIT:     
             # Nach Norden ausrichten
             self.SetWantedTheta(np.pi/2)
             self.state = STATE_CHECK_NORTH
+            self.A = []
+            self.b = []
+            self.info = []
             
         elif self.state == STATE_CHECK_NORTH:
             if self.wantedThetaReached and self.simTimeSec > self.wantedThetaReachedTime + 0.5:
-                self.Localization(self.theta, all_detected_walls)
+                #print(detectedWalls)
+                detectedWallsValid = Localization(self.theta, detectedWalls, self.A, self.b, self.info)
+                PublishMarkers(self.marker_pub, detectedWalls, detectedWallsValid)
                 # Nach Süden ausrichten
                 self.SetWantedTheta(-np.pi/2)
                 self.state = STATE_CHECK_SOUTH
                 
         elif self.state == STATE_CHECK_SOUTH:
             if self.wantedThetaReached and self.simTimeSec > self.wantedThetaReachedTime + 0.5:
-                self.Localization(self.theta, all_detected_walls)
+                #print(detectedWalls)
+                detectedWallsValid = Localization(self.theta, detectedWalls, self.A, self.b, self.info)
+                PublishMarkers(self.marker_pub, detectedWalls, detectedWallsValid)
+                
+                A, b, info = self.ImproveEquations(self.A, self.b, self.info)
+                numEq = len(info)
+                #print(f"--> {A.shape=}  {b.shape=}")
+
+                # rcond=None unterdrückt eine Warnung und nutzt den Standard-Schwellenwert
+                x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
+
+                print(f"Lösung x={x[0]:6.2f}  x={x[1]:6.2f}    Rang:{rank}   Fehlerquadratsumme: {residuals}")                
+
+                for i in range(numEq):
+                    err = x[0]*A[i,0] + x[1]*A[i,1] - b[i]
+                    print(f"{b[i]:6.2f} = {A[i,0]:6.2f}*x + {A[i,1]:6.2f}*y   {err=:6.2f}  # {info[i]}")
+
                 self.state = STATE_INIT
 
 def main():

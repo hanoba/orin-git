@@ -7,7 +7,7 @@ MY_PID=$$
 cleanup() {
     echo -e "\n🛑 Beende alle Prozesse (Ground Truth Mode)..."
     pkill -P $MY_PID
-    pkill -f "python3 SimNode.py"
+    pkill -f "python3 ros_sim_node.py"
     pkill -f "python3 WallFollowerNode.py"
     pkill -f "python3 CornerDetectorNode.py"
     pkill -f "static_transform_publisher"
@@ -38,7 +38,8 @@ ros2 daemon start
 # --- 2. CORE KOMPONENTEN ---
 
 # Bridge: JETZT MIT publish_odom_tf:=true (Ground Truth übernimmt Positionierung)
-python3 SimNode.py --ros-args \
+python3 ros_sim_node.py --ros-args \
+    --log-level error \
     -p publish_odom_tf:=true &
 
 # Statischer Transform: Lidar zu base_link

@@ -168,7 +168,8 @@ Visualization Manager:
       Enabled: true
       Name: MarkerArray
       Namespaces:
-        walls: true
+        walls_endpoints: true
+        walls_lines: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -253,5 +254,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1490
-  X: 210
-  Y: 333
+  X: 2079
+  Y: 375

@@ -1,9 +1,9 @@
 import numpy as np
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
+from std_msgs.msg import ColorRGBA
 
-
-MAX_GAP = 5.50
+MAX_GAP = 1.0  #0.50
 
 def find_intersection(line1, line2):
     p1, p2 = line1; p3, p4 = line2
@@ -138,7 +138,7 @@ def LineDetection(points):
     return all_detected_walls
 
 
-def PublishMarkers(pub, all_detected_walls):
+def PublishMarkers(pub, all_detected_walls, isDetectedWallValid):
     markers = MarkerArray()
     frame_id = "lidar"
     z_height = -0.1
@@ -164,15 +164,21 @@ def PublishMarkers(pub, all_detected_walls):
     m_spheres.type = Marker.SPHERE_LIST # <--- EXTREM EFFIZIENT
     m_spheres.action = Marker.ADD
     m_spheres.scale.x = 0.25; m_spheres.scale.y = 0.25; m_spheres.scale.z = 0.25
-    m_spheres.color.r = 1.0; m_spheres.color.a = 1.0
+    m_spheres.color.b = 1.0; m_spheres.color.a = 1.0
 
-    for start, end in all_detected_walls:
+    for i, (start, end) in enumerate(all_detected_walls):
         p_start = Point(x=float(start[0]), y=float(start[1]), z=z_height)
         p_end = Point(x=float(end[0]), y=float(end[1]), z=z_height)
+
+        wall_color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8) if isDetectedWallValid[i] else ColorRGBA(r=0.0, g=1.0, b=0.0, a=0.8)        
         
         # Punkte zur Linienliste hinzufügen
         m_lines.points.append(p_start)
         m_lines.points.append(p_end)
+
+        # Farbe zweimal hinzufügen (für beide Enden des Segments)
+        m_lines.colors.append(wall_color)
+        m_lines.colors.append(wall_color)
         
         # Punkte zur Sphärenliste hinzufügen
         m_spheres.points.append(p_start)

@@ -10,12 +10,27 @@ LidarFreq_Hz = 10
 #LidarX = 0.4
 LidarX = 0.0
 
-config = 0
-if config==1:
+config = 3
+if config==0:
     BackWheelDrive = True
     RobotInitX = 15.00
     RobotInitY = 7.50
     RobotInitTheta =  -np.pi+3/4*np.pi
+elif config==1:
+    BackWheelDrive = False
+    RobotInitX = -13.60
+    RobotInitY =   4.20
+    RobotInitTheta = 0.0
+elif config==2:
+    BackWheelDrive = False
+    RobotInitX = 12.00
+    RobotInitY = -3.00
+    RobotInitTheta = 0.0
+elif config==3:
+    BackWheelDrive = False
+    RobotInitX =  4.10
+    RobotInitY =  4.50
+    RobotInitTheta = 0.0
 else:
     BackWheelDrive = False
     RobotInitX = 0.0

@@ -12,8 +12,11 @@ BORDER_MARGIN = 10      # 40
 WALL_X = 500
 WIN_W, WIN_H = 1500, 1000              # Fenstergröße in Pixeln
 WIN_W_METER = 50.0
-centerX =  22
-centerY = -12
+
+CenterX =  22
+CenterY = -12
+Center = np.array([CenterX, CenterY])
+
 
 WALL_COLOR = (180, 180, 180)         # Farbe der Wände
 
@@ -37,6 +40,196 @@ def Ym(pixel):
 def V(meterPerSec):
     return meterPerSec*WIN_W/WIN_W_METER
 
+def NormalizeAngle(angle_rad):
+    return (angle_rad + math.pi) % math.tau - np.pi
+
+def CheckAngle(num, angle_rad):
+    value_rad = lineTheta[num]
+    MaxDiff = np.deg2rad(2.5)
+    diff1 = NormalizeAngle(angle_rad - value_rad)
+    diff2 = NormalizeAngle(angle_rad + math.pi - value_rad)
+    return abs(diff1) < MaxDiff or abs(diff2) < MaxDiff 
+
+def CheckAngleResult_deg(num, angle_rad):
+    value_rad = lineTheta[num]
+    MaxDiff = np.deg2rad(5.0)
+    diff1 = NormalizeAngle(angle_rad - value_rad)
+    diff2 = NormalizeAngle(angle_rad + math.pi - value_rad)
+    return np.rad2deg(min(abs(diff1), abs(diff2)))
+
+def CheckLength(num, vektorLen):
+    if vektorLen < lineMin[num]: return False
+    if vektorLen > lineMax[num]: return False
+    return True
+
+    
+def LineEquation(A, B):
+    """ Berechne die Parameter m und t der Geraden y=m*x+t, die durch die Punkte A und B geht """
+    m = (B[1] - A[1]) / (B[0] - A[0])
+    t = A[1] - m*A[0]
+    return m, t
+    
+def Distance(start, end):
+    """ Berechne den Abstand in Y-Richtung von der Geraden, die durch die Punkte start und end geht """
+    m, t = LineEquation(start, end)
+    distX = -t/m
+    distY = t
+    return distX, distY
+
+
+# Alle Linien, die für die Positionsbestimmung verwendet werden sollen, 
+# werden wie folgt gespeichert: 0 = a*x + b*y + c
+# Für horizontale Linien gilt: a=0, b=-1, c=Ax=Bx
+# Für vertikale Linien gilt: a=-1, b=0, c=Ax=Bx
+# 
+LineLengthMargin = 0.50
+LineMatrixRows = 12
+LineMatrixCols =  3
+lineMatrix = np.zeros((LineMatrixRows, LineMatrixCols))
+linePosition = [0]*LineMatrixRows
+lineMin = [0.0]*LineMatrixRows
+lineMax = [0.0]*LineMatrixRows
+lineTheta = [0.0]*LineMatrixRows
+lineMaxDist = [np.inf]*LineMatrixRows
+lineNames = [ 
+    "ZaunN", "ZaunO", "ZaunS", "ZaunW",
+    "SchuppenW", "SchuppenS", "SchuppenO",
+    "TerrasseW", "TerrasseS", "BassinO", "BassinN", "HausO"
+]
+
+# Wall Position relative to robot
+P_NORTH = 0
+P_EAST  = 1
+P_SOUTH = 2
+P_WEST  = 3
+P_TEXT = ["North", "East", "South", "West"]
+P_SIGN = [ 1, 1, -1, -1 ]
+
+# Line Matrix for Positioning
+#  0. ZaunN     :  a=  0.00000  b= -1.00000  c=  12.00000  min=  8.00  max=inf     theta=   0°  North
+#  1. ZaunO     :  a= 11.50056  b= -1.00000  c=-248.48773  min=  8.00  max=inf     theta= -95°  East
+#  2. ZaunS     :  a= -0.38195  b= -1.00000  c=  -4.43843  min= 10.00  max=inf     theta= 159°  South
+#  3. ZaunW     :  a=  8.75085  b= -1.00000  c= 201.89355  min=  8.00  max=inf     theta=  83°  West
+#  4. SchuppenW :  a= -1.00000  b=  0.00000  c= -15.80000  min=  4.00  max=5.00    theta= -90°  East
+#  5. SchuppenS :  a=  0.00000  b= -1.00000  c=   6.70000  min=  3.50  max=4.50    theta=   0°  North
+#  6. SchuppenO :  a= -1.00000  b=  0.00000  c= -11.80000  min=  4.00  max=5.00    theta=  90°  West
+#  7. TerrasseW :  a= -1.00000  b=  0.00000  c=   6.32000  min=  3.95  max=4.95    theta= -90°  East
+#  8. TerrasseS :  a=  0.00000  b= -1.00000  c=   2.29000  min=  5.58  max=6.58    theta=   0°  North
+#  9. BassinO   :  a= -1.00000  b=  0.00000  c=  15.00000  min=  2.00  max=3.00    theta=  90°  West
+# 10. BassinN   :  a=  0.00000  b= -1.00000  c=   5.19000  min=  1.60  max=2.60    theta= 180°  South
+# 11. HausO     :  a= -1.00000  b=  0.00000  c=  12.40000  min=  4.17  max=5.17    theta=  90°  West
+
+def IsHorizontal(num):
+    return lineMatrix[num, 0] ==  0.0
+
+def IsVertikal(num):
+    return lineMatrix[num, 1] ==  0.0
+
+def AddLineForPositioning(num, A, B, pos, minLength=None, maxDist=np.inf):
+    a = np.array(A) - Center
+    b = np.array(B) - Center
+    if a[0] == b[0]:
+        # Vertikale Linie
+        lineMatrix[num, 0] = -1.0
+        lineMatrix[num, 1] =  0.0
+        lineMatrix[num, 2] = a[0]
+    elif a[1] == b[1]:
+        # Horizontale Linie
+        lineMatrix[num, 0] =  0.0
+        lineMatrix[num, 1] = -1.0
+        lineMatrix[num, 2] = b[1]
+    elif pos==P_EAST or pos==P_WEST:
+        m, t = LineEquation(a, b)
+        lineMatrix[num, 0] = -1.0
+        lineMatrix[num, 1] = 1/m
+        lineMatrix[num, 2] = -t/m
+    else:
+        m, t = LineEquation(a, b)
+        lineMatrix[num, 0] = m
+        lineMatrix[num, 1] = -1.0
+        lineMatrix[num, 2] = t
+    if minLength == None:
+        vecLen = np.linalg.norm(a-b)
+        lineMin[num] = vecLen - LineLengthMargin*2.0
+        lineMax[num] = vecLen + LineLengthMargin*0.3
+    else:
+        lineMin[num] = minLength
+        lineMax[num] = math.inf
+    lineTheta[num] = Angle(a, b)
+    linePosition[num] = pos
+    lineMaxDist[num] = maxDist
+
+def LineMatrixRowText(num):
+    pos = linePosition[num]
+    theta_deg = np.rad2deg(lineTheta[num])
+    return (
+        f"{num:2d}. {lineNames[num]:<12}:  "
+        f"a={lineMatrix[num, 0]:9.5f}  b={lineMatrix[num, 1]:9.5f}  c={lineMatrix[num, 2]:10.5f}  "
+        f"min={lineMin[num]:6.2f}  max={lineMax[num]:<6.2f}  "
+        f"theta={theta_deg:4.0f}°  "
+        f"{P_TEXT[pos]}")
+
+def PrintLineMatrix():
+    print("Line Matrix for Positioning")
+    for num in range(LineMatrixRows):
+        print(f"{LineMatrixRowText(num)}")
+
+def Localization(theta, all_detected_walls, A, b, info):
+    """ Prüft alle Linien in den Lidardaten und berechnet aus den gültigen Linien die Roboter-Position """
+    theta_deg = np.rad2deg(theta)
+    c, s = np.cos(theta), np.sin(theta)
+    # 3. Rotationsmatrix erstellen
+    # Formel: [[cos, -sin], [sin, cos]]
+    # Da unsere Punkte Zeilenvektoren sind (N,2), müssen wir 
+    # die Matrix für die Multiplikation transponieren oder die Formel anpassen.
+    rotation_matrix = np.array([
+        [c, -s],
+        [s,  c]
+    ])
+    isDetectedWallValid = []
+    #if numTest>=0: print(f"{LineMatrixRowText(numTest)}")
+    for start, end in np.array(all_detected_walls):  
+        # Drehung durch Matrix-Multiplikation (Dot Product)
+        # Wir transponieren die Matrix (.T), damit (N,2) * (2,2) funktioniert        
+        start = np.dot(start, rotation_matrix.T)
+        end = np.dot(end, rotation_matrix.T)
+        vektor = end - start
+        vektorLen = np.linalg.norm(vektor)
+        angle_rad = np.arctan2(vektor[1], vektor[0])
+        lineValid = False
+        for num in range(LineMatrixRows):  # [0, 2, 5, 6]:
+            #if num==1: print(f"{(start,end)} {CheckAngle(num, angle_rad)} {CheckLength(num, vektorLen)} {CheckPos(num, start, end)}")
+            if CheckAngle(num, angle_rad) and CheckLength(num, vektorLen):  # and CheckPos(num, start, end):
+                s = P_SIGN[linePosition[num]]
+                if IsVertikal(num):     
+                    bVal = (start[0] + end[0]) / 2
+                    dist = s*bVal
+                    xy = "x"
+                elif IsHorizontal(num): 
+                    bVal = (start[1] + end[1]) / 2
+                    dist = s*bVal
+                    xy = "y"
+                else:                   
+                    dx, dy = Distance(start, end)
+                    distX = s*dx; distY = s*dy
+                    if linePosition[num] == P_EAST or linePosition[num] == P_WEST:
+                        xy = "x" 
+                        dist = distX
+                        bVal = dx
+                    else:
+                        xy = "y"
+                        dist = distY
+                        bVal = dy
+                if dist>0 and dist<lineMaxDist[num]:
+                    A.append([lineMatrix[num, 0], lineMatrix[num, 1]])
+                    b.append(bVal - lineMatrix[num, 2])
+                    info.append(lineNames[num])
+                    print(
+                        f"=== [Localization] {lineNames[num]} ({vektorLen:5.2f}m breit) erkannt {dist:5.2f}m {xy}-Abstand vom Robotor, Theta={theta_deg:.0f}°")
+                    lineValid = True
+        isDetectedWallValid.append(lineValid)
+    return isDetectedWallValid
+        
 @dataclass
 class Segment:
     """Liniensegment (Wand/Begrenzung) in Weltkoordinaten."""
@@ -57,6 +250,7 @@ class World:
     """Enthält alle kollidierenden Liniensegmente und zeichnet die Szene."""
     def __init__(self):
         self.segments = []
+
         # Außenrahmen erzeugen
         x0, y0 = BORDER_MARGIN, BORDER_MARGIN
         x1, y1 = WIN_W - BORDER_MARGIN, WIN_H - BORDER_MARGIN
@@ -75,9 +269,8 @@ class World:
         # pygame.draw.line(surf, GATE_COLOR, (WALL_X, GATE_Y1), (WALL_X, GATE_Y2), 3)
 
     def Line(self, A, B):
-        center = np.array([centerX, centerY])
-        a = np.array(A) - center
-        b = np.array(B) - center
+        a = np.array(A) - Center
+        b = np.array(B) - Center
         self.segments.append(Segment(X(a[0]), Y(a[1]), X(b[0]), Y(b[1])))
         #print(f"Line created {a=}, {b=}")
 
@@ -90,8 +283,8 @@ class World:
         lenX = posX2 - posX1
         lenY = posY2 - posY1
         
-        posX = posX1    #- centerX
-        posY = posY1    #- centerY
+        posX = posX1    #- CenterX
+        posY = posY1    #- CenterY
         print(f"Creating {name:<12}: Unten links = ({posX:6.2f},{posY:6.2f}), Oben rechts = ({posX+lenX:6.2f},{posY+lenY:6.2f})")
         self.Line( (posX,       posY     ), (posX+lenX, posY     ) )
         self.Line( (posX+lenX,  posY     ), (posX+lenX, posY+lenY) )
@@ -102,8 +295,8 @@ class World:
     # Garten
     # -------------------------------------------------------
     def CreateGarten(self):
-        centerX =  22
-        centerY = -12
+        CenterX =  22
+        CenterY = -12
             
         PA, PB, PC, PD = Gartenzaun()
         # Gartentor hinzufügen
@@ -116,12 +309,22 @@ class World:
         self.Line(PB, PC)
         self.Line(PC, PD)
         self.Line(PD, PA)
+        AddLineForPositioning(0, PA, PB, P_NORTH,  7.0)
+        AddLineForPositioning(1, PB, PC, P_EAST,   7.0)
+        AddLineForPositioning(2, PC, PD, P_SOUTH,  7.0)
+        ausgeblendet = 99.00    # ausblenden (war 8.0)
+        AddLineForPositioning(3, PD, PA, P_WEST, ausgeblendet)
+
+        schuppen = Schuppen()
+        self.Haus("Schuppen", schuppen)
+        AddLineForPositioning(4, schuppen[3], schuppen[0], P_EAST, ausgeblendet)
+        AddLineForPositioning(5, schuppen[0], schuppen[1], P_NORTH, maxDist=7.0)
+        AddLineForPositioning(6, schuppen[1], schuppen[2], P_WEST)
         
-        
-        self.Haus("Schuppen", Schuppen())
-        self.Haus("Gartenhaus", Gartenhaus())
         terrasse = Terrasse()
         self.Haus("Terrasse", terrasse)
+        AddLineForPositioning(7, terrasse[3], terrasse[0], P_EAST)
+        AddLineForPositioning(8, terrasse[0], terrasse[1], P_NORTH, ausgeblendet)
         
         def Bassin(terrasseUntenRechts):
             lenX = 2.10 #2.40
@@ -131,7 +334,15 @@ class World:
             y += 0.40   # 0.0
             return [(x, y), (x+lenX, y), (x+lenX, y+lenY), (x, y+lenY)]
         
-        self.Haus("Bassin", Bassin(terrasse[1]))
+        bassin = Bassin(terrasse[1])
+        self.Haus("Bassin", bassin)
+        AddLineForPositioning( 9, bassin[1], bassin[2], P_WEST, maxDist=8.0)
+        AddLineForPositioning(10, bassin[2], bassin[3], P_SOUTH, maxDist=7.0)
+        
+        gartenhaus = Gartenhaus()
+        self.Haus("Gartenhaus", gartenhaus)
+        specialMinLength = 5.50     # wegen angrenzender Terrasse
+        AddLineForPositioning(11, gartenhaus[1], gartenhaus[2], P_WEST, specialMinLength)
         
         def Strauch(name, mittelPunkt, dm):
             print(f"Creating {name}")
@@ -170,12 +381,12 @@ def Move(poly, mx, my):
         poly[i] = (x+mx,y+my)
     return
 
-def Winkel(text, A, B):
+def Angle(A, B):
     vektor = np.array(B) - np.array(A)
-    winkel_rad = np.arctan2(vektor[1], vektor[0])
-    winkel_deg = np.rad2deg(winkel_rad)
-    print(f"Theta{text}_rad = {winkel_rad:8.5f}    # {winkel_deg:6.1f}°")
-    return winkel_rad
+    angle_rad = np.arctan2(vektor[1], vektor[0])
+    #winkel_deg = np.rad2deg(winkel_rad)
+    #print(f"Theta{text}_rad = {winkel_rad:8.5f}    # {winkel_deg:6.1f}°")
+    return angle_rad
 
 def Length(text, A, B):
     vektor = np.array(B) - np.array(A)
@@ -242,10 +453,10 @@ def Gartenzaun():
     #print(check, b1+b3)
 
     # Winkel ausgeben
-    Winkel("WallNorth", PA, PB)
-    Winkel("WallEast ", PC, PB)
-    Winkel("WallSouth", PD, PC)
-    Winkel("WallWest ", PD, PA)
+    #Winkel("WallNorth", PA, PB)
+    #Winkel("WallEast ", PC, PB)
+    #Winkel("WallSouth", PD, PC)
+    #Winkel("WallWest ", PD, PA)
     
     garten=[PA, PB, PC, PD]
     print(f"{garten=}")
@@ -268,12 +479,12 @@ def Terrasse():
     return [t[3], t[2], t[1], t[0]]
     
 def Schuppen():
-    schuppen = [(0,0),(4.00,0),(4.00,4.50),(0,4.50)]
+    schuppen = [(0.00,0.00),(4.00,0.00),(4.00,4.50),(0.00,4.50)]
     mx = 5.10 + 1.6 - 0.5
     my = -4.50-0.50 - 0.3
     Move(schuppen,mx,my)
     return schuppen
 
-if __name__ == '__main__':
-    world = World()
-    world.CreateGarten()
+# if __name__ == '__main__':
+world = World()
+PrintLineMatrix()
