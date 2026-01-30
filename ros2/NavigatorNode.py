@@ -12,6 +12,7 @@ import sys
 import math
 from Ransac import LineDetection, PublishMarkers
 from GartenWorld import Localization, lineNames
+from TaskLists import LocalizationTaskList
 
 sys.path.append('../HostSim')
 import params
@@ -84,7 +85,7 @@ class Navigator(Node):
         super().__init__('navigator')
         self.declare_parameter('distance_threshold', 0.05) 
         self.declare_parameter('min_points', 6)
-        # NEU: Wenn Punkte weiter als 50cm auseinander liegen -> Tor/Lücke
+        # NEU: Wenn Punkte weiter als max_gap auseinander liegen -> Tor/Lücke
         self.declare_parameter('max_gap', 5.50) 
 
         #self.sub = self.create_subscription(LaserScan, '/scan', self.ScanCallback, qos_profile_sensor_data)
@@ -126,6 +127,9 @@ class Navigator(Node):
         # Publisher für die Fahrbefehle
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         
+        # Set initial task list
+        self.NewTaskList(LocalizationTaskList)
+        
     def SetWantedTheta(self, wantedTheta):
         self.wantedTheta = wantedTheta
         self.wantedThetaReached = False
@@ -153,7 +157,8 @@ class Navigator(Node):
     def ScanCallback(self, msg):
         if self.is_processing: return
         self.is_processing = True
-        self.StateMachine(msg)
+        #self.StateMachine(msg)
+        self.TaskStep(msg)
         self.is_processing = False
 
     def Walldetector(self, msg):
@@ -176,62 +181,6 @@ class Navigator(Node):
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
         self.get_logger().info(f"[{self.simTimeSec:.3f}] [Walldetector] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=100.0)
         return all_detected_walls
-
-    
-    def OLDLocalization(self, theta, all_detected_walls):
-        theta_deg = np.rad2deg(theta)
-        c, s = np.cos(theta), np.sin(theta)
-        # 3. Rotationsmatrix erstellen
-        # Formel: [[cos, -sin], [sin, cos]]
-        # Da unsere Punkte Zeilenvektoren sind (N,2), müssen wir 
-        # die Matrix für die Multiplikation transponieren oder die Formel anpassen.
-        rotation_matrix = np.array([
-            [c, -s],
-            [s,  c]
-        ])
-        a = np.array(all_detected_walls)
-        # self.get_logger().info(f"[{self.simTimeSec:.3f}] [Localization] all_detected_walls: {a.shape=}  {a.dtype=} {a.ndim=} {a.size=}",
-        #     throttle_duration_sec=1.0)
-        for start, end in a:   # all_detected_walls:
-            # Drehung durch Matrix-Multiplikation (Dot Product)
-            # Wir transponieren die Matrix (.T), damit (N,2) * (2,2) funktioniert        
-            start = np.dot(start, rotation_matrix.T)
-            end = np.dot(end, rotation_matrix.T)
-            vektor = end - start
-            vektorLen = np.linalg.norm(vektor)
-            angle_rad = np.arctan2(vektor[1], vektor[0])
-            #self.get_logger().info(f"[{self.simTimeSec:.3f}] [Localization] {start=}  {end=}  {vektorLen=:5.2f}m  {np.rad2deg(angle_rad):.0f}°")
-            if CheckAngle(angle_rad, ThetaWallSouth_rad) and vektorLen > 10.0:
-                y = -DistY(start, end)
-                self.get_logger().info(f"[{self.simTimeSec:.3f}] [Localization] Theta={theta_deg:.0f}° WallSouth erkannt {y:5.2f}m südlich vom Robotor")
-            if CheckAngle(angle_rad, ThetaWallNorth_rad) and vektorLen > 8.0:
-                y = (start[1] + end[1]) / 2
-                self.get_logger().info(f"[{self.simTimeSec:.3f}] [Localization] Theta={theta_deg:.0f}° WallNorth erkannt {y:5.2f}m nördlich vom Robotor")
-            if (CheckAngle(angle_rad, ThetaSchuppenEast_rad) and 
-                CheckLength(vektorLen, LenSchuppenEast) and
-                start[0] < 0 and end[0] < 0
-            ):
-                x = (start[0] + end[0]) / 2
-                self.get_logger().info( 
-                    f"[{self.simTimeSec:.3f}] [Localization] Theta={theta_deg:.0f}° "
-                    f"Schuppen erkannt ({vektorLen:.2f}m breit) {x:5.2f}m westlich vom Robotor")                    
-            #self.get_logger().info(f"{CheckAngleResult_deg(angle_rad, ThetaSchuppenSouth_rad)=:.1f}° {np.rad2deg(angle_rad)=:.1f}°")      
-            if (CheckAngle(angle_rad, ThetaSchuppenSouth_rad) and 
-                CheckLength(vektorLen, LenSchuppenSouth) and
-                start[1] > 0 and end[1] > 0
-            ):
-                y = DistY(start, end)
-                self.get_logger().info( 
-                    f"[{self.simTimeSec:.3f}] [Localization] Theta={theta_deg:.0f}° "
-                    f"Schuppen erkannt ({vektorLen:.2f}m breit) {y:5.2f}m nördlich vom Robotor")
-
-
-            #  ThetaWallNorth_rad     =  0.00000    #    0.0°
-            #  ThetaWallEast_rad      =  1.48406    #   85.0°
-            #  ThetaWallSouth_rad     = -0.36485    #  -20.9°
-            #  ThetaWallWest_rad      =  1.45702    #   83.5°
-            #  ThetaSchuppenEast_rad  =  np.pi/2    #   90.0°
-            #  ThetaSchuppenSouth_rad =  0.00000    #    0.0°
 
     def RemoveEquations(self, A, b, lineNumbers):
         """ Verwende nur Zäune zur Lokalisierung, wenn mindesten zwei Zäune erkannt wurden """
@@ -307,7 +256,7 @@ class Navigator(Node):
                 # rcond=None unterdrückt eine Warnung und nutzt den Standard-Schwellenwert
                 x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
 
-                print(f"Lösung x={x[0]:6.2f}  x={x[1]:6.2f}    Rang:{rank}   Fehlerquadratsumme: {residuals}")                
+                print(f"Lösung x={x[0]:6.2f}  y={x[1]:6.2f}    Rang:{rank}   Fehlerquadratsumme: {residuals}")                
 
                 for i in range(numEq):
                     err = x[0]*A[i,0] + x[1]*A[i,1] - b[i]
@@ -315,6 +264,28 @@ class Navigator(Node):
 
                 self.state = STATE_INIT
 
+    def NewTaskList(self, taskList):
+        self.taskList = taskList
+        self.taskIndex = 0
+        if self.taskIndex < len(self.taskList):
+            task, params = self.taskList[self.taskIndex]
+            task.Init(self, params)
+        
+    def TaskStep(self, scan_msg):
+        if self.taskIndex < len(self.taskList):
+            task, params = self.taskList[self.taskIndex]
+            self.retvals = task.Step(scan_msg)
+            if self.retvals != None:
+                self.GotoTask(self.taskIndex+1)
+
+    def GotoTask(self, taskIndex):
+        self.taskIndex = taskIndex
+        if self.taskIndex < len(self.taskList):
+            task, params = self.taskList[self.taskIndex]
+            task.Init(self, params, self.retvals)
+        else:
+            self.get_logger().error(f"[GotoTask] Illegal task index: {taskIndex}")
+    
 def main():
     rclpy.init()
     node = Navigator()
