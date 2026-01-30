@@ -1,8 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
-from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Point
+from visualization_msgs.msg import MarkerArray
 from geometry_msgs.msg import Twist
 from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy, HistoryPolicy
 from std_msgs.msg import Float32
@@ -57,7 +56,6 @@ def CheckAngle(angle_rad, value_rad):
     return abs(diff1) < MaxDiff or abs(diff2) < MaxDiff 
 
 def CheckAngleResult_deg(angle_rad, value_rad):
-    MaxDiff = np.deg2rad(5.0)
     diff1 = NormalizeAngle(angle_rad - value_rad)
     diff2 = NormalizeAngle(angle_rad + math.pi - value_rad)
     return np.rad2deg(min(abs(diff1), abs(diff2)))
@@ -171,9 +169,6 @@ class Navigator(Node):
         points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[valid]
 
         all_detected_walls = LineDetection(points)
-        now = self.get_clock().now().to_msg()
-        #PublishMarkers(now, self.marker_pub, all_detected_walls)
-        #self.PublishMarkers(all_detected_walls)
         
         ende_zeit = time.perf_counter() # Zeitnahme endet
         dauer_ms = (ende_zeit - start_zeit) * 1000 # Umrechnung in Millisekunden
@@ -275,7 +270,7 @@ class Navigator(Node):
         if self.taskIndex < len(self.taskList):
             task, params = self.taskList[self.taskIndex]
             self.retvals = task.Step(scan_msg)
-            if self.retvals != None:
+            if self.retvals is not None:
                 self.GotoTask(self.taskIndex+1)
 
     def GotoTask(self, taskIndex):
