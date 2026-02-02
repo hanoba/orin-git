@@ -9,11 +9,12 @@ LidarFreq_Hz = 10
 # Abstand des Lidar in X-Richtung vom Mittelpunkt der Achse
 #LidarX = 0.4
 LidarX = 0.0
+LinearVelocity = 0.5
+config = 0
 
-config = 3
 if config==0:
-    BackWheelDrive = True
-    RobotInitX = 15.00
+    BackWheelDrive = False
+    RobotInitX = 15.00      # Beim Gartentor
     RobotInitY = 7.50
     RobotInitTheta =  -np.pi+3/4*np.pi
 elif config==1:
@@ -30,6 +31,11 @@ elif config==3:
     BackWheelDrive = False
     RobotInitX =  4.10
     RobotInitY =  4.50
+    RobotInitTheta = 0.0
+elif config==4:
+    BackWheelDrive = False
+    RobotInitX =   -2.00
+    RobotInitY =   10.50
     RobotInitTheta = 0.0
 else:
     BackWheelDrive = False

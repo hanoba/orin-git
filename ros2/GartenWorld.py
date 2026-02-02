@@ -1,4 +1,4 @@
-# Erzeugt isaac-sim Simulationsumgebung für meinen Garten.
+# Erzeugt pygame Simulationsumgebung für meinen Garten.
 # Die Gartendaten sind von Moonlight/amcp übernommen.
 # HB 2025-12-20
 
@@ -25,8 +25,11 @@ PixelsPerMeter = 1 / MetersPerPixel
 PixelOffsetX = WIN_W/2 + BORDER_MARGIN
 PixelOffsetY = WIN_H/2 - BORDER_MARGIN
 
-# Linien, die für die Positionsbestimmung verwendet werden, 
-# werden wie folgt gespeichert: 0 = a*x + b*y + c
+# Linien (Walls), die für die Positionsbestimmung verwendet werden, 
+# werden wie folgt gespeichert: 0 = a*x + b*y + c 
+# wobei:  a = lineMatrix[i,0] 
+#         b = lineMatrix[i,1]
+#         c = lineMatrix[i,2]
 # Für horizontale Linien gilt: a=0, b=-1, c=Ax=Bx
 # Für vertikale Linien gilt: a=-1, b=0, c=Ax=Bx
 # 
@@ -52,6 +55,21 @@ P_SOUTH = 2
 P_WEST  = 3
 P_TEXT = ["North", "East", "South", "West"]
 P_SIGN = [ 1, 1, -1, -1 ]
+
+
+def GetWallPosY(wallNum, x=0):
+    """ Berechnet den Y-Wert für die Wand/Linie wallNum """
+    a=lineMatrix[wallNum][0]
+    b=lineMatrix[wallNum][1]
+    c=lineMatrix[wallNum][2]
+    return -(a*x + c)/b
+
+def GetWallPosX(wallNum, y=0):
+    """ Berechnet den Y-Wert für die Wand/Linie wallNum """
+    a=lineMatrix[wallNum][0]
+    b=lineMatrix[wallNum][1]
+    c=lineMatrix[wallNum][2]
+    return -(b*y + c)/a
 
 def AddLineForPositioning(num, A, B, pos, minLength=None, maxDist=np.inf):
     a = np.array(A) - Center
@@ -232,6 +250,19 @@ class Segment:
 
 class World:
     """Enthält alle kollidierenden Liniensegmente und zeichnet die Szene."""
+    ZaunN     = 0
+    ZaunO     = 1
+    ZaunS     = 2
+    ZaunW     = 3
+    SchuppenW = 4
+    SchuppenS = 5
+    SchuppenO = 6
+    TerrasseW = 7
+    TerrasseS = 8
+    BassinO   = 9
+    BassinN   = 10
+    HausO     = 11
+
     def __init__(self):
         self.segments = []
 

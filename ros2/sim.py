@@ -266,6 +266,7 @@ def resolve_collisions(robot: DiffDriveRobot, world: World):
             pushed = True
             
     if pushed:
+        print("[sim.resolve_collisions] Collision detected")
         robot.SetSpeed(0.0, 0.0)
 
 

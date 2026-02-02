@@ -8,7 +8,7 @@ cleanup() {
     # Wir killen alle Prozesse, die MY_PID als Vater (PPID) haben
     pkill -P $MY_PID
     # Sicherheitshalber alle Python-Nodes dieses Projekts
-    pkill -f "python3 SimNode.py"
+    pkill -f "python3 ros_sim_node.py"
     pkill -f "python3 WallFollowerNode.py"
     pkill -f "static_transform_publisher"
     pkill -f "rviz2"
@@ -24,7 +24,7 @@ echo "🚀 Starte Nodes..."
 
 cd /home/harald/orin-git/ros2
 ros2 daemon start
-python3 SimNode.py &
+python3 ros_sim_node.py &
 ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar --ros-args -p use_sim_time:=true &
 rviz2 -d config/Lidar.rviz  --ros-args -p use_sim_time:=true &
 python3 WallFollowerNode.py  --ros-args -p use_sim_time:=true 

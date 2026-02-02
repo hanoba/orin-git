@@ -11,40 +11,11 @@ import sys
 import math
 from Ransac import LineDetection, PublishMarkers
 from GartenWorld import Localization, lineNames
-from TaskLists import LocalizationTaskList
+from TaskLists import LocalizationTaskList, FahreInDenWaldTaskList
 
 sys.path.append('../HostSim')
 import params
 
-#ThetaWallNorth_rad     =  0.00000    #    0.0°
-#ThetaWallEast_rad      =  1.48406    #   85.0°
-#ThetaWallSouth_rad     = -0.36485    #  -20.9°
-#ThetaWallWest_rad      =  1.45702    #   83.5°
-#ThetaSchuppenEast_rad  =  np.pi/2    #   90.0°
-#ThetaSchuppenSouth_rad =  0.00000    #    0.0°
-#
-#LenSchuppenSouth =  4.00
-#LenSchuppenEast =  4.50
-#LenGartenhausSouth =  7.23
-#LenGartenhausEast =  4.67
-#LenTerrasseSouth =  6.08
-#LenTerrasseEast =  4.45
-#LenBassinSouth =  2.40
-#LenBassinEast =  2.80
-#LenSchuppenSouth =  4.00
-#LenSchuppenEast =  4.50
-#LenGartenhausSouth =  7.23
-#LenGartenhausEast =  4.67
-#LenTerrasseSouth =  6.08
-#LenTerrasseEast =  4.45
-#LenBassinSouth =  2.40
-#LenBassinEast =  2.80
-
-STATE_INIT        = 0
-STATE_CHECK_NORTH = 1
-STATE_CHECK_EAST = 2
-STATE_CHECK_SOUTH = 3
-STATE_CHECK_WEST = 4
 
 def NormalizeAngle(angle_rad):
     return (angle_rad + math.pi) % math.tau - np.pi
@@ -116,26 +87,50 @@ class Navigator(Node):
         self.wantedTheta = 0.0
         self.wantedThetaReached = True
         self.K_head = 1.0
-        self.angularMax = 2.0
+        self.angularMax = 2.0*2
         self.angular = 0.0
         self.linear = 0.0
-        self.state = STATE_INIT
+        self.directionFlag = False
         self.simTimeSec = 0.0
                 
         # Publisher für die Fahrbefehle
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         
         # Set initial task list
-        self.NewTaskList(LocalizationTaskList)
+        self.NewTaskList(FahreInDenWaldTaskList)
+
+    def SetVelocities(self, omega, vLinear):
+        self.angular = omega
+        self.linear = vLinear
+        self.wantedThetaReached = True
+        self.directionFlag = False
         
     def SetWantedTheta(self, wantedTheta):
         self.wantedTheta = wantedTheta
         self.wantedThetaReached = False
+        self.directionFlag = False
         self.get_logger().info(f"[{self.simTimeSec:.3f}] [SetWantedTheta] wantedTheta={self.wantedTheta}")
+
+    def SetDirection(self, theta, vLinear):
+        self.directionFlag = True
+        self.wantedTheta = theta
+        self.linear = vLinear
+        self.wantedThetaReached = True
+
+    def ResetDirection(self):
+        self.linear = 0.0
+        self.angular = 0.0
+        self.wantedThetaReached = True
+        self.directionFlag = False
 
     def CompassCallback(self, msg):
         self.theta = NormalizeAngle(msg.data)
-        if not self.wantedThetaReached:
+        if self.directionFlag:
+            e = self.wantedTheta - self.theta
+            e = (e + math.pi) % math.tau - np.pi
+            e = np.clip(e, -self.angularMax, self.angularMax)
+            self.angular = e * self.K_head
+        elif not self.wantedThetaReached:
             e = self.wantedTheta - self.theta
             e = (e + math.pi) % math.tau - np.pi
             e = np.clip(e, -self.angularMax, self.angularMax)
@@ -177,88 +172,6 @@ class Navigator(Node):
         self.get_logger().info(f"[{self.simTimeSec:.3f}] [Walldetector] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=100.0)
         return all_detected_walls
 
-    def RemoveEquations(self, A, b, lineNumbers):
-        """ Verwende nur Zäune zur Lokalisierung, wenn mindesten zwei Zäune erkannt wurden """
-        """ (dient zur Reduzierung von Fehlerkennungen) """
-        numEq = len(self.b)
-        zaun = [0, 0, 0]
-        for i in range(numEq):
-            if 0 <= lineNumbers[i] <= 2: zaun[lineNumbers[i]] = 1
-        print(f"{zaun=}")
-        if zaun[0] + zaun[1] + zaun[2] < 2:
-            return np.array(A), np.array(b), lineNumbers
-        Anew = []
-        bnew = []
-        infoNew = []
-        n = 0
-        for i in range(numEq):
-            if 0 <= lineNumbers[i] <= 2:
-                Anew.append(A[i])
-                bnew.append(b[i])
-                infoNew.append(lineNumbers[i])
-            else: n += 1
-        print(f"{n} equations removed")
-        return np.array(Anew), np.array(bnew), infoNew
-    
-    def StateMachine(self, scan_msg):
-        self.simTimeSec = self.get_clock().now().nanoseconds / 1e9
-        detectedWalls = self.Walldetector(scan_msg)
-        #Localization(self.theta, all_detected_walls)
-        #PublishMarkers(self.marker_pub, all_detected_walls)
-        if self.state == STATE_INIT:     
-            # Nach Norden ausrichten
-            self.SetWantedTheta(np.pi/2)
-            self.state = STATE_CHECK_NORTH
-            self.A = []
-            self.b = []
-            self.lineNumbers = []
-            
-        elif self.state == STATE_CHECK_NORTH:
-            if self.wantedThetaReached and self.simTimeSec > self.wantedThetaReachedTime + 0.0:
-                #print(detectedWalls)
-                detectedWallsValid = Localization(self.theta, detectedWalls, self.A, self.b, self.lineNumbers)
-                PublishMarkers(self.marker_pub, detectedWalls, detectedWallsValid)
-                # Nach Osten ausrichten
-                self.SetWantedTheta(0.0)
-                self.state = STATE_CHECK_EAST
-            
-        elif self.state == STATE_CHECK_EAST:
-            if self.wantedThetaReached and self.simTimeSec > self.wantedThetaReachedTime + 0.0:
-                detectedWallsValid = Localization(self.theta, detectedWalls, self.A, self.b, self.lineNumbers)
-                PublishMarkers(self.marker_pub, detectedWalls, detectedWallsValid)
-                # Nach Süden ausrichten
-                self.SetWantedTheta(-np.pi/2)
-                self.state = STATE_CHECK_SOUTH
-            
-        elif self.state == STATE_CHECK_SOUTH:
-            if self.wantedThetaReached and self.simTimeSec > self.wantedThetaReachedTime + 0.0:
-                detectedWallsValid = Localization(self.theta, detectedWalls, self.A, self.b, self.lineNumbers)
-                PublishMarkers(self.marker_pub, detectedWalls, detectedWallsValid)
-                # Nach Westen ausrichten
-                self.SetWantedTheta(-np.pi)
-                self.state = STATE_CHECK_WEST
-                
-        elif self.state == STATE_CHECK_WEST:
-            if self.wantedThetaReached and self.simTimeSec > self.wantedThetaReachedTime + 0.0:
-                #print(detectedWalls)
-                detectedWallsValid = Localization(self.theta, detectedWalls, self.A, self.b, self.lineNumbers)
-                PublishMarkers(self.marker_pub, detectedWalls, detectedWallsValid)
-                
-                A, b, lineNumbers = self.RemoveEquations(self.A, self.b, self.lineNumbers)
-                numEq = len(lineNumbers)
-                #print(f"--> {A.shape=}  {b.shape=}")
-
-                # rcond=None unterdrückt eine Warnung und nutzt den Standard-Schwellenwert
-                x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
-
-                print(f"Lösung x={x[0]:6.2f}  y={x[1]:6.2f}    Rang:{rank}   Fehlerquadratsumme: {residuals}")                
-
-                for i in range(numEq):
-                    err = x[0]*A[i,0] + x[1]*A[i,1] - b[i]
-                    print(f"{b[i]:6.2f} = {A[i,0]:6.2f}*x + {A[i,1]:6.2f}*y   {err=:6.2f}  # {lineNames[lineNumbers[i]]}")
-
-                self.state = STATE_INIT
-
     def NewTaskList(self, taskList):
         self.taskList = taskList
         self.taskIndex = 0
@@ -271,7 +184,9 @@ class Navigator(Node):
             task, params = self.taskList[self.taskIndex]
             self.retvals = task.Step(scan_msg)
             if self.retvals is not None:
-                self.GotoTask(self.taskIndex+1)
+                nextTaskIndex = self.taskIndex+1
+                if nextTaskIndex < len(self.taskList):
+                    self.GotoTask(nextTaskIndex)
 
     def GotoTask(self, taskIndex):
         self.taskIndex = taskIndex
