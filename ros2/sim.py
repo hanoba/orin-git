@@ -65,10 +65,10 @@ LIDAR_MAX_RANGE = params.LidarRangeMax / MetersPerPixel     # maximale Messdista
 LIDAR_NOISE_STD = 0.5                                       # Gauß‑Rauschen (σ) auf Distanzmessung
 
 # Roboterkinematik
-ROBOT_RADIUS = 16                    # nur für Zeichnung/Kollision (Kreis)
+ROBOT_RADIUS = 12  # 16                    # nur für Zeichnung/Kollision (Kreis)
 WHEEL_BASE = 2 * ROBOT_RADIUS        # Radabstand (vereinfacht)
 MAX_WHEEL_SPEED = 120.0              # Sättigung der Radspeed‑Kommandos [px/s]
-BASE_SPEED = 70.0                    # Basisfahrgeschwindigkeit [px/s]
+#BASE_SPEED = 70.0                    # Basisfahrgeschwindigkeit [px/s]
 
 # Regler Gains
 K_HEADING = 2.2                      # Proportionalgain auf den Richtungsfehler
@@ -311,7 +311,7 @@ class Simulation:
         self.running = True
         self.debugMode = False
         self.first = True
-        self.pause = False
+        self.pause = params.SimPause
     
         self.fwd = 0.0
         self.turn = 1.0

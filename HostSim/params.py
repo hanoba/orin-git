@@ -12,6 +12,8 @@ LidarX = 0.0
 LinearVelocity = 0.5
 config = 0
 
+SimPause = True
+
 if config==0:
     BackWheelDrive = False
     RobotInitX = 15.00      # Beim Gartentor

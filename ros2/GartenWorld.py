@@ -339,7 +339,7 @@ class World:
         terrasse = Terrasse()
         self.Haus("Terrasse", terrasse)
         AddLineForPositioning(7, terrasse[3], terrasse[0], P_EAST)
-        AddLineForPositioning(8, terrasse[0], terrasse[1], P_NORTH)
+        AddLineForPositioning(8, terrasse[0], terrasse[1], P_NORTH, ausgeblendet)
         
         def Bassin(terrasseUntenRechts):
             lenX = 2.10 #2.40
