@@ -35,6 +35,11 @@ import numpy as np  # WICHTIG: NumPy importieren
 from dataclasses import dataclass
 import pygame
 from GartenWorld import Segment, World, WIN_W, WIN_H, X, Y, V, Xm, Ym, MetersPerPixel
+import os
+
+# Setzt den Audio-Treiber auf 'dummy'. 
+# Das verhindert, dass Pygame versucht, eine echte Audio-Verbindung aufzubauen.
+os.environ["SDL_AUDIODRIVER"] = "dummy"
 
 sys.path.append('../HostSim')
 import params

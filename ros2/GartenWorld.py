@@ -42,11 +42,9 @@ lineMin = [0.0]*LineMatrixRows
 lineMax = [0.0]*LineMatrixRows
 lineTheta = [0.0]*LineMatrixRows
 lineMaxDist = [np.inf]*LineMatrixRows
-lineNames = [ 
-    "ZaunN", "ZaunO", "ZaunS", "ZaunW",
-    "SchuppenW", "SchuppenS", "SchuppenO",
-    "TerrasseW", "TerrasseS", "BassinO", "BassinN", "HausO"
-]
+lineNames = ["ZaunN","ZaunO","ZaunS","ZaunW","SchuppenW","SchuppenS","SchuppenO","TerrasseW","TerrasseS","BassinO","BassinN","HausO"]
+#            [ZN,ZO,ZS,ZW,SW,SS,SO,TW,TS,BO,BN,HO]
+lineIgnore = [ 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1]
 
 # Wall Position relative to robot
 P_NORTH = 0
@@ -176,7 +174,7 @@ def Distance(start, end):
     distY = t
     return distX, distY
 
-def Localization(theta, all_detected_walls, A, b, lineNumbers):
+def Localization(theta, all_detected_walls, A, b, lineNumbers, ignore=lineIgnore, debug=True):
     """ Prüft alle Linien in den Lidardaten und berechnet aus den gültigen Linien die Roboter-Position """
     theta_deg = np.rad2deg(theta)
     c, s = np.cos(theta), np.sin(theta)
@@ -201,7 +199,7 @@ def Localization(theta, all_detected_walls, A, b, lineNumbers):
         lineValid = False
         for num in range(LineMatrixRows):  # [0, 2, 5, 6]:
             #if num==1: print(f"{(start,end)} {CheckAngle(num, angle_rad)} {CheckLength(num, vektorLen)} {CheckPos(num, start, end)}")
-            if CheckAngle(num, angle_rad) and CheckLength(num, vektorLen):  # and CheckPos(num, start, end):
+            if CheckAngle(num, angle_rad) and CheckLength(num, vektorLen) and not ignore[num]:
                 s = P_SIGN[linePosition[num]]
                 if IsVertikal(num):     
                     bVal = (start[0] + end[0]) / 2
@@ -226,7 +224,7 @@ def Localization(theta, all_detected_walls, A, b, lineNumbers):
                     A.append([lineMatrix[num, 0], lineMatrix[num, 1]])
                     b.append(bVal - lineMatrix[num, 2])
                     lineNumbers.append(num)
-                    print(
+                    if debug: print(
                         f"=== [Localization] {lineNames[num]} ({vektorLen:5.2f}m breit) erkannt {dist:5.2f}m {xy}-Abstand vom Robotor, Theta={theta_deg:.0f}°")
                     lineValid = True
         isDetectedWallValid.append(lineValid)
@@ -325,21 +323,20 @@ class World:
         self.Line(PC, PD)
         self.Line(PD, PA)
         AddLineForPositioning(0, PA, PB, P_NORTH,  7.0)
-        AddLineForPositioning(1, PB, PC, P_EAST,   7.0)
+        AddLineForPositioning(1, PB, PC, P_EAST,   4.0)
         AddLineForPositioning(2, PC, PD, P_SOUTH,  7.0)
-        ausgeblendet = 99.00    # ausblenden (war 8.0)
-        AddLineForPositioning(3, PD, PA, P_WEST, ausgeblendet)
+        AddLineForPositioning(3, PD, PA, P_WEST, 7.0)
 
         schuppen = Schuppen()
         self.Haus("Schuppen", schuppen)
-        AddLineForPositioning(4, schuppen[3], schuppen[0], P_EAST, ausgeblendet)
+        AddLineForPositioning(4, schuppen[3], schuppen[0], P_EAST)
         AddLineForPositioning(5, schuppen[0], schuppen[1], P_NORTH, maxDist=7.0)
-        AddLineForPositioning(6, schuppen[1], schuppen[2], P_WEST, ausgeblendet)
+        AddLineForPositioning(6, schuppen[1], schuppen[2], P_WEST)
         
         terrasse = Terrasse()
         self.Haus("Terrasse", terrasse)
         AddLineForPositioning(7, terrasse[3], terrasse[0], P_EAST)
-        AddLineForPositioning(8, terrasse[0], terrasse[1], P_NORTH, ausgeblendet)
+        AddLineForPositioning(8, terrasse[0], terrasse[1], P_NORTH)
         
         def Bassin(terrasseUntenRechts):
             lenX = 2.10 #2.40
@@ -351,13 +348,13 @@ class World:
         
         bassin = Bassin(terrasse[1])
         self.Haus("Bassin", bassin)
-        AddLineForPositioning( 9, bassin[1], bassin[2], P_WEST, ausgeblendet)  #, maxDist=8.0)
-        AddLineForPositioning(10, bassin[2], bassin[3], P_SOUTH, ausgeblendet) #, maxDist=7.0)
+        AddLineForPositioning( 9, bassin[1], bassin[2], P_WEST, maxDist=8.0)
+        AddLineForPositioning(10, bassin[2], bassin[3], P_SOUTH, maxDist=7.0)
         
         gartenhaus = Gartenhaus()
         self.Haus("Gartenhaus", gartenhaus)
         specialMinLength = 5.50     # wegen angrenzender Terrasse
-        AddLineForPositioning(11, gartenhaus[1], gartenhaus[2], P_WEST, ausgeblendet)  #, specialMinLength)
+        AddLineForPositioning(11, gartenhaus[1], gartenhaus[2], P_WEST, specialMinLength)
         
         def Strauch(name, mittelPunkt, dm):
             print(f"Creating {name}")

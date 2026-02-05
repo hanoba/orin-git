@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 from Ransac import PublishMarkers
-from GartenWorld import Localization, lineNames, World, GetWallPosX, GetWallPosY
+from GartenWorld import Localization, lineNames, lineIgnore, World, GetWallPosX, GetWallPosY
 
 sys.path.append('../HostSim')
 from params import LidarMaxAngle, LinearVelocity
@@ -14,6 +14,16 @@ LS_FRONT2 = 10
 LS_FRONT3 = -10
 LS_RIGHT = -80
 LS_LEFT  =  80
+LOC_XLT = 0
+LOC_XGE = 1
+LOC_YLT = 2
+LOC_YGE = 3
+LOC_MASK = 3
+LOC_REV_DRV = 4
+
+#            "ZaunN","ZaunO","ZaunS","ZaunW","SchuppenW","SchuppenS","SchuppenO","TerrasseW","TerrasseS","BassinO","BassinN","HausO"
+#             ZN,ZO,ZS,ZW,SW,SS,SO,TW,TS,BO,BN,HO
+#lineIgnore [  1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1]
 
 # Koordinaten zur Zonenbestimmung
 yZaunN = GetWallPosY(World.ZaunN)
@@ -28,15 +38,18 @@ xHausO = GetWallPosX(World.HausO)
 yHausS = 7.0
 dxSchuppenO = 2.0
 xZ23 = xSchuppenO + dxSchuppenO
-yZ34 = yTerrasseS - 1.5
-dyZ23 = yZ34 - GetWallPosY(World.ZaunS, xZ23)
+#yZ34 = yTerrasseS - 1.5
+#dyZ23 = yZ34 - GetWallPosY(World.ZaunS, xZ23)
+dyZ23 = 4.0
 xZ45 = xBassinO + 1.5
 dxHausO = 3.0
-dyZaunN1 = 3.0
+dyZaunN1 = 2.5
 dyZaunN7 = 3.0
 xWald = xHausO + dxHausO
 yWald = yZaunN - dyZaunN7
 
+def d2r(angle_rad):
+    return np.deg2rad(angle_rad)
 
 def Zone(x, y):
     """ Bestimmt in welcher Zone sich der Roboter beim Start befindet """
@@ -67,36 +80,41 @@ def PathFinder(x, y, target):
     if zone == 0: 
         return path
     if target=="Wald":
+        #   ignoreList: [ZN,ZO,ZS,ZW,SW,SS,SO,TW,TS,BO,BN,HO]
+        loc = (LOC_XGE, [ 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1])
         if zone == 1:
+            dy1 = dyZaunN1*sign(yZaunN - y - dyZaunN1)
             dx1 = dxSchuppenO * sign(x - xZ23)
-            dy1 = yZ34 - GetWallPosY(World.ZaunS, xZ23)
-            dx2 = GetWallPosX(World.ZaunO, yZ34) - xZ45
+            #dy1 = yZ34 - GetWallPosY(World.ZaunS, xZ23)
+            #dx2 = GetWallPosX(World.ZaunO, yZ34) - xZ45
             path = [
-                (  -np.pi,         dx1, LS_FRONT),     # nach Westen/Osten bis vor dem Schuppen
-                (-np.pi/2,         dy1, LS_FRONT),     # nach Süden
-                (     0.0,         dx2, LS_FRONT),     # nach Osten
+                ( np.pi/2,         dy1, LS_FRONT),     # nach Norden
+                (  -np.pi,         dx1,      -10),     # nach Westen/Osten bis vor dem Schuppen
+                (-np.pi/2,       dyZ23, LS_FRONT),     # nach Süden
+                ( -d2r(21),        xZ45,     loc),     # nach Osten
                 ( np.pi/2,    dyZaunN7, LS_FRONT),     # nach Norden
                 (  -np.pi,     dxHausO, LS_FRONT)      # nach Westen
             ]
         elif zone == 2:
             dy1 = y - GetWallPosY(World.ZaunS, xZ23)
-            dy2 = y - GetWallPosY(World.ZaunS, xZ23)
-            dx2 = GetWallPosX(World.ZaunO, yZ34) - xZ45
+            dy2 = sign(dy1-dyZ23)*dyZ23
+            #dx2 = GetWallPosX(World.ZaunO, yZ34) - xZ45
             path = [
-                (  -np.pi,      dy1, LS_RIGHT),     # nach Westen bis östlich vom Schuppen
-                (-np.pi/2,    dyZ23, LS_FRONT),     # nach Süden
-                (     0.0,      dx2, LS_FRONT),     # nach Osten
+                (  -np.pi,     -dy1, LS_RIGHT),     # nach Osten bis östlich vom Schuppen
+                (-np.pi/2,      dy2, LS_FRONT),     # nach Süden/Norden
+                (-d2r(21),     xZ45,      loc),     # nach Osten
                 ( np.pi/2, dyZaunN7, LS_FRONT),     # nach Norden
                 (  -np.pi,  dxHausO, LS_FRONT)      # nach Westen
             ]
         elif zone == 3 or zone == 4:
-            dy1 = (yZ34 - GetWallPosY(World.ZaunS, x)) * sign(y - yZ34)
-            dx1 = GetWallPosX(World.ZaunO, yZ34) - xZ45
+            dy1 = y - GetWallPosY(World.ZaunS, x)
+            dy2 = sign(dy1-dyZ23)*dyZ23
+            #dx1 = GetWallPosX(World.ZaunO, yZ34) - xZ45
             path = [
-                (-np.pi/2,      dy1, LS_FRONT2),    # nach Süden/Norden
-                (     0.0,      dx1, LS_FRONT3),    # nach Osten
-                ( np.pi/2, dyZaunN7, LS_FRONT),     # nach Norden
-                (  -np.pi,  dxHausO, LS_FRONT)      # nach Westen
+                (-np.pi/2,      dy2,       10),    # nach Süden/Norden
+                (-d2r(21),     xZ45,      loc),    # nach Osten
+                ( np.pi/2, dyZaunN7,        0),    # nach Norden
+                (  -np.pi,  dxHausO,        0)     # nach Westen
             ]
         elif zone == 5 or zone == 6 or zone == 7:
             dx1 = (GetWallPosX(World.ZaunO, y) - xZ45) * sign(xZ45 - x)
@@ -122,67 +140,29 @@ def PathFinder(x, y, target):
                 ( np.pi/2, dyZaunN1, LS_FRONT),     # nach Norden
             ]
         elif zone in [3, 4]:
-            dy1 = (yZ34 - GetWallPosY(World.ZaunS, x)) * sign(y - yZ34)
+            dy1 = (y - GetWallPosY(World.ZaunS, x))
+            dy2 = sign(dy1 - dyZ23) * dyZ23
+            #   ignoreList: [ZN,ZO,ZS,ZW,SW,SS,SO,TW,TS,BO,BN,HO]
+            loc = (LOC_XLT, [ 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1])
             path = [
-                (-np.pi/2,      dy1, -10),  # nach Süden/Norden
-                (  -np.pi,    dyZ23,  80),  # nach Westen
+                (-np.pi/2,      dy2, -10),  # nach Süden/Norden
+                (d2r(159),     xZ23, loc),  # nach Westen
                 ( np.pi/2, dyZaunN1, -10),  # nach Norden
             ]
         elif zone in [5, 6, 7]:
             dx1 = (GetWallPosX(World.ZaunO, y) - xZ45) * sign(xZ45 - x)
-            dy1 = (yZ34 - GetWallPosY(World.ZaunS, xZ45)) * sign(y - yZ34)
+            #dy1 = (yZ34 - GetWallPosY(World.ZaunS, xZ45)) * sign(y - yZ34)
+            y1 = GetWallPosY(World.ZaunS, xZ45) + dyZ23
+            locMode = LOC_YLT if y > y1 else LOC_YGE | LOC_REV_DRV
+            loc1 = (locMode, lineIgnore)
+            #    ignoreList: [ZN,ZO,ZS,ZW,SW,SS,SO,TW,TS,BO,BN,HO]
+            loc2 = (LOC_XLT, [ 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1])
             path = [
-                (     0.0,      dx1,   0),  # nach Westen/Osten
-                (-np.pi/2,      dy1,   0),  # nach Norden/Süden
-                (  -np.pi,    dyZ23,  80),  # nach Westen
-                ( np.pi/2, dyZaunN1, -10),  # nach Norden
+                (     0.0,     dx1,     0),  # nach Westen/Osten
+                (-np.pi/2,      y1,  loc1),  # nach Norden/Süden
+                (d2r(159),    xZ23,  loc2),  # nach Westen
+                ( np.pi/2, dyZaunN1,  -10),  # nach Norden
             ]
-    return path
-
-def OLD_PathFinder(x, y, target):
-    path = []
-    if target=="Wald":
-        if (y < 7.0 and x < 6.0) or x < -7.0:
-            y1 = 1.0 - GetWallPosY(World.ZaunS, x)
-            path = [
-                (-np.pi/2,   y1, LS_FRONT2),    # nach Süden
-                (     0.0,  3.5, LS_FRONT),     # nach Osten
-                ( np.pi/2,  3.0, LS_FRONT),     # nach Norden
-                (  -np.pi,  3.0, LS_FRONT)      # nach Westen
-            ]
-        elif (y > 8.0 and x < 6.0):
-            x1 = GetWallPosX(World.SchuppenO, y) + 2.0
-            y1 = 1.0 - GetWallPosY(World.ZaunS, x1)
-            #print(f"{x1=}  {y1=}")
-            path = [
-                (  -np.pi, 2.0, LS_FRONT),     # nach Westen bis 2m vor dem Schuppen
-                (-np.pi/2,  y1, LS_FRONT),     # nach Süden
-                (     0.0, 3.5, LS_FRONT),     # nach Osten
-                ( np.pi/2, 3.0, LS_FRONT),     # nach Norden
-                (  -np.pi, 3.0, LS_FRONT)      # nach Westen
-            ]
-    elif target=="Schuppen":
-        yBassinN = GetWallPosY(World.BassinN, x)
-        xHausO = GetWallPosX(World.HausO, y)
-        theta1 = 0.0
-        if x > xHausO and y > yBassinN:
-            x1 = GetWallPosX(World.BassinO, y) + 1.0
-            dx1 = GetWallPosX(World.ZaunO, y) - x1
-            if dx1 < 0:
-                dx1 = x1 - GetWallPosX(World.HausO, y)
-                theta1 = -np.pi
-            y1 = GetWallPosY(World.TerrasseS, 0) - 2.0
-            #dy1 = y1 - GetWallPosY(World.ZaunS, x1)
-            dy1 = GetWallPosY(World.ZaunN, x1) - y1
-            x2 = GetWallPosX(World.SchuppenO, 0) + 2.0
-            dy2 = y1 - GetWallPosY(World.ZaunS, x2)
-            path = [
-                (  theta1,   dx1, LS_FRONT),     # nach Osten oder Westen
-                ( np.pi/2,  -dy1, LS_FRONT),     # nach Süden
-                (  -np.pi,   dy2, LS_LEFT),      # nach Westen
-                ( np.pi/2,   3.0, LS_FRONT)      # nach Norden
-            ]
-            print(dx1,dy1,dy2)
     return path
 
 class FollowPathTask:
@@ -215,15 +195,56 @@ class FollowPathTask:
         if self.State == self.StateAlignTheta:
             if self.node.wantedThetaReached:
                 self.State = self.StateGotoWall
-                vLinear = LinearVelocity*sign(self.dist)
+                if type(self.lidarSector) == int:
+                    vLinear = LinearVelocity*sign(self.dist)
+                else:
+                    mode, _ = self.lidarSector
+                    if mode & LOC_REV_DRV:
+                        vLinear = -LinearVelocity
+                    else:
+                        vLinear = LinearVelocity
                 self.node.SetDirection(self.theta, vLinear)
         elif self.State == self.StateGotoWall:
             ranges = np.array(scan_msg.ranges)
-            start_deg = LidarMaxAngle + self.lidarSector - 10
-            end_deg   = LidarMaxAngle + self.lidarSector + 10
-            dist = np.min(ranges[start_deg:end_deg]) 
-            #print(f"{dist=}")
-            if sign(self.dist)*dist < self.dist: 
+            if type(self.lidarSector) == int:
+                start_deg = LidarMaxAngle + self.lidarSector - 10
+                end_deg   = LidarMaxAngle + self.lidarSector + 10
+                dist = np.min(ranges[start_deg:end_deg]) 
+                targetReached = sign(self.dist)*dist < self.dist
+            else:
+                A = []
+                b = []
+                wallNumbers = []
+                mode, ignoreList = self.lidarSector
+                locMode = mode & LOC_MASK
+                revDrive = mode & LOC_REV_DRV
+                detectedWalls = self.node.Walldetector(scan_msg)        
+                detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, wallNumbers, ignore=ignoreList, debug=False)
+                PublishMarkers(self.node.marker_pub, detectedWalls, detectedWallsValid)
+                A, b, wallNumbers = RemoveEquations(A, b, wallNumbers, debug=False)
+                targetReached = False
+                numEq = len(wallNumbers)
+                if numEq > 1:
+                    x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
+                    #print(f"Lösung: ({x[0]:.2f}, {x[1]:.2f})    Rang:{rank}   Fehlerquadratsumme: {residuals}")                
+                    #for i in range(numEq):
+                    #    err = x[0]*A[i,0] + x[1]*A[i,1] - b[i]
+                    #    print(f"{b[i]:6.2f} = {A[i,0]:6.2f}*x + {A[i,1]:6.2f}*y   {err=:6.2f}  # {lineNames[wallNumbers[i]]}")
+                    #print(f"{rank=}   {x=}   {residuals=}")
+                    if not (residuals.size > 0 and residuals > 0.5) and rank == 2:
+                        err = 0.0
+                        if residuals.size > 0: 
+                            err = float(residuals)
+                        print(f"x={x[0]:.2f}  y={x[1]:.2f}  {err=:.3f}")
+                        if locMode == LOC_XLT:
+                            targetReached = x[0] < self.dist
+                        if locMode == LOC_XGE:
+                            targetReached = x[0] >= self.dist
+                        if locMode == LOC_YLT:
+                            targetReached = x[1] < self.dist
+                        if locMode == LOC_YGE:
+                            targetReached = x[1] >= self.dist
+            if targetReached: 
                 self.node.ResetDirection()
                 if self.pathIndex >= len(self.path):
                     self.State = self.StateIdle
@@ -291,6 +312,30 @@ class FollowWallTask:
             
         return None
 
+def RemoveEquations(A, b, lineNumbers, debug=True):
+    """ Verwende nur Zäune zur Lokalisierung, wenn mindesten zwei Zäune erkannt wurden """
+    """ (dient zur Reduzierung von Fehlerkennungen) """
+    numEq = len(b)
+    zaun = [0, 0, 0]
+    for i in range(numEq):
+        if 0 <= lineNumbers[i] <= 2: zaun[lineNumbers[i]] = 1
+    if debug: print(f"{zaun=}")
+    if zaun[0] + zaun[1] + zaun[2] < 2:
+        return np.array(A), np.array(b), lineNumbers
+    Anew = []
+    bnew = []
+    infoNew = []
+    n = 0
+    for i in range(numEq):
+        if 0 <= lineNumbers[i] <= 2:
+            Anew.append(A[i])
+            bnew.append(b[i])
+            infoNew.append(lineNumbers[i])
+        else: n += 1
+    if debug: print(f"{n} equations removed")
+    return np.array(Anew), np.array(bnew), infoNew
+    
+
 class LocalizationTask:
     def Init(self, node, params, retvals=None):
         self.node = node
@@ -302,29 +347,6 @@ class LocalizationTask:
         self.wantedTheta = int(self.node.theta/self.thetaStep + 1)*self.thetaStep
         self.node.SetWantedTheta(self.wantedTheta)
 
-    def RemoveEquations(self, A, b, lineNumbers):
-        """ Verwende nur Zäune zur Lokalisierung, wenn mindesten zwei Zäune erkannt wurden """
-        """ (dient zur Reduzierung von Fehlerkennungen) """
-        numEq = len(self.b)
-        zaun = [0, 0, 0]
-        for i in range(numEq):
-            if 0 <= lineNumbers[i] <= 2: zaun[lineNumbers[i]] = 1
-        print(f"{zaun=}")
-        if zaun[0] + zaun[1] + zaun[2] < 2:
-            return np.array(A), np.array(b), lineNumbers
-        Anew = []
-        bnew = []
-        infoNew = []
-        n = 0
-        for i in range(numEq):
-            if 0 <= lineNumbers[i] <= 2:
-                Anew.append(A[i])
-                bnew.append(b[i])
-                infoNew.append(lineNumbers[i])
-            else: n += 1
-        print(f"{n} equations removed")
-        return np.array(Anew), np.array(bnew), infoNew
-    
     def Step(self, scan_msg):
         #self.simTimeSec = self.node.get_clock().now().nanoseconds / 1e9
         detectedWalls = self.node.Walldetector(scan_msg)        
@@ -333,15 +355,15 @@ class LocalizationTask:
             PublishMarkers(self.node.marker_pub, detectedWalls, detectedWallsValid)
             self.stateCounter += 1            
             if self.stateCounter >= 4:
-                A, b, wallNumbers = self.RemoveEquations(self.A, self.b, self.wallNumbers)
+                A, b, wallNumbers = RemoveEquations(self.A, self.b, self.wallNumbers)
                 numEq = len(wallNumbers)
                 x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
                 print(f"Lösung: ({x[0]:.2f}, {x[1]:.2f})    Rang:{rank}   Fehlerquadratsumme: {residuals}")                
                 for i in range(numEq):
                     err = x[0]*A[i,0] + x[1]*A[i,1] - b[i]
                     print(f"{b[i]:6.2f} = {A[i,0]:6.2f}*x + {A[i,1]:6.2f}*y   {err=:6.2f}  # {lineNames[wallNumbers[i]]}")
-                if residuals > 0.5 or rank < 2:
-                    self.node.get_logger().error(f"LocalizationTask failed")
+                if (residuals.size > 0 and residuals > 0.5) or rank < 2:
+                    self.node.get_logger().error("LocalizationTask failed")
                 return x, A, b, wallNumbers
 
             # Nächste Richtung ansteuern
@@ -360,10 +382,10 @@ LocalizationTaskList = [
 ]
 
 FahreInDenWaldTaskList = [
-    (LocalizationTask(),     None),
-    (FollowPathTask(),       "Schuppen"),
     #(LocalizationTask(),     None),
-    #(FollowPathTask(),       "Wald"),
+    #(FollowPathTask(),       "Schuppen"),
+    (LocalizationTask(),     None),
+    (FollowPathTask(),       "Wald"),
     #(GotoTask(), 0)
 ]
 

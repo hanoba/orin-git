@@ -205,9 +205,9 @@ def main():
     except KeyboardInterrupt:
         # Wird ausgelöst, wenn du Ctrl+C drückst
         node.get_logger().info("Simulation wird durch Benutzer abgebrochen...")
-    except Exception as e:
-        # Fängt unerwartete Fehler ab
-        node.get_logger().error(f"Unerwarteter Fehler: {e}")
+    #except Exception as e:
+    #    # Fängt unerwartete Fehler ab
+    #    node.get_logger().error(f"Unerwarteter Fehler: {e}")
     finally:
         # Dieser Block wird IMMER ausgeführt, egal ob Fehler oder Ctrl+C
         node.get_logger().info("Bereinige Ressourcen...")
