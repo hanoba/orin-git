@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
-from visualization_msgs.msg import MarkerArray
+from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import Twist
 from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy, HistoryPolicy
 from std_msgs.msg import Float32
@@ -96,6 +96,9 @@ class Navigator(Node):
         # Publisher für die Fahrbefehle
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         
+        # Publisher für rviz Textausgabe:
+        self.text_pub = self.create_publisher(Marker, 'text_marker_topic', 10)
+        
         # Set initial task list
         self.NewTaskList(FahreInDenWaldTaskList)
 
@@ -110,6 +113,7 @@ class Navigator(Node):
         self.wantedThetaReached = False
         self.directionFlag = False
         self.get_logger().info(f"[{self.simTimeSec:.3f}] [SetWantedTheta] wantedTheta={self.wantedTheta}")
+        self.linear = 0.0
 
     def SetDirection(self, theta, vLinear):
         self.directionFlag = True
@@ -195,7 +199,32 @@ class Navigator(Node):
             task.Init(self, params, self.retvals)
         else:
             self.get_logger().error(f"[GotoTask] Illegal task index: {taskIndex}")
-    
+
+    def RvizPrint(self, text):
+        marker = Marker()
+        marker.header.frame_id = "map"  # Muss mit deinem Fixed Frame in RViz übereinstimmen
+        marker.type = Marker.TEXT_VIEW_FACING
+        marker.action = Marker.ADD
+        
+        # Inhalt des Strings
+        marker.text = text
+        self.get_logger().info(text)
+        
+        # Position und Größe
+        # Position setzen
+        marker.pose.position.x = 0.0  # 2 Meter nach vorne
+        marker.pose.position.y = 13.0 # 1,5 Meter nach rechts
+        marker.pose.position.z = 0.5  # 0,5 Meter über dem Boden
+        marker.pose.position.z = 1.0  # Schwebt 1 Meter über dem Boden
+        marker.scale.z = 1.5          # Texthöhe in Metern
+        
+        # Farbe (RGBA) - Weiß und voll sichtbar
+        marker.color.r = 1.0
+        marker.color.g = 0.0
+        marker.color.b = 0.0
+        marker.color.a = 1.0
+        
+        self.text_pub.publish(marker)    
 def main():
     rclpy.init()
     node = Navigator()

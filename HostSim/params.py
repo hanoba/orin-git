@@ -10,9 +10,9 @@ LidarFreq_Hz = 10
 #LidarX = 0.4
 LidarX = 0.0
 LinearVelocity = 0.5
-config = 0
+config = 5
 
-SimPause = True
+SimPause = False
 
 if config==0:
     BackWheelDrive = False
@@ -38,6 +38,11 @@ elif config==4:
     BackWheelDrive = False
     RobotInitX =   -2.00
     RobotInitY =   10.50
+    RobotInitTheta = 0.0
+elif config==5:         # für Mow Test
+    BackWheelDrive = False
+    RobotInitX = 20.00
+    RobotInitY =  0.00
     RobotInitTheta = 0.0
 else:
     BackWheelDrive = False

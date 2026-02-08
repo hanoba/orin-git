@@ -306,6 +306,9 @@ class Simulation:
         self.world = World()
         self.world.draw(self.map)
 
+        # Die Spur-Ebene (Surface) erstellen
+        # Perflags=pygame.SRCALPHA macht sie transparent
+        self.traceSurface = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
         
         pygame.display.set_caption("NumPy Optimized LiDAR Bot")
         self.clock = pygame.time.Clock()
@@ -404,10 +407,18 @@ class Simulation:
             )
             self.bitBlock = self.font.render(txt, True, (220, 220, 220))
 
+        # Spur auf die EXTRA Surface zeichnen (nicht den Screen!)
+        # Hier nutzen wir einen kleinen Kreis für die Spur
+        #pygame.draw.circle(self.traceSurface, (0, 255, 100, 150), (self.robot.x, self.robot.y), 2)
 
+        # Syntax: screen.set_at((x-Koordinate, y-Koordinate), (R, G, B))
+        self.traceSurface.set_at((int(self.robot.x), int(self.robot.y)), (0, 0, 255))  # Zeichnet einen blauen Pixel
+
+        # Die Spur-Ebene auf den Hauptbildschirm "blitten" (überlagern)
+        self.screen.blit(self.traceSurface, (0, 0))
+        
         self.robot.draw(self.screen)
-        
-        
+                
         # HUD zeichnen (mit Flip für Koordinatensystem, falls nötig)
         # Hier normal zeichnen:
         self.screen.blit(self.bitBlock, (10, 10))

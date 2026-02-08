@@ -177,6 +177,19 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /garden_features
       Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Marker
+      Namespaces:
+        "": true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /text_marker_topic
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -254,5 +267,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1490
-  X: 191
-  Y: 360
+  X: 159
+  Y: 328
