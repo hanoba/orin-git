@@ -320,6 +320,7 @@ class Simulation:
         self.debugMode = False
         self.first = True
         self.pause = params.SimPause
+        self.traceMode = True
     
         self.fwd = 0.0
         self.turn = 1.0
@@ -350,16 +351,18 @@ class Simulation:
                     self.pause = not self.pause
                 elif event.key == pygame.K_d:
                     self.debugMode = not self.debugMode
+                elif event.key == pygame.K_s:
+                    self.traceSurface.fill((0,0,0,0))
+                    self.traceMode = not self.traceMode
                 elif event.key == pygame.K_t:
                     self.robot.Turn(np.pi/12)
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                # Entpacken des Tupels
-                mouse_x, mouse_y = event.pos
-                xm = Xm(mouse_x)
-                ym = Ym(mouse_y)
-                self.robot.SetPose(xm, ym, 0.0)
+                if event.button == 3:
+                    mouse_x, mouse_y = event.pos
+                    xm = Xm(mouse_x)
+                    ym = Ym(mouse_y)
+                    self.robot.SetPose(xm, ym, 0.0)
                 
-
         #self.screen.fill(BG_COLOR)
         self.screen.blit(self.map, (0, 0))
 
@@ -407,15 +410,14 @@ class Simulation:
             )
             self.bitBlock = self.font.render(txt, True, (220, 220, 220))
 
-        # Spur auf die EXTRA Surface zeichnen (nicht den Screen!)
-        # Hier nutzen wir einen kleinen Kreis für die Spur
-        #pygame.draw.circle(self.traceSurface, (0, 255, 100, 150), (self.robot.x, self.robot.y), 2)
-
-        # Syntax: screen.set_at((x-Koordinate, y-Koordinate), (R, G, B))
-        self.traceSurface.set_at((int(self.robot.x), int(self.robot.y)), (0, 0, 255))  # Zeichnet einen blauen Pixel
-
-        # Die Spur-Ebene auf den Hauptbildschirm "blitten" (überlagern)
-        self.screen.blit(self.traceSurface, (0, 0))
+        if self.traceMode: 
+            # Spur auf die EXTRA Surface zeichnen (nicht den Screen!)
+            # Hier nutzen wir einen kleinen Kreis für die Spur
+            #pygame.draw.circle(self.traceSurface, (0, 255, 100, 150), (self.robot.x, self.robot.y), 2)
+            # Syntax: screen.set_at((x-Koordinate, y-Koordinate), (R, G, B))
+            self.traceSurface.set_at((int(self.robot.x), int(self.robot.y)), (0, 0, 255))  # Zeichnet einen blauen Pixel
+            # Die Spur-Ebene auf den Hauptbildschirm "blitten" (überlagern)
+            self.screen.blit(self.traceSurface, (0, 0))
         
         self.robot.draw(self.screen)
                 

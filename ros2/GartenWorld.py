@@ -10,7 +10,7 @@ from dataclasses import dataclass
 # Weltgeometrie
 BORDER_MARGIN = 10      # 40                   
 WALL_X = 500
-WIN_W, WIN_H = 1500, 1000              # Fenstergröße in Pixeln
+WIN_W, WIN_H = 1500, 800  ##1000              # Fenstergröße in Pixeln
 WIN_W_METER = 50.0
 
 CenterX =  22
@@ -276,6 +276,7 @@ class World:
         #self.segments.append(Segment(WALL_X, GATE_Y2, WALL_X, y1))
 
     def draw(self, surf):
+        self.DrawGrid(surf)
         for s in self.segments:
             s.draw(surf, WALL_COLOR)
         # Tor Visualisierung
@@ -286,6 +287,30 @@ class World:
         b = np.array(B) - Center
         self.segments.append(Segment(X(a[0]), Y(a[1]), X(b[0]), Y(b[1])))
         #print(f"Line created {a=}, {b=}")
+
+    def DrawGrid(self, surf):
+        g = 50
+        gridColor = (g, g, g)
+        ymin = Y(-15)
+        ymax = Y(12)
+        for x in range(-25,25):
+            xp = X(x)
+            thickness = 3 if x % 10 == 0 else 1
+            pygame.draw.line(surf, gridColor, (xp, ymin), (xp, ymax), thickness)
+
+        xmin = X(-25)
+        xmax = X(25)              
+        for y in range(-25,25):
+            yp = Y(y)
+            thickness = 3 if y % 10 == 0 else 1
+            pygame.draw.line(surf, gridColor, (xmin, yp), (xmax, yp), thickness)
+
+        # Nullpunkt mit Kreuz markieren
+        def P(x,y):
+            return (X(x), Y(y))
+        np = 1.0
+        pygame.draw.line(surf, (255, 0, 0), P(0, 0), P(np, 0), 3)
+        pygame.draw.line(surf, (0, 255, 0), P(0, 0), P(0, np), 3)
 
     def Haus(self, name, eckPunkte):
         #print(f"{eckPunkte=}")

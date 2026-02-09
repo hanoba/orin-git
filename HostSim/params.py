@@ -41,7 +41,7 @@ elif config==4:
     RobotInitTheta = 0.0
 elif config==5:         # für Mow Test
     BackWheelDrive = False
-    RobotInitX = 20.00
+    RobotInitX = 19.00
     RobotInitY =  0.00
     RobotInitTheta = 0.0
 else:
