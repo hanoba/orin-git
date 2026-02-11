@@ -39,16 +39,19 @@ def ComputePosition(node, detectedWalls):
     b = []
     wallNumbers = []
     #            [ZN,ZO,ZS,ZW,SW,SS,SO,TW,TS,BO,BN,HO]
-    ignoreList = [ 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0]
+    ignoreList = [ 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    #ignoreList = [ 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0]
     detectedWallsValid = Localization(node.theta, detectedWalls, A, b, wallNumbers, ignore=ignoreList, debug=False)
     PublishMarkers(node.marker_pub, detectedWalls, detectedWallsValid)
     A, b, wallNumbers = RemoveEquations(A, b, wallNumbers, debug=False)
     numEq = len(wallNumbers)
     if numEq > 1:
         x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
-        if not (residuals.size > 0 and residuals > 0.5) and rank == 2:
-            return True, float(x[0]), float(x[1])
-    return False, 0.0, 0.0
+        # Falls residuals nicht leer ist, nimm das erste Element, sonst berechne es manuell
+        res = float(residuals[0]) if residuals.size > 0 else 0.0
+        if res < 0.5 and rank == 2:
+            return True, float(x[0]), float(x[1]), res
+    return False, 0.0, 0.0, 0.0
 
 def CheckAngle(value_rad, angle_rad):
     MaxDiff = np.deg2rad(2.5)
@@ -63,12 +66,12 @@ class MowingTask:
         self.StateMow = 1
         self.StateIdle = 2
         self.followRight = True
-        self.K_lat = 0.3 # 0.5          # 0.3       # lateral error (Abstand)
-        self.K_head = 0.5 # 0.7          # 0.5      # heading error (Winkel)
-        self.vLinear = 0.5
+        self.vLinear = 0.5  #0.5
+        self.K_lat = 0.5 # 0.5          # 0.3       # lateral error (Abstand)
+        self.K_head = 0.8 # 0.7          # 0.5      # heading error (Winkel)
         self.node = node
         self.laneDist = 0.2
-        self.startDist = 2.6
+        self.startDist = 2.6+0.6*0
         self.wantedDist = self.startDist
         self.wallAngle = np.deg2rad(85)
         self.wantedTheta = self.wallAngle
@@ -80,6 +83,7 @@ class MowingTask:
         """ Berechnet den Abstand zur nähesten Wand """
         minDist = np.inf
         minAngle = 0.0
+        minWorldAngle = 0.0
         # A und B sind die Endpunkte der Wand
         for A, B in walls:
             # Richtungsvektor der Geraden (AB) und Vektor zum Nullpunkt (AP)
@@ -91,13 +95,14 @@ class MowingTask:
             # Wir berechnen die Norm des Kreuzprodukts geteilt durch die Norm von AB
             # Für 2D simulieren wir das Kreuzprodukt durch eine Hilfsfunktion
             dist = np.abs(np.cross(ab, ap)) / abLen
-            if dist < minDist and abLen > 3.0:
+            if dist < minDist and abLen > 3.0:    # 3.0
                 angle = np.arctan2(ab[1], ab[0])
                 worldAngle = angle + self.node.theta
                 if CheckAngle(self.wallAngle, worldAngle):       
                     minDist = dist
                     minAngle = angle
-        return float(minDist), float(minAngle)
+                    minWorldAngle = worldAngle
+        return float(minDist), float(minAngle), float(minWorldAngle)
 
     def Step(self, scan_msg):
         if self.state == self.StateAlignTheta:
@@ -125,15 +130,16 @@ class MowingTask:
 
             # Filtern der Wände, die die Bedingung erfüllen
             matchingWalls = walls[mask]        
-            dist, angle = self.DistAngleClosestWall(matchingWalls)
-            ok, x, y = ComputePosition(self.node, walls)
+            dist, angle, worldAngle = self.DistAngleClosestWall(matchingWalls)
+            ok, x, y, res = ComputePosition(self.node, walls)
             
             if 0.0 < dist < np.inf:
                 lateralError = dist - self.wantedDist
                 angle = NormalizeAngle(angle)
                 headingError = 0.0 - angle
                 omega = s*self.K_lat*lateralError - self.K_head*headingError
-                print(f"{dist=:.2f}  angle={G(angle):.0f}°  {lateralError=:.2f}  HeadErr={G(headingError):.0f}°  {omega=:.3f}  {x=:.2f} {y=:.2f}")
+                print(f"{dist=:.2f}  angle={G(angle):.0f}/{G(worldAngle):.0f}°  LatErr={lateralError:.2f}"
+                      f"  HeadErr={G(headingError):.0f}°  {omega=:.3f}  {x=:.2f} {y=:.2f}   {res=:.3f}")
                 self.node.SetVelocities(omega, -s*self.vLinear)                
             else:
                 print(f"{dist=:.2f}")
@@ -141,7 +147,7 @@ class MowingTask:
 
             if ok:
                 yMin = -2.0
-                yMax =  9.0
+                yMax =  10.5
                 RepeatDist = 2.0
                 repeatMode = True
                 if x < 16.0:
@@ -177,11 +183,11 @@ class MowingTask:
                             self.node.RvizPrint(f"Mowing Up SubState={self.subState}")
                 else:
                     if self.followRight:
-                        if y > 9.0:
+                        if y > yMax:
                             self.node.RvizPrint("Mowing Down")
                             self.followRight = False
                             self.wantedDist += self.laneDist
-                    elif y < -2.0:
+                    elif y < yMin:
                             self.node.RvizPrint("Mowing Up")
                             self.followRight = True
                             self.wantedDist += self.laneDist  

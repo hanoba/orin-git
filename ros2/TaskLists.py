@@ -3,10 +3,7 @@ import numpy as np
 from Ransac import PublishMarkers
 from GartenWorld import Localization, lineNames, World, GetWallPosX, GetWallPosY
 from MowingTask import MowingTask
-
-sys.path.append('../HostSim')
-from params import LidarMaxAngle, LinearVelocity
-from WallFollower import WallFollower
+import params
 
 # Lidar sector width (in deg) for distance check
 # nur der Bereich von -LS_xxx° bis +LS_xxx° wird verwendet
@@ -14,8 +11,6 @@ LsAngle = 5
 LsFront = 0
 LsFrontL = LsAngle
 LsFrontR = -LsAngle
-LS_LEFT  =  90-LsAngle
-LS_RIGHT = -LsAngle
 LocXLT = 0
 LocXGE = 1
 LocYLT = 2
@@ -190,19 +185,19 @@ class FollowPathTask:
             if self.node.wantedThetaReached:
                 self.State = self.StateGotoWall
                 if type(self.lidarSector) == int:
-                    vLinear = LinearVelocity*sign(self.dist)
+                    vLinear = params.LinearVelocity*sign(self.dist)
                 else:
                     mode, _ = self.lidarSector
                     if mode & LocRevDrv:
-                        vLinear = -LinearVelocity
+                        vLinear = -params.LinearVelocity
                     else:
-                        vLinear = LinearVelocity
+                        vLinear = params.LinearVelocity
                 self.node.SetDirection(self.theta, vLinear)
         elif self.State == self.StateGotoWall:
             ranges = np.array(scan_msg.ranges)
             if type(self.lidarSector) == int:
-                start_deg = LidarMaxAngle + self.lidarSector - LsAngle
-                end_deg   = LidarMaxAngle + self.lidarSector + LsAngle
+                start_deg = params.LidarMaxAngle + self.lidarSector - LsAngle
+                end_deg   = params.LidarMaxAngle + self.lidarSector + LsAngle
                 dist = np.min(ranges[start_deg:end_deg]) 
                 #print(f"{dist=}")
                 targetReached = sign(self.dist)*dist < self.dist

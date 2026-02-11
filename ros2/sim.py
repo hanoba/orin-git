@@ -43,7 +43,6 @@ os.environ["SDL_AUDIODRIVER"] = "dummy"
 
 sys.path.append('../HostSim')
 import params
-from params import LidarMaxAngle, LidarFreq_Hz
 
 
 # =========================
@@ -314,7 +313,7 @@ class Simulation:
         self.clock = pygame.time.Clock()
     
         
-        self.show_rays = True   
+        self.show_rays = params.SimShowRays   
         self.manual = False     
         self.running = True
         self.debugMode = False
@@ -340,23 +339,24 @@ class Simulation:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
-                elif event.key == pygame.K_l:
-                    self.show_rays = not self.show_rays
-                elif event.key == pygame.K_r:
-                    self.robot.Reset()
-                    self.pause = False
-                elif event.key == pygame.K_m:
-                    self.manual = not self.manual
                 elif event.key == pygame.K_SPACE:
                     self.pause = not self.pause
                 elif event.key == pygame.K_d:
                     self.debugMode = not self.debugMode
+                elif event.key == pygame.K_l:
+                    self.show_rays = not self.show_rays
+                elif event.key == pygame.K_m:
+                    self.manual = not self.manual
+                elif event.key == pygame.K_r:
+                    self.robot.Reset()
+                    self.pause = False
                 elif event.key == pygame.K_s:
                     self.traceSurface.fill((0,0,0,0))
                     self.traceMode = not self.traceMode
                 elif event.key == pygame.K_t:
                     self.robot.Turn(np.pi/12)
             elif event.type == pygame.MOUSEBUTTONDOWN:
+                # right mouse button pressed?
                 if event.button == 3:
                     mouse_x, mouse_y = event.pos
                     xm = Xm(mouse_x)

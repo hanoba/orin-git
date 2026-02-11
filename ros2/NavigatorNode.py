@@ -9,7 +9,7 @@ import numpy as np
 import time
 import sys
 import math
-from Ransac import LineDetection, PublishMarkers
+import Ransac
 from GartenWorld import Localization, lineNames
 from TaskLists import LocalizationTaskList, FahreInDenWaldTaskList
 
@@ -101,6 +101,8 @@ class Navigator(Node):
         
         # Set initial task list
         self.NewTaskList(FahreInDenWaldTaskList)
+        self.missedScans = 0
+
 
     def SetVelocities(self, omega, vLinear):
         self.angular = omega
@@ -152,14 +154,23 @@ class Navigator(Node):
         self.cmd_pub.publish(drive_msg)
 
     def ScanCallback(self, msg):
-        if self.is_processing: return
+        if self.is_processing: 
+            self.missedScans += 1
+            return
+        start_zeit = time.perf_counter() # Zeitnahme startet
         self.is_processing = True
         #self.StateMachine(msg)
         self.TaskStep(msg)
         self.is_processing = False
+        ende_zeit = time.perf_counter() # Zeitnahme endet
+        dauer_ms = (ende_zeit - start_zeit) * 1000 # Umrechnung in Millisekunden
+        
+        # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
+        self.get_logger().info(
+            f"[[ScanCallback] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  "
+            f"Missed Scans: {self.missedScans}  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=10.0)
 
     def Walldetector(self, msg):
-        start_zeit = time.perf_counter() # Zeitnahme startet
         ranges = np.array(msg.ranges)
         valid = np.isfinite(ranges) & (ranges > params.LidarRangeMin + 0.01) & (ranges < params.LidarRangeMax - 0.1)
         #valid = np.isfinite(ranges) & (ranges > 0.1) & (ranges < 30.0)
@@ -167,13 +178,8 @@ class Navigator(Node):
         
         points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[valid]
 
-        all_detected_walls = LineDetection(points)
+        all_detected_walls = Ransac.LineDetection(points)
         
-        ende_zeit = time.perf_counter() # Zeitnahme endet
-        dauer_ms = (ende_zeit - start_zeit) * 1000 # Umrechnung in Millisekunden
-        
-        # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
-        self.get_logger().info(f"[{self.simTimeSec:.3f}] [Walldetector] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=100.0)
         return all_detected_walls
 
     def NewTaskList(self, taskList):
