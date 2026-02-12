@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# ransac_launch.sh
-
 MY_PID=$$
 
 cleanup() {
@@ -23,9 +21,6 @@ export ROS_DOMAIN_ID=15
 #export ROS_LOCALHOST_ONLY=1
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cyclonedds_wsl2.xml
-#export CYCLONEDDS_URI=/home/harald/cyclonedds_pc.xml
-#export CYCLONEDDS_URI='<CycloneDDS><Domain><Discovery><MaxAutoParticipantIndex>500</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
-#export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 # Pfade
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
@@ -69,7 +64,8 @@ echo "⏳ Warte auf Initialisierung..."
 sleep 3
 
 # --- 3. FEATURE EXTRACTION & NAVIGATION ---
-echo "🚀 Starte Navigator..."
-python3 NavigatorNode.py --ros-args -p use_sim_time:=true
+#echo "🚀 Starte Navigator..."
+#python3 NavigatorNode.py --ros-args -p use_sim_time:=true
 
 echo "✅ System läuft mit Ground Truth von der Bridge."
+wait
