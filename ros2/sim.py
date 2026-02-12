@@ -52,6 +52,7 @@ FPS = 30                             # Simulationsrate (Frames pro Sekunde)
 BG_COLOR = (25, 28, 35)              # Hintergrundfarbe
 GATE_COLOR = (50, 200, 120)          # Farbe für Tor‑Markierung
 ROBOT_COLOR = (80, 160, 255)         # Roboterfarbe
+WALL_COLOR = (180, 180, 180)         # Farbe der Wände
 POINT_COLOR = (255, 0, 0)            # Farbe für berechnetes Tor und Startpunkt
 POINT_RADIUS = 8                     # Punktradius für berechnetes Tor und Startpunkt
 LIDAR_RAY_COLOR = (90, 90, 130)      # Linienfarbe der LiDAR‑Strahlen
@@ -303,7 +304,8 @@ class Simulation:
         self.screen = pygame.display.set_mode((WIN_W, WIN_H))
         self.map = pygame.Surface((WIN_W, WIN_H))
         self.world = World()
-        self.world.draw(self.map)
+        self.DrawWorld(self.world)
+        #self.world.draw(self.map)
 
         # Die Spur-Ebene (Surface) erstellen
         # Perflags=pygame.SRCALPHA macht sie transparent
@@ -326,6 +328,39 @@ class Simulation:
 
         self.sim_time_sec = 0.0
         self.font = pygame.font.SysFont(None, 18)
+
+    def DrawWorld(self, world):
+        surf = self.map
+        self.DrawGrid(surf)
+        for s in world.segments:
+            pygame.draw.line(surf, WALL_COLOR, (s.x1, s.y1), (s.x2, s.y2), 2)
+        #    s.draw(surf, WALL_COLOR)
+        # Tor Visualisierung
+        # pygame.draw.line(surf, GATE_COLOR, (WALL_X, GATE_Y1), (WALL_X, GATE_Y2), 3)
+
+    def DrawGrid(self, surf):
+        g = 50
+        gridColor = (g, g, g)
+        ymin = Y(-15)
+        ymax = Y(12)
+        for x in range(-25,25):
+            xp = X(x)
+            thickness = 3 if x % 10 == 0 else 1
+            pygame.draw.line(surf, gridColor, (xp, ymin), (xp, ymax), thickness)
+
+        xmin = X(-25)
+        xmax = X(25)              
+        for y in range(-25,25):
+            yp = Y(y)
+            thickness = 3 if y % 10 == 0 else 1
+            pygame.draw.line(surf, gridColor, (xmin, yp), (xmax, yp), thickness)
+
+        # Nullpunkt mit Kreuz markieren
+        def P(x,y):
+            return (X(x), Y(y))
+        np = 1.0
+        pygame.draw.line(surf, (255, 0, 0), P(0, 0), P(np, 0), 3)
+        pygame.draw.line(surf, (0, 255, 0), P(0, 0), P(0, np), 3)
 
     def SetRobotSpeed(self, vLinear, omega):
         if not self.pause and not self.manual:

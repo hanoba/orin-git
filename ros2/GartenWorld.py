@@ -1,10 +1,10 @@
-# Erzeugt pygame Simulationsumgebung für meinen Garten.
+# Erzeugt Simulationsumgebung für meinen Garten.
 # Die Gartendaten sind von Moonlight/amcp übernommen.
 # HB 2025-12-20
 
 import numpy as np
 import math
-import pygame
+#import pygame
 from dataclasses import dataclass
 
 # Weltgeometrie
@@ -17,8 +17,6 @@ CenterX =  22
 CenterY = -12
 Center = np.array([CenterX, CenterY])
 
-
-WALL_COLOR = (180, 180, 180)         # Farbe der Wände
 
 MetersPerPixel = WIN_W_METER / WIN_W
 PixelsPerMeter = 1 / MetersPerPixel
@@ -237,9 +235,6 @@ class Segment:
     y1: float
     x2: float
     y2: float
-
-    def draw(self, surf, color):
-        pygame.draw.line(surf, color, (self.x1, self.y1), (self.x2, self.y2), 2)
     
     # Neu für NumPy: Segment als Vektor zurückgeben
     def to_numpy(self):
@@ -275,42 +270,11 @@ class World:
         #self.segments.append(Segment(WALL_X, y0, WALL_X, GATE_Y1))
         #self.segments.append(Segment(WALL_X, GATE_Y2, WALL_X, y1))
 
-    def draw(self, surf):
-        self.DrawGrid(surf)
-        for s in self.segments:
-            s.draw(surf, WALL_COLOR)
-        # Tor Visualisierung
-        # pygame.draw.line(surf, GATE_COLOR, (WALL_X, GATE_Y1), (WALL_X, GATE_Y2), 3)
-
     def Line(self, A, B):
         a = np.array(A) - Center
         b = np.array(B) - Center
         self.segments.append(Segment(X(a[0]), Y(a[1]), X(b[0]), Y(b[1])))
         #print(f"Line created {a=}, {b=}")
-
-    def DrawGrid(self, surf):
-        g = 50
-        gridColor = (g, g, g)
-        ymin = Y(-15)
-        ymax = Y(12)
-        for x in range(-25,25):
-            xp = X(x)
-            thickness = 3 if x % 10 == 0 else 1
-            pygame.draw.line(surf, gridColor, (xp, ymin), (xp, ymax), thickness)
-
-        xmin = X(-25)
-        xmax = X(25)              
-        for y in range(-25,25):
-            yp = Y(y)
-            thickness = 3 if y % 10 == 0 else 1
-            pygame.draw.line(surf, gridColor, (xmin, yp), (xmax, yp), thickness)
-
-        # Nullpunkt mit Kreuz markieren
-        def P(x,y):
-            return (X(x), Y(y))
-        np = 1.0
-        pygame.draw.line(surf, (255, 0, 0), P(0, 0), P(np, 0), 3)
-        pygame.draw.line(surf, (0, 255, 0), P(0, 0), P(0, np), 3)
 
     def Haus(self, name, eckPunkte):
         #print(f"{eckPunkte=}")
