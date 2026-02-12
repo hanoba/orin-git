@@ -1,0 +1,41 @@
+services:
+  ekarren-dev:
+    # Image für JetPack 6 (L4T R36.x)
+    image: dustynv/ros:humble-desktop-l4t-r36.2.0
+    container_name: ros2_dev_container
+    
+    # Netzwerk-Modus "host" ist PFLICHT für ROS 2 Kommunikation
+    network_mode: host
+    ipc: host
+    
+    # Voller Hardware-Zugriff (I2C, GPIO, USB)
+    privileged: true
+    runtime: nvidia
+    restart: unless-stopped
+    
+    environment:
+      # Deine ID für die Kommunikation mit dem PC
+      - ROS_DOMAIN_ID=15
+      # Zeitzone
+      - TZ=Europe/Berlin
+      # GPU Support
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      # Erzwingt Farbe im Terminal (sieht besser aus)
+      - RCUTILS_COLORIZED_OUTPUT=1
+
+    volumes:
+      # Wir mappen den aktuellen Ordner (.) nach .../src
+      # Alles in ~/orin-git/ros2 wird also Quellcode im Container
+      - ../:/root/ros2
+      
+      # Hardware durchreichen
+      - /dev/i2c-1:/dev/i2c-1
+      - /dev/i2c-8:/dev/i2c-8
+      - /dev/bus/usb:/dev/bus/usb
+
+    # Arbeitsverzeichnis beim Einloggen ist direkt der Workspace-Root
+    working_dir: /root/ros2
+    
+    # Hält den Container offen
+    command: tail -f /dev/null
