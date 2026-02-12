@@ -14,10 +14,7 @@ import math
 import numpy as np # Vergiss nicht numpy zu importieren!
 import sys
 from sim import Simulation
-
-sys.path.append('../HostSim')
 import params
-from params import LidarMaxAngle, LidarFreq_Hz
 
 
 class SimNode(Node):
@@ -26,9 +23,9 @@ class SimNode(Node):
 
         self.sim=sim
         
-        # Lidar scan parameters. One scan ranges from -LidarMaxAngle to +LidarMaxAngle
-        self.scanDuration = LidarMaxAngle / 180.0 / LidarFreq_Hz
-        self.scanTimeInc = self.scanDuration / (2*LidarMaxAngle)
+        # Lidar scan parameters. One scan ranges from -params.LidarMaxAngle to +params.LidarMaxAngle
+        self.scanDuration = params.LidarMaxAngle / 180.0 / params.LidarFreq_Hz
+        self.scanTimeInc = self.scanDuration / (2*params.LidarMaxAngle)
         
         # ROS2 Parameter deklarieren (Name, Standardwert)
         self.declare_parameter('publish_odom_tf', True)
@@ -116,9 +113,9 @@ class SimNode(Node):
         scan.header.frame_id = 'lidar'      # wenn Lidar vor der Achsenmitte montiert ist (BackWheelDrive)
         #scan.header.frame_id = 'base_link'  # wenn Lidar direkt in Achsenmitte montiert ist
         #scan.time_increment = self.scanTimeInc
-        scan.angle_min = math.radians(1-LidarMaxAngle)
-        scan.angle_max = math.radians(LidarMaxAngle)
-        num_readings = 2*LidarMaxAngle
+        scan.angle_min = math.radians(1-params.LidarMaxAngle)
+        scan.angle_max = math.radians(params.LidarMaxAngle)
+        num_readings = 2*params.LidarMaxAngle
         scan.angle_increment = (scan.angle_max - scan.angle_min) / (num_readings - 1)
         scan.angle_max = scan.angle_min + (scan.angle_increment * (num_readings - 1))
 

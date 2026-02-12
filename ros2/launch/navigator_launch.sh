@@ -8,8 +8,6 @@ cleanup() {
     echo -e "\n🛑 Beende alle Prozesse (Ground Truth Mode)..."
     pkill -P $MY_PID
     pkill -f "python3 ros_sim_node.py"
-    pkill -f "python3 WallFollowerNode.py"
-    pkill -f "python3 CornerDetectorNode.py"
     pkill -f "static_transform_publisher"
     pkill -f "rviz2"
     pkill -f "map_server"
@@ -19,14 +17,18 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
+
 # --- 1. NETZWERK-FIX ---
 export ROS_DOMAIN_ID=15
-export ROS_LOCALHOST_ONLY=1
+#export ROS_LOCALHOST_ONLY=1
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-export CYCLONEDDS_URI='<CycloneDDS><Domain><Discovery><MaxAutoParticipantIndex>500</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
+export CYCLONEDDS_URI=/home/harald/cyclonedds_pc.xml
+#export CYCLONEDDS_URI='<CycloneDDS><Domain><Discovery><MaxAutoParticipantIndex>500</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
+#export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 # Pfade
-MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
+#MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
+MAP_YAML="./map/garten_map_10cm.yaml"
 LIDAR_X=0.0
 
 clear
@@ -71,6 +73,3 @@ echo "🚀 Starte Navigator..."
 python3 NavigatorNode.py --ros-args -p use_sim_time:=true
 
 echo "✅ System läuft mit Ground Truth von der Bridge."
-
-# WallFollower starten
-#python3 WallFollowerNode.py --ros-args -p use_sim_time:=true 
