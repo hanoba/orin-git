@@ -7,14 +7,12 @@ from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy, Hi
 from std_msgs.msg import Float32
 import numpy as np
 import time
-import sys
 import math
 import Ransac
-from GartenWorld import Localization, lineNames
-from TaskLists import LocalizationTaskList, FahreInDenWaldTaskList
+from TaskLists import CurrentTaskList
 
-sys.path.append('../HostSim')
 import params
+from params import TaskState
 
 
 def NormalizeAngle(angle_rad):
@@ -100,7 +98,7 @@ class Navigator(Node):
         self.text_pub = self.create_publisher(Marker, 'text_marker_topic', 10)
         
         # Set initial task list
-        self.NewTaskList(FahreInDenWaldTaskList)
+        self.NewTaskList(CurrentTaskList)
         self.missedScans = 0
 
 
@@ -183,7 +181,8 @@ class Navigator(Node):
         return all_detected_walls
 
     def NewTaskList(self, taskList):
-        self.taskList = taskList
+        self.taskListName = taskList["name"]
+        self.taskList = taskList["tasks"]
         self.taskIndex = 0
         if self.taskIndex < len(self.taskList):
             task, params = self.taskList[self.taskIndex]
@@ -192,11 +191,14 @@ class Navigator(Node):
     def TaskStep(self, scan_msg):
         if self.taskIndex < len(self.taskList):
             task, params = self.taskList[self.taskIndex]
-            self.retvals = task.Step(scan_msg)
-            if self.retvals is not None:
+            status, self.retvals = task.Step(scan_msg)
+            if status == TaskState.Ready:
                 nextTaskIndex = self.taskIndex+1
                 if nextTaskIndex < len(self.taskList):
                     self.GotoTask(nextTaskIndex)
+            elif status == TaskState.Error:
+                self.get_logger().error(f"[TaskStep] Error in task with task index: {self.taskIndex}")
+                self.taskIndex = len(self.taskList)
 
     def GotoTask(self, taskIndex):
         self.taskIndex = taskIndex
@@ -213,16 +215,16 @@ class Navigator(Node):
         marker.action = Marker.ADD
         
         # Inhalt des Strings
-        marker.text = text
+        marker.text = f"{self.taskListName}: {text}"
         self.get_logger().info(text)
         
         # Position und Größe
         # Position setzen
         marker.pose.position.x = 0.0  # 2 Meter nach vorne
-        marker.pose.position.y = 13.0 # 1,5 Meter nach rechts
+        marker.pose.position.y = -14.0 # 1,5 Meter nach rechts
         marker.pose.position.z = 0.5  # 0,5 Meter über dem Boden
-        marker.pose.position.z = 1.0  # Schwebt 1 Meter über dem Boden
-        marker.scale.z = 1.5          # Texthöhe in Metern
+        #marker.pose.position.z = 1.0  # Schwebt 1 Meter über dem Boden
+        marker.scale.z = 1.2          # Texthöhe in Metern
         
         # Farbe (RGBA) - Weiß und voll sichtbar
         marker.color.r = 1.0

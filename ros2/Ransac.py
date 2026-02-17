@@ -141,7 +141,7 @@ def LineDetection(points):
 def PublishMarkers(pub, all_detected_walls, isDetectedWallValid):
     markers = MarkerArray()
     frame_id = "lidar"
-    z_height = -0.1
+    z_height = +0.1
     
     # 1. Ein Marker für ALLE Linien
     m_lines = Marker()
@@ -163,7 +163,7 @@ def PublishMarkers(pub, all_detected_walls, isDetectedWallValid):
     m_spheres.id = 0
     m_spheres.type = Marker.SPHERE_LIST # <--- EXTREM EFFIZIENT
     m_spheres.action = Marker.ADD
-    m_spheres.scale.x = 0.25; m_spheres.scale.y = 0.25; m_spheres.scale.z = 0.25
+    m_spheres.scale.x = m_spheres.scale.y =  m_spheres.scale.z = 0.25*2
     m_spheres.color.b = 1.0; m_spheres.color.a = 1.0
 
     for i, (start, end) in enumerate(all_detected_walls):

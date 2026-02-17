@@ -1,9 +1,10 @@
-import sys
 import numpy as np
 from Ransac import PublishMarkers
 from GartenWorld import Localization, lineNames, World, GetWallPosX, GetWallPosY
 from MowingTask import MowingTask
+from PassThroughGateTask import PassThroughGateTask
 import params
+from params import TaskState
 
 # Lidar sector width (in deg) for distance check
 # nur der Bereich von -LS_xxx° bis +LS_xxx° wird verwendet
@@ -180,6 +181,10 @@ class FollowPathTask:
             self.node.get_logger().error(f"No path found for target {target}")
             self.State = self.StateIdle
         
+    def ShowInfo(self):
+        text = f"Waypoint {self.pathIndex}: Theta={np.rad2deg(self.theta):.0f} Grad  Dist={self.dist:.2f}m"
+        self.node.RvizPrint(text)
+    
     def Step(self, scan_msg):
         if self.State == self.StateAlignTheta:
             if self.node.wantedThetaReached:
@@ -193,6 +198,7 @@ class FollowPathTask:
                     else:
                         vLinear = params.LinearVelocity
                 self.node.SetDirection(self.theta, vLinear)
+                self.ShowInfo()
         elif self.State == self.StateGotoWall:
             ranges = np.array(scan_msg.ranges)
             if type(self.lidarSector) == int:
@@ -207,7 +213,7 @@ class FollowPathTask:
                 wallNumbers = []
                 mode, ignoreList = self.lidarSector
                 locMode = mode & LocMask
-                revDrive = mode & LocRevDrv
+                #revDrive = mode & LocRevDrv
                 detectedWalls = self.node.Walldetector(scan_msg)        
                 detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, wallNumbers, ignore=ignoreList, debug=False)
                 PublishMarkers(self.node.marker_pub, detectedWalls, detectedWallsValid)
@@ -216,11 +222,6 @@ class FollowPathTask:
                 numEq = len(wallNumbers)
                 if numEq > 1:
                     x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
-                    #print(f"Lösung: ({x[0]:.2f}, {x[1]:.2f})    Rang:{rank}   Fehlerquadratsumme: {residuals}")                
-                    #for i in range(numEq):
-                    #    err = x[0]*A[i,0] + x[1]*A[i,1] - b[i]
-                    #    print(f"{b[i]:6.2f} = {A[i,0]:6.2f}*x + {A[i,1]:6.2f}*y   {err=:6.2f}  # {lineNames[wallNumbers[i]]}")
-                    #print(f"{rank=}   {x=}   {residuals=}")
                     if not (residuals.size > 0 and residuals > 0.5) and rank == 2:
                         err = 0.0
                         if residuals.size > 0: 
@@ -239,18 +240,16 @@ class FollowPathTask:
                 if self.pathIndex >= len(self.path):
                     self.State = self.StateIdle
                     self.node.RvizPrint(f"Target {self.target} reached")
-                    return 0
+                    return TaskState.Ready, None
                 self.theta, self.dist, self.lidarSector = self.path[self.pathIndex]
-                text = f"Waypoint {self.pathIndex} reached. Next waypoint: Theta={np.rad2deg(self.theta):.0f} Grad  Dist={self.dist:.2f}m"
-                #self.node.get_logger().info(text)
-                self.node.RvizPrint(text)
+                self.pathIndex += 1
+                self.ShowInfo()
                 self.node.SetWantedTheta(self.theta)
                 self.State = self.StateAlignTheta
-                self.pathIndex += 1
         elif self.State == self.StateIdle:
-            return 0
+            return TaskState.Ready, None
             
-        return None
+        return TaskState.Running, None
 
 def RemoveEquations(A, b, lineNumbers, debug=True):
     """ Verwende nur Zäune zur Lokalisierung, wenn mindesten zwei Zäune erkannt wurden """
@@ -298,6 +297,8 @@ class LocalizationTask:
             if self.stateCounter >= 4:
                 A, b, wallNumbers = RemoveEquations(self.A, self.b, self.wallNumbers)
                 numEq = len(wallNumbers)
+                if numEq < 2:
+                    return TaskState.Error, None
                 x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
                 print(f"Lösung: ({x[0]:.2f}, {x[1]:.2f})    Rang:{rank}   Fehlerquadratsumme: {residuals}")                
                 for i in range(numEq):
@@ -305,31 +306,54 @@ class LocalizationTask:
                     print(f"{b[i]:6.2f} = {A[i,0]:6.2f}*x + {A[i,1]:6.2f}*y   {err=:6.2f}  # {lineNames[wallNumbers[i]]}")
                 if (residuals.size > 0 and residuals > 0.5) or rank < 2:
                     self.node.get_logger().error("LocalizationTask failed")
-                return x, A, b, wallNumbers
+                return TaskState.Ready, (x, A, b, wallNumbers)
 
             # Nächste Richtung ansteuern
             self.wantedTheta += self.thetaStep
             self.node.SetWantedTheta(self.wantedTheta)
-        return None
+        return TaskState.Running, None
 
 
 class GotoTask:
     def Init(self, node, taskIndex, retvals=None):
         node.GotoTask(taskIndex)
 
-LocalizationTaskList = [
-    (LocalizationTask(),     None),
-    (GotoTask(), 0)
-]
+Localization_TaskList = {
+    "name": "Localization_TaskList",
+    "tasks": [  (LocalizationTask(), None),
+                (GotoTask(), 0)
+             ]
+}
 
-FahreInDenWaldTaskList = [ (MowingTask(), None) ]
+Mowing_TaskList = {
+    "name": "Mowing_TaskList",
+    "tasks": [ (MowingTask(), None) ]
+}
 
+Fahre_zum_Schuppen_TaskList = {
+    "name": "Fahre_zum_Schuppen_TaskList",
+    "tasks": [  (LocalizationTask(), None),
+                (FollowPathTask(),   "Schuppen"),
+             ]
+}
 
-XXXFahreInDenWaldTaskList = [
-    (LocalizationTask(),     None),
-    (FollowPathTask(),       "Schuppen"),
-    #(LocalizationTask(),     None),
-    #(FollowPathTask(),       "Wald"),
-    #(GotoTask(), 0)
-]
+Fahre_in_den_Wald_TaskList = {
+    "name": "Fahre_in_den_Wald_TaskList",
+    "tasks": [  (LocalizationTask(),     None),
+                (FollowPathTask(),       "Wald"),
+                (PassThroughGateTask(),  "Wald")
+             ]
+}
+
+Durchs_Gartentor_in_den_Garten_TaskList = {
+    "name": "Mowing_TaskList",
+    "tasks": [ (PassThroughGateTask(), "Garten") ]
+}
+
+Durchs_Gartentor_in_den_Wald_TaskList = {
+    "name": "Mowing_TaskList",
+    "tasks": [ (PassThroughGateTask(), "Wald") ]
+}
+
+CurrentTaskList = Fahre_zum_Schuppen_TaskList
 

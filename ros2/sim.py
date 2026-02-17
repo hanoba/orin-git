@@ -70,7 +70,7 @@ LIDAR_MAX_RANGE = params.LidarRangeMax / MetersPerPixel     # maximale Messdista
 LIDAR_NOISE_STD = 0.5                                       # Gauß‑Rauschen (σ) auf Distanzmessung
 
 # Roboterkinematik
-ROBOT_RADIUS = 12  # 16                    # nur für Zeichnung/Kollision (Kreis)
+ROBOT_RADIUS = 11  # 16                    # nur für Zeichnung/Kollision (Kreis)
 WHEEL_BASE = 2 * ROBOT_RADIUS        # Radabstand (vereinfacht)
 MAX_WHEEL_SPEED = 120.0              # Sättigung der Radspeed‑Kommandos [px/s]
 #BASE_SPEED = 70.0                    # Basisfahrgeschwindigkeit [px/s]
@@ -259,7 +259,7 @@ def resolve_collisions(robot: DiffDriveRobot, world: World):
         
         dx, dy = robot.x - cx, robot.y - cy
         d2 = dx * dx + dy * dy
-        r = ROBOT_RADIUS + 2
+        r = ROBOT_RADIUS + 2*0
         
         if d2 < r * r:
             d = math.sqrt(max(1e-9, d2))

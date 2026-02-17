@@ -10,7 +10,7 @@ from dataclasses import dataclass
 # Weltgeometrie
 BORDER_MARGIN = 10      # 40                   
 WALL_X = 500
-WIN_W, WIN_H = 1500, 800  ##1000              # Fenstergröße in Pixeln
+WIN_W, WIN_H = 1500, 1000   #800             # Fenstergröße in Pixeln
 WIN_W_METER = 50.0
 
 CenterX =  22
@@ -293,6 +293,31 @@ class World:
         self.Line( (posX+lenX,  posY+lenY), (posX,      posY+lenY) )
         self.Line( (posX,       posY+lenY), (posX,      posY     ) )
 
+    def SchuppenOffen(self, name, eckPunkte):
+        #print(f"{eckPunkte=}")
+        tuerBreite = 0.86
+        Length(name+"South", eckPunkte[0], eckPunkte[1])
+        Length(name+"East",  eckPunkte[1], eckPunkte[2])
+        posX1, posY1 = eckPunkte[0]
+        posXi = posX1 + 1.0             # so weit kann der eKarren in den Schuppen hineinfahren
+        posX2, posY2 = eckPunkte[2]
+        lenX = posX2 - posX1
+        lenY = posY2 - posY1
+        lenY1 = (lenY - tuerBreite) / 2
+        lenY2 = lenY - lenY1
+        
+        posX = posX1
+        posY = posY1
+        print(f"Creating {name:<12}: Unten links = ({posX:6.2f},{posY:6.2f}), Oben rechts = ({posX+lenX:6.2f},{posY+lenY:6.2f})")
+        self.Line( (posX,       posY     ),  (posX+lenX, posY     ) )
+        self.Line( (posX+lenX,  posY     ),  (posX+lenX, posY+lenY1) )
+        self.Line( (posX+lenX,  posY+lenY2), (posX+lenX, posY+lenY) )
+        self.Line( (posX+lenX,  posY+lenY),  (posX,      posY+lenY) )
+        self.Line( (posX,       posY+lenY),  (posX,      posY     ) )
+
+        # Offene Tür
+        self.Line( (posX+lenX,  posY+lenY2), (posX+lenX-tuerBreite, posY+lenY2+0.2) )
+
     # -------------------------------------------------------
     # Garten
     # -------------------------------------------------------
@@ -317,7 +342,7 @@ class World:
         AddLineForPositioning(3, PD, PA, P_WEST, 7.0)
 
         schuppen = Schuppen()
-        self.Haus("Schuppen", schuppen)
+        self.SchuppenOffen("Schuppen", schuppen)
         AddLineForPositioning(4, schuppen[3], schuppen[0], P_EAST)
         AddLineForPositioning(5, schuppen[0], schuppen[1], P_NORTH, maxDist=7.0)
         AddLineForPositioning(6, schuppen[1], schuppen[2], P_WEST)

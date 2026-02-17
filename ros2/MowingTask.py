@@ -2,6 +2,7 @@ import numpy as np
 import math
 from Ransac import PublishMarkers
 from GartenWorld import Localization        #, lineNames, World, GetWallPosX, GetWallPosY
+from params import TaskState
 
 def G(x):
     return np.rad2deg(x)
@@ -195,7 +196,6 @@ class MowingTask:
                 print("No position")
         elif self.state == self.StateIdle:
             self.node.ResetDirection()
-            return 0
+            return TaskState.Ready, None
 
-        return None
-
+        return TaskState.Running, None
