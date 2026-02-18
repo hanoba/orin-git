@@ -224,7 +224,7 @@ class Navigator(Node):
         marker.pose.position.y = -14.0 # 1,5 Meter nach rechts
         marker.pose.position.z = 0.5  # 0,5 Meter über dem Boden
         #marker.pose.position.z = 1.0  # Schwebt 1 Meter über dem Boden
-        marker.scale.z = 1.2          # Texthöhe in Metern
+        marker.scale.z = 1.0          # Texthöhe in Metern
         
         # Farbe (RGBA) - Weiß und voll sichtbar
         marker.color.r = 1.0

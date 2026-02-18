@@ -3,7 +3,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
 from std_msgs.msg import ColorRGBA
 
-MAX_GAP = 1.0  #0.50
+MAX_GAP = 0.50      # 1.0
 
 def find_intersection(line1, line2):
     p1, p2 = line1; p3, p4 = line2

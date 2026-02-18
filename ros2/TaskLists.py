@@ -3,6 +3,7 @@ from Ransac import PublishMarkers
 from GartenWorld import Localization, lineNames, World, GetWallPosX, GetWallPosY
 from MowingTask import MowingTask
 from PassThroughGateTask import PassThroughGateTask
+from FahreInDenSchuppenTask import FahreInDenSchuppenTask
 import params
 from params import TaskState
 
@@ -355,5 +356,10 @@ Durchs_Gartentor_in_den_Wald_TaskList = {
     "tasks": [ (PassThroughGateTask(), "Wald") ]
 }
 
-CurrentTaskList = Fahre_zum_Schuppen_TaskList
+Fahre_in_den_Schuppen_Tasklist = {
+    "name": "Fahre_in_den_Schuppen",
+    "tasks": [ (FahreInDenSchuppenTask(), None) ]
+}
+
+CurrentTaskList = Fahre_in_den_Schuppen_Tasklist
 
