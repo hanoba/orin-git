@@ -3,7 +3,7 @@ from Ransac import PublishMarkers
 from GartenWorld import Localization, lineNames, World, GetWallPosX, GetWallPosY
 from MowingTask import MowingTask
 from PassThroughGateTask import PassThroughGateTask
-from FahreInDenSchuppenTask import FahreInDenSchuppenTask
+from PassGateRansacTask import PassGateRansacTask
 import params
 from params import TaskState
 
@@ -327,19 +327,19 @@ Localization_TaskList = {
 }
 
 Mowing_TaskList = {
-    "name": "Mowing_TaskList",
+    "name": "Rasenmähen",
     "tasks": [ (MowingTask(), None) ]
 }
 
 Fahre_zum_Schuppen_TaskList = {
-    "name": "Fahre_zum_Schuppen_TaskList",
+    "name": "Fahre_zum_Schuppen",
     "tasks": [  (LocalizationTask(), None),
                 (FollowPathTask(),   "Schuppen"),
              ]
 }
 
 Fahre_in_den_Wald_TaskList = {
-    "name": "Fahre_in_den_Wald_TaskList",
+    "name": "Fahre_in_den_Wald",
     "tasks": [  (LocalizationTask(),     None),
                 (FollowPathTask(),       "Wald"),
                 (PassThroughGateTask(),  "Wald")
@@ -347,19 +347,21 @@ Fahre_in_den_Wald_TaskList = {
 }
 
 Durchs_Gartentor_in_den_Garten_TaskList = {
-    "name": "Mowing_TaskList",
-    "tasks": [ (PassThroughGateTask(), "Garten") ]
+    "name": "Durchs_Gartentor_in_den_Garten",
+    "tasks": [ (PassGateRansacTask(), (-90.0, 2.0, 1.0, 99.0)) ]
+    #"tasks": [ (PassThroughGateTask(), "Garten") ]
 }
 
 Durchs_Gartentor_in_den_Wald_TaskList = {
-    "name": "Mowing_TaskList",
+    "name": "Durchs_Gartentor_in_den_Wald",
+    #"tasks": [ (PassGateRansacTask(), (90.0, 2.0, 1.0, 99.0)) ]
     "tasks": [ (PassThroughGateTask(), "Wald") ]
 }
 
 Fahre_in_den_Schuppen_Tasklist = {
     "name": "Fahre_in_den_Schuppen",
-    "tasks": [ (FahreInDenSchuppenTask(), None) ]
+    "tasks": [ (PassGateRansacTask(), (180.0, 2.0, 1.5, 2.0)) ]
 }
 
-CurrentTaskList = Fahre_in_den_Schuppen_Tasklist
+CurrentTaskList = Durchs_Gartentor_in_den_Garten_TaskList
 

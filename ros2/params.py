@@ -26,11 +26,11 @@ LinearVelocity = 0.5
 SimPause = False
 SimShowRays = False
 
-config = 7
+config = 6
 if config==0:
     BackWheelDrive = False
     RobotInitX = 15.00      # Im Garten beim Gartentor
-    RobotInitY = 7.50
+    RobotInitY =  9.00
     RobotInitTheta =  -np.pi+3/4*np.pi
 elif config==1:
     BackWheelDrive = False
@@ -64,8 +64,8 @@ elif config==6:
     RobotInitTheta =  -np.pi/2
 elif config==7:
     BackWheelDrive = False
-    RobotInitX =   -9.00    # vor der Schuppentür
-    RobotInitY =   10.50
+    RobotInitX =   -8.00    # vor der Schuppentür
+    RobotInitY =    9.00
     RobotInitTheta = 0.0
 else:
     BackWheelDrive = False
