@@ -26,7 +26,7 @@ LinearVelocity = 0.5
 SimPause = False        # Simulator beim Start im Pause-Modus
 SimShowRays = False     # Simulator zeigt Lidar-Strahlen beim Start
 
-config = 4
+config = 7
 if config==0:
     BackWheelDrive = False
     RobotInitX = 15.00      # Im Garten beim Gartentor

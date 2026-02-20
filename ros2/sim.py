@@ -181,6 +181,57 @@ class DiffDriveRobot:
         self.state = STATE_SEARCH
         self.target_angle = -math.pi
         self.SetPose(x, y, theta)
+        self.InitRobot()
+
+    def InitRobot(self):
+        # --- Grundgrößen ---
+        self.ROBOT_LENGTH =  17*2     # 60
+        self.ROBOT_WIDTH =   11*2     # 45
+        self.WHEEL_LENGTH =   4*2     # 20
+        self.WHEEL_WIDTH =    2     #  8
+        self.CASTER_RADIUS =  1     #  6
+        
+        # --- NEUE KONFIGURATION FÜR POSITIONEN ---
+        
+        # 1. Gehäuse-Verschiebung (X-Achse): 
+        # Wenn > 0, rückt das Gehäuse nach vorne (Räder wirken weiter hinten).
+        self.BODY_X_OFFSET = 4*2  #15  
+        
+        # 2. Spurweite (Abstand der Radmitten voneinander):
+        # Definiert, wie weit die Räder auseinander stehen.
+        self.WHEEL_BASE = 10*2   #50     
+        
+        # 3. Position der Lenkrolle (X-Achse):
+        # Relativ zum Drehpunkt (0,0). Bei 35 liegt sie schön weit vorne im Gehäuse.
+        self.CASTER_X = 8   #35       
+        
+        # --- Lokale Geometrie definieren ---
+        # (Zentrum 0,0 ist und bleibt exakt mittig zwischen den Rädern!)
+        self.local_points = np.array([
+            # Gehäuse (Index 0-3) - verschoben um BODY_X_OFFSET
+            [self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, -self.ROBOT_WIDTH/2],
+            [self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, self.ROBOT_WIDTH/2],
+            [-self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, self.ROBOT_WIDTH/2],
+            [-self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, -self.ROBOT_WIDTH/2],
+            
+            # Linkes Rad (Zentriert bei X=0, Y=-WHEEL_BASE/2)
+            [self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
+            [self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
+            [-self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
+            [-self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
+            
+            # Rechtes Rad (Zentriert bei X=0, Y=WHEEL_BASE/2)
+            [self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
+            [self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
+            [-self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
+            [-self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
+            
+            # Lenkrolle Zentrum
+            [self.CASTER_X, 0],
+            
+            # Front (für die Richtungslinie)
+            [self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, 0]
+        ])
 
     def SetPose(self, x, y, theta):
         self.x = self.x0 = X(x)
@@ -222,6 +273,29 @@ class DiffDriveRobot:
         self.y += v * math.sin(self.theta) * dt
 
     def draw(self, surf):
+        # 1. Rotationsmatrix
+        c = np.cos(self.theta)
+        s = np.sin(self.theta)
+        
+        R_T = np.array([
+            [c, s],
+            [-s, c]
+        ])
+        
+        # 2. Vektorisierte Rotation und Translation
+        global_points = (self.local_points @ R_T) + np.array([self.x, self.y])
+        
+        # 3. Zeichnen
+        #ROBOT_COLOR = (0, 255, 0)       # Grün
+        WHEEL_COLOR = (150, 150, 150)   # Hellgrau, damit es auf dunklem Grund auffällt
+        
+        pygame.draw.polygon(surf, ROBOT_COLOR, global_points[0:4], 1)
+        pygame.draw.polygon(surf, WHEEL_COLOR, global_points[4:8], 0)
+        pygame.draw.polygon(surf, WHEEL_COLOR, global_points[8:12], 0)
+        #pygame.draw.circle(surf, WHEEL_COLOR, global_points[12], self.CASTER_RADIUS)
+        pygame.draw.line(surf, ROBOT_COLOR, (self.x, self.y), global_points[13], 1)
+
+    def OLDdraw(self, surf):
         pygame.draw.circle(surf, ROBOT_COLOR, ((self.x), (self.y)), ROBOT_RADIUS, 2)
         hx = self.x + math.cos(self.theta) * ROBOT_RADIUS
         hy = self.y + math.sin(self.theta) * ROBOT_RADIUS
