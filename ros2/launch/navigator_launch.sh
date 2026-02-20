@@ -66,7 +66,7 @@ ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args \
   -p use_sim_time:=true &
 
 echo "⏳ Warte auf Initialisierung..."
-sleep 0.5
+sleep 3.0
 
 # --- 3. FEATURE EXTRACTION & NAVIGATION ---
 echo "🚀 Starte Navigator..."

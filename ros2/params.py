@@ -12,8 +12,8 @@ class TaskState(IntEnum):
     Ready = 1
     Error = 2
 
-# angle range = -120 ... 120 = -LidarMaxAngle ... LidarMaxAngle
-LidarMaxAngle = 160
+# angle range = -(LidarMaxAngle-1) ... LidarMaxAngle
+LidarMaxAngle = 180
 LidarRangeMin = 0.1
 LidarRangeMax = 20.0
 LidarFreq_Hz = 10
@@ -23,15 +23,15 @@ LidarFreq_Hz = 10
 LidarX = 0.0
 LinearVelocity = 0.5
 
-SimPause = False
-SimShowRays = False
+SimPause = False        # Simulator beim Start im Pause-Modus
+SimShowRays = False     # Simulator zeigt Lidar-Strahlen beim Start
 
-config = 6
+config = 4
 if config==0:
     BackWheelDrive = False
     RobotInitX = 15.00      # Im Garten beim Gartentor
     RobotInitY =  9.00
-    RobotInitTheta =  -np.pi+3/4*np.pi
+    RobotInitTheta = np.pi/2
 elif config==1:
     BackWheelDrive = False
     RobotInitX = -13.60     # unterhalb des Schuppen

@@ -40,10 +40,10 @@ class PassGateRansacTask:
         self.gateReachedThreshold = 0.3                     # Schwellwert für Erreichen des Tores
         self.startPointThreshold = 0.1                      # Schwellwert für Erreichen Startpunktes
         self.startPointDist = 2.0                           # Abstand des Startpunktes vom Tor
-        self.targetAngleReachedThreshold = np.deg2rad(16)   # Schwellwert für Ausrichtung zum Ziel
+        self.targetAngleReachedThreshold = np.deg2rad(8)    # Schwellwert für Ausrichtung zum Ziel
         self.baseSpeed = 0.2                                # Basisfahrgeschwindigkeit [m/s] (Tordurchfahrt)
         self.fastSpeed = 0.5                                # Schnelle Fahrgeschwindigkeit [m/s] (für Fahrten zum Startpunkt)
-        self.kHeading = 1.0                                 # Proportionalgain auf den Richtungsfehler
+        self.kHeading = 0.8                                 # Proportionalgain auf den Richtungsfehler
         self.SetState(self.StateSearch)
         
     def GetState(self):
@@ -51,7 +51,7 @@ class PassGateRansacTask:
         
     def SetState(self, newState):
         self.state = newState
-        self.node.RvizPrint(self.GetState())
+        self.node.RvizPrint("PassGateRansacTask." + self.GetState())
 
     def Ready(self):
         return self.state == self.StateDone or self.state == self.StateError
@@ -60,25 +60,8 @@ class PassGateRansacTask:
         self.SetState(self.StateSearch)
     
     def Step(self, scan_msg):
-    #def Step(self, angles, radius, dt):
-        """Einfache Zustandssteuerung.
-
-        SEARCH:         Dreht sich langsam, bis das Tor erkannt wurde.
-        GOTO_START:     Fährt zum Startpunkt
-        ALIGN&GO:       Regelt die Ausrichtung auf den Mittelpunkt des Tores und fährt vorwärts.
-        GATE_REACHED:   Der Abstand zum Tor ist kleiner als 30cm
-        DONE:           Stoppt, kurze Zeit nachdem das Tor erreicht wurde.
-        """
-        if self.state == self.StateDone:
-            self.node.SetVelocities(0, 0)
-            return TaskState.Ready, None
-
-        elif self.state == self.StateError:
-            self.node.SetVelocities(0, 0)
-            return TaskState.Error, None
-        
-        
-        elif self.state == self.StateSearch:
+        """ Einfache Zustandssteuerung """
+        if self.state == self.StateSearch:
             if self.node.wantedThetaReached:
                 self.state = self.StateGotoStart
                 self.node.ResetDirection()
@@ -109,7 +92,7 @@ class PassGateRansacTask:
                 self.targetAngle = cmath.phase(torMitte)  #HB [0]
 
                 err = self.targetAngle
-                #print(f"err={G(err)}°")  #HB
+                print(f"err={G(err)}°")  #HB
                 omega_cmd = self.kHeading * err
                 v_cmd = self.baseSpeed  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
                 if abs(self.targetAngle) > self.targetAngleReachedThreshold: v_cmd = 0
@@ -134,6 +117,14 @@ class PassGateRansacTask:
             else: 
                 self.node.SetVelocities(0, self.baseSpeed)
                 self.timeOutCnt -= 1
+
+        elif self.state == self.StateDone:
+            self.node.SetVelocities(0, 0)
+            return TaskState.Ready, None
+
+        elif self.state == self.StateError:
+            self.node.SetVelocities(0, 0)
+            return TaskState.Error, None
             
         return TaskState.Running, None
 

@@ -90,6 +90,8 @@ class Navigator(Node):
         self.linear = 0.0
         self.directionFlag = False
         self.simTimeSec = 0.0
+        
+        self.retvals = None
                 
         # Publisher für die Fahrbefehle
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -165,7 +167,7 @@ class Navigator(Node):
         
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
         self.get_logger().info(
-            f"[[ScanCallback] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  "
+            f"[ScanCallback] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  "
             f"Missed Scans: {self.missedScans}  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=10.0)
 
     def Walldetector(self, msg):
@@ -186,7 +188,7 @@ class Navigator(Node):
         self.taskIndex = 0
         if self.taskIndex < len(self.taskList):
             task, params = self.taskList[self.taskIndex]
-            task.Init(self, params)
+            task.Init(self, params, self.retvals)
         
     def TaskStep(self, scan_msg):
         if self.taskIndex < len(self.taskList):

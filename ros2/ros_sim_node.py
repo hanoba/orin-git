@@ -113,8 +113,8 @@ class SimNode(Node):
         scan.header.frame_id = 'lidar'      # wenn Lidar vor der Achsenmitte montiert ist (BackWheelDrive)
         #scan.header.frame_id = 'base_link'  # wenn Lidar direkt in Achsenmitte montiert ist
         #scan.time_increment = self.scanTimeInc
-        scan.angle_min = math.radians(-params.LidarMaxAngle)
-        scan.angle_max = math.radians(params.LidarMaxAngle-1)
+        scan.angle_min = math.radians(1-params.LidarMaxAngle)
+        scan.angle_max = math.radians(params.LidarMaxAngle)
         #scan.angle_min = math.radians(1-params.LidarMaxAngle)  HB old version
         #scan.angle_max = math.radians(params.LidarMaxAngle)
         num_readings = 2*params.LidarMaxAngle

@@ -216,10 +216,11 @@ class RobotController():
                 SetSpeed, 
                 gate, 
                 gateReachedThreshold = 0.3,         # Schwellwert für Erreichen des Tores [m]
-                startPointThreshold = 0.05,          # Schwellwert für Erreichen Startpunktes
+                startPointThreshold = 0.05,         # Schwellwert für Erreichen des Startpunktes
                 baseSpeed = 0.1,                    # Basisfahrgeschwindigkeit [m/s]#
-                kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
+                kHeading = 0.8                      # Proportionalgain auf den Richtungsfehler
         ):
+        self.Node = None
         self.robotState = STATE_SEARCH
         self.timeOut = 10
         self.SetSpeed = SetSpeed                                    # NavigatorNode
@@ -232,16 +233,17 @@ class RobotController():
         print(self.GetState())
         
     def GetState(self):
-        return f"{['SEARCH','GOTO_START','ALIGN&GO','GATE_REACHED','DONE','ERROR'][self.robotState]}  "
+        return f"{['SEARCH','GOTO_START','ALIGN&GO','GATE_REACHED','DONE','ERROR','INIT'][self.robotState]}  "
         
     def SetState(self, state):
         self.robotState = state
-        print(self.GetState())
+        self.node.RvizPrint(self.GetState())
 
     def Ready(self):
         return self.robotState == STATE_DONE or self.robotState == STATE_ERROR
 
-    def Reset(self):
+    def Reset(self, node):
+        self.node = node
         self.SetState(STATE_SEARCH)
     
     def Run(self, angles, radius, dt):
@@ -257,8 +259,7 @@ class RobotController():
             self.SetSpeed(0, 0)
             return None
 
-        
-        if self.robotState == STATE_SEARCH:
+        elif self.robotState == STATE_SEARCH:
             # roboter drehen um das Panorama zu „scannen“
             self.SetSpeed(0, 0.2*3.14/4)       # Nur Drehung ########################################
             #self.SetSpeed(0, 0)  #HB TEST
@@ -382,11 +383,12 @@ class PassThroughGateTask:
                 gateReachedThreshold=0.6,   #HB 0.3,           # Schwellwert für Erreichen des Tores [m]
                 startPointThreshold=0.1, #HB 0.1,            # Schwellwert für Erreichen Startpunktes [m]
                 baseSpeed = 0.2,                    # Basisfahrgeschwindigkeit [m/s]#
-                kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
+                kHeading = 0.8  # 2.2                      # Proportionalgain auf den Richtungsfehler
         )
 
     def Init(self, node, params, retvals=None):
         self.node = node
+        self.robotController.Reset(node)
         self.gate.vonRechts = params=="Wald"
 
     def PublishMarkers(self, xPoints, yPoints):

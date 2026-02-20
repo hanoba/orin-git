@@ -7,18 +7,19 @@ from PassGateRansacTask import PassGateRansacTask
 import params
 from params import TaskState
 
-# Lidar sector width (in deg) for distance check
-# nur der Bereich von -LS_xxx° bis +LS_xxx° wird verwendet
+# Lidar angle (in deg) for distance check
+# nur der Bereich von (LsXXX-5)° bis (LsXXX+5)° wird verwendet
 LsAngle = 5
 LsFront = 0
 LsFrontL = LsAngle
 LsFrontR = -LsAngle
-LocXLT = 0
-LocXGE = 1
-LocYLT = 2
-LocYGE = 3
-LocMask = 3
-LocRevDrv = 4
+
+LocXLT = 0      # Endkriterium: xPos < dist
+LocXGE = 1      # Endkriterium: xPos >= dist
+LocYLT = 2      # Endkriterium: yPos < dist
+LocYGE = 3      # Endkriterium: yPos >= dist
+LocMask = 3     # Maske zur Selektierung des Endkriteriums
+LocRevDrv = 4   # Reverse drive bit
 
 # Koordinaten zur Zonenbestimmung
 yZaunN = GetWallPosY(World.ZaunN)
@@ -154,6 +155,10 @@ def PathFinder(x, y, target):
                 (d2r(159),    xZ23,      loc2),  # nach Westen
                 ( np.pi/2, dyZaunN1, LsFrontR),  # nach Norden
             ]
+    elif target=="Bassin":
+        path = [ (-np.pi/2, 2.0, LsFront) ]      # vom Gartentor bis zum Bassin
+    elif target=="Parkplatz":
+        path = [ (-np.pi, 1.0, LsFront) ]        # Parkplatz im Schuppen
     return path
 
 class FollowPathTask:
@@ -168,9 +173,11 @@ class FollowPathTask:
         self.node = node
         self.pathIndex = 0
         self.target = target
-        xv, A, b, wallNumbers = retvals
-        x = xv[0]
-        y = xv[1]
+        if isinstance(retvals, tuple):
+            xv, A, b, wallNumbers = retvals
+            x = xv[0]
+            y = xv[1]
+        else: x = y = 0
         self.path = PathFinder(x, y, target)
         if len(self.path) > 0:
             self.theta, self.dist, self.lidarSector = self.path[self.pathIndex]
@@ -348,20 +355,24 @@ Fahre_in_den_Wald_TaskList = {
 
 Durchs_Gartentor_in_den_Garten_TaskList = {
     "name": "Durchs_Gartentor_in_den_Garten",
-    "tasks": [ (PassGateRansacTask(), (-90.0, 2.0, 1.0, 99.0)) ]
+    "tasks": [  (PassGateRansacTask(), (-90.0, 2.0, 1.0, 99.0)),
+                (FollowPathTask(),   "Bassin")                      # Fahre bis 2m vor dem Bassin
+             ]
     #"tasks": [ (PassThroughGateTask(), "Garten") ]
 }
 
 Durchs_Gartentor_in_den_Wald_TaskList = {
     "name": "Durchs_Gartentor_in_den_Wald",
     #"tasks": [ (PassGateRansacTask(), (90.0, 2.0, 1.0, 99.0)) ]
-    "tasks": [ (PassThroughGateTask(), "Wald") ]
+    "tasks": [  (PassThroughGateTask(), "Wald")  ]
 }
 
-Fahre_in_den_Schuppen_Tasklist = {
-    "name": "Fahre_in_den_Schuppen",
-    "tasks": [ (PassGateRansacTask(), (180.0, 2.0, 1.5, 2.0)) ]
+In_den_Schuppen_einparken_Tasklist = {
+    "name": "In_den_Schuppen_einparken",
+    "tasks": [  (PassGateRansacTask(), (180.0, 2.0, 1.5, 2.0)),
+                (FollowPathTask(), "Parkplatz")      # Fahre bis zum ersten Hindernis im Schuppen
+             ]
 }
 
-CurrentTaskList = Durchs_Gartentor_in_den_Garten_TaskList
+CurrentTaskList = Fahre_in_den_Wald_TaskList
 
