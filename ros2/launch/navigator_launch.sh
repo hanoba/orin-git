@@ -29,7 +29,7 @@ export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cyclonedds_wsl2.xml
 
 # Pfade
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
-LIDAR_X=0.0
+LIDAR_X=0.8
 
 clear
 echo "🚀 Starte System im GROUND TRUTH Modus..."

@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from Ransac import PublishMarkers
 from GartenWorld import Localization, lineNames, World, GetWallPosX, GetWallPosY
 from MowingTask import MowingTask
@@ -32,7 +33,7 @@ xBassinO = GetWallPosX(World.BassinO)
 yBassinN = GetWallPosY(World.BassinN)
 xHausO = GetWallPosX(World.HausO)
 yHausS = 7.0
-dxSchuppenO = 2.0
+dxSchuppenO = 2.5
 xZ23 = xSchuppenO + dxSchuppenO
 dyZ23 = 4.0
 xZ45 = xBassinO + 1.5
@@ -105,8 +106,8 @@ def PathFinder(x, y, target):
             path = [
                 (-np.pi/2,      dy2, LsFrontL),    # nach Süden/Norden
                 (-d2r(21),     xZ45,      loc),    # nach Osten
-                ( np.pi/2, dyZaunN7,        0),    # nach Norden
-                (  -np.pi,  dxHausO,        0)     # nach Westen
+                ( np.pi/2, dyZaunN7,  LsFront),    # nach Norden
+                (  -np.pi,  dxHausO,  LsFront)     # nach Westen
             ]
         elif zone in [5, 6, 7]:
             dx1 = (GetWallPosX(World.ZaunO, y) - xZ45) * sign(xZ45 - x)
@@ -150,7 +151,7 @@ def PathFinder(x, y, target):
             loc1 = (locMode, [ 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1])
             loc2 = (LocXLT,  [ 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1])
             path = [
-                (     0.0,     dx1,         0),  # nach Westen/Osten
+                (     0.0,     dx1,   LsFront),  # nach Westen/Osten
                 (-np.pi/2,      y1,      loc1),  # nach Norden/Süden
                 (d2r(159),    xZ23,      loc2),  # nach Westen
                 ( np.pi/2, dyZaunN1, LsFrontR),  # nach Norden
@@ -158,7 +159,7 @@ def PathFinder(x, y, target):
     elif target=="Bassin":
         path = [ (-np.pi/2, 2.0, LsFront) ]      # vom Gartentor bis zum Bassin
     elif target=="Parkplatz":
-        path = [ (-np.pi, 1.0, LsFront) ]        # Parkplatz im Schuppen
+        path = [ (-np.pi, 1.2, LsFront) ]        # Parkplatz im Schuppen
     return path
 
 class FollowPathTask:
@@ -212,8 +213,8 @@ class FollowPathTask:
             if type(self.lidarSector) == int:
                 start_deg = params.LidarMaxAngle + self.lidarSector - LsAngle
                 end_deg   = params.LidarMaxAngle + self.lidarSector + LsAngle
-                dist = np.min(ranges[start_deg:end_deg]) 
-                #print(f"{dist=}")
+                dist = np.min(ranges[start_deg:end_deg]) + params.LidarX
+                print(f"{dist=}")
                 targetReached = sign(self.dist)*dist < self.dist
             else:
                 A = []

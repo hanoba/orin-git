@@ -6,6 +6,7 @@ import numpy as np
 import math
 #import pygame
 from dataclasses import dataclass
+import params
 
 # Weltgeometrie
 BORDER_MARGIN = 10      # 40                   
@@ -143,7 +144,6 @@ def CheckAngle(num, angle_rad):
 
 def CheckAngleResult_deg(num, angle_rad):
     value_rad = lineTheta[num]
-    MaxDiff = np.deg2rad(5.0)
     diff1 = NormalizeAngle(angle_rad - value_rad)
     diff2 = NormalizeAngle(angle_rad + math.pi - value_rad)
     return np.rad2deg(min(abs(diff1), abs(diff2)))
@@ -184,9 +184,12 @@ def Localization(theta, all_detected_walls, A, b, lineNumbers, ignore=lineIgnore
         [c, -s],
         [s,  c]
     ])
+    lidarOffset = np.array([params.LidarX, 0.0])
     isDetectedWallValid = []
-    #if numTest>=0: print(f"{LineMatrixRowText(numTest)}")
     for start, end in np.array(all_detected_walls):  
+        # Korrektur Lidarposition 
+        start += lidarOffset
+        end += lidarOffset
         # Drehung durch Matrix-Multiplikation (Dot Product)
         # Wir transponieren die Matrix (.T), damit (N,2) * (2,2) funktioniert        
         start = np.dot(start, rotation_matrix.T)
@@ -258,18 +261,34 @@ class World:
 
     def __init__(self):
         self.segments = []
-
+        
+        # Leeres Array als Platzhalter beim Start
+        self.segments_array = np.empty((0, 2, 2))
+        
         # Außenrahmen erzeugen
-        x0, y0 = BORDER_MARGIN, BORDER_MARGIN
-        x1, y1 = WIN_W - BORDER_MARGIN, WIN_H - BORDER_MARGIN
-        x1_wall = WALL_X      
+        #x0, y0 = BORDER_MARGIN, BORDER_MARGIN
+        #x1, y1 = WIN_W - BORDER_MARGIN, WIN_H - BORDER_MARGIN
         
         self.CreateGarten()
+        self.BakeCollisionArray()
         
         # Tor Segmente
         #self.segments.append(Segment(WALL_X, y0, WALL_X, GATE_Y1))
         #self.segments.append(Segment(WALL_X, GATE_Y2, WALL_X, y1))
 
+    def BakeCollisionArray(self):
+        """
+        Wandelt alle Segmente EINMALIG in ein schnelles NumPy-Array um.
+        Muss aufgerufen werden, nachdem alle Wände zur Welt hinzugefügt wurden.
+        """
+        if not self.segments:
+            self.segments_array = np.empty((0, 2, 2))
+        else:
+            self.segments_array = np.array([
+                [[s.x1, s.y1], [s.x2, s.y2]] for s in self.segments
+            ])
+        print(f"[World] Gebacken: {len(self.segments_array)} Wände für Kollisionen vorbereitet.")
+        
     def Line(self, A, B):
         a = np.array(A) - Center
         b = np.array(B) - Center
@@ -299,7 +318,6 @@ class World:
         Length(name+"South", eckPunkte[0], eckPunkte[1])
         Length(name+"East",  eckPunkte[1], eckPunkte[2])
         posX1, posY1 = eckPunkte[0]
-        posXi = posX1 + 1.0             # so weit kann der eKarren in den Schuppen hineinfahren
         posX2, posY2 = eckPunkte[2]
         lenX = posX2 - posX1
         lenY = posY2 - posY1
@@ -322,9 +340,6 @@ class World:
     # Garten
     # -------------------------------------------------------
     def CreateGarten(self):
-        CenterX =  22
-        CenterY = -12
-            
         PA, PB, PC, PD = Gartenzaun()
         # Gartentor hinzufügen
         torAbstand = 8.00
@@ -474,9 +489,6 @@ def Gartenzaun():
     
     wa = wpa - math.pi/2
     PD=(xo-c0*math.sin(wa), -c0*math.cos(wa))
-
-    check=math.sqrt((PD[0]-PC[0])**2+(PD[1]-PC[1])**2)
-    #print(check, b1+b3)
 
     garten=[PA, PB, PC, PD]
     print(f"{garten=}")

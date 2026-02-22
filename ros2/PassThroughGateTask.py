@@ -220,7 +220,7 @@ class RobotController():
                 baseSpeed = 0.1,                    # Basisfahrgeschwindigkeit [m/s]#
                 kHeading = 0.8                      # Proportionalgain auf den Richtungsfehler
         ):
-        self.Node = None
+        self.node = None
         self.robotState = STATE_SEARCH
         self.timeOut = 10
         self.SetSpeed = SetSpeed                                    # NavigatorNode
@@ -244,6 +244,7 @@ class RobotController():
 
     def Reset(self, node):
         self.node = node
+        self.node.SetWantedTheta(np.pi/2)
         self.SetState(STATE_SEARCH)
     
     def Run(self, angles, radius, dt):
@@ -259,27 +260,28 @@ class RobotController():
             self.SetSpeed(0, 0)
             return None
 
-        elif self.robotState == STATE_SEARCH:
-            # roboter drehen um das Panorama zu „scannen“
-            self.SetSpeed(0, 0.2*3.14/4)       # Nur Drehung ########################################
-            #self.SetSpeed(0, 0)  #HB TEST
-            result = self.gate.Detect(angles, radius)
-            #sys.exit(0) #HB TEST
-            # Beim ersten validen Gate wechseln wir in den Ausrichtungs/Fahrt‑Modus
-            if result is not None:
-                self.SetSpeed(0, 0)   #HB 
-                torMitte, startPoint, pfosten1, pfosten2 = result
-                self.targetAngle = cmath.phase(torMitte)  #HB[0]  # Winkel IN ROBOTERKOORDINATEN
-                self.SetState(STATE_GOTO_START)
-                return torMitte, startPoint, pfosten1, pfosten2
+        if self.robotState == STATE_SEARCH:
+            if self.node.wantedThetaReached:
+                self.node.ResetDirection()
+        #elif self.robotState == STATE_SEARCH:
+                result = self.gate.Detect(angles, radius)
+                # Beim ersten validen Gate wechseln wir in den Ausrichtungs/Fahrt‑Modus
+                if result is not None:
+                    self.SetSpeed(0, 0)   #HB 
+                    torMitte, startPoint, pfosten1, pfosten2 = result
+                    self.targetAngle = cmath.phase(torMitte)  #HB[0]  # Winkel IN ROBOTERKOORDINATEN
+                    self.SetState(STATE_GOTO_START)
+                    return torMitte, startPoint, pfosten1, pfosten2
+                # roboter drehen um das Panorama zu „scannen“
+                self.SetSpeed(0, 0.2*3.14/4)       # Nur Drehung ########################################
 
         elif self.robotState == STATE_GOTO_START:
             # Aktualisiere Zielwinkel laufend, falls Gate sich geometrisch verschiebt
             result = self.gate.Detect(angles, radius)
             if result is not None:
                 torMitte, startPoint, pfosten1, pfosten2 = result
-                if abs(startPoint) > self.startPointThreshold:
-                    self.targetAngle = cmath.phase(startPoint)  #HB [0]
+                if abs(startPoint + params.LidarX) > self.startPointThreshold:
+                    self.targetAngle = cmath.phase(startPoint + params.LidarX)
 
                     # Fehler zwischen Blickrichtung und Gate‑Mittelwinkel
                     # Hinweis: Da die LiDAR‑Winkel relativ zu theta erzeugt wurden, ist self.targetAngle
@@ -289,17 +291,9 @@ class RobotController():
                     err = self.targetAngle
                     #print(f"err={G(err)}°")  #HB
                     omega_cmd = self.kHeading * err
-                    HB=0.0
-                    if err<0: omega_cmd -= HB
-                    else: omega_cmd += HB
-                    #if numSteps < 20: print(f"{self.targetAngle=}")   #HB
-                    v_cmd = self.baseSpeed*1 #HB  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
+                    v_cmd = self.baseSpeed  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
                     if abs(self.targetAngle) > self.targetAngleReachedThreshold: v_cmd = 0
-                    # Umrechnung in Radspeed‑Kommandos (Differentialfahrwerk)
-                    #vl = v_cmd - omega_cmd * (self.wheelBase / 2.0)
-                    #vr = v_cmd + omega_cmd * (self.wheelBase / 2.0)
                     self.SetSpeed(v_cmd, omega_cmd)
-                    #self.SetSpeed(0, 0)  #HB
                 else: 
                     # start point reached
                     self.SetState(STATE_ALIGN_AND_GO)
@@ -311,26 +305,15 @@ class RobotController():
             result = self.gate.Detect(angles, radius)
             if result is not None:
                 torMitte, startPoint, pfosten1, pfosten2 = result
-                self.targetAngle = cmath.phase(torMitte)  #HB [0]
+                self.targetAngle = cmath.phase(torMitte + params.LidarX)  #HB [0]
 
                 # Fehler zwischen Blickrichtung und Gate‑Mittelwinkel
-                # Hinweis: Da die LiDAR‑Winkel relativ zu theta erzeugt wurden, ist self.targetAngle
-                # bereits im Roboter‑Frame. 
                 err = self.targetAngle
                 #print(f"err={G(err)}°")  #HB
                 omega_cmd = self.kHeading * err
-                HB=0.0
-                if err<0: omega_cmd -= HB
-                else: omega_cmd += HB
-                #if numSteps < 20: print(f"{self.targetAngle=}")   #HB
-                v_cmd = self.baseSpeed*1 #HB  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
+                v_cmd = self.baseSpeed    # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
                 if abs(self.targetAngle) > self.targetAngleReachedThreshold: v_cmd = 0
-                # Umrechnung in Radspeed‑Kommandos (Differentialfahrwerk)
-                #vl = v_cmd - omega_cmd * (self.wheelBase / 2.0)
-                #vr = v_cmd + omega_cmd * (self.wheelBase / 2.0)
-                #self.SetSpeed(vl, vr)
                 self.SetSpeed(v_cmd, omega_cmd)
-                #self.SetSpeed(0, 0)   #HB
                 self.timeOut = 10
                 # Stop‑Kriterium: geringer Abstand zum Tor
                 if abs(torMitte) <= self.gateReachedThreshold:

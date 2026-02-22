@@ -32,9 +32,8 @@ import math
 import cmath
 import sys
 import numpy as np  # WICHTIG: NumPy importieren
-from dataclasses import dataclass
 import pygame
-from GartenWorld import Segment, World, WIN_W, WIN_H, X, Y, V, Xm, Ym, MetersPerPixel
+from GartenWorld import World, WIN_W, WIN_H, X, Y, V, Xm, Ym, MetersPerPixel
 import os
 
 # Setzt den Audio-Treiber auf 'dummy'. 
@@ -70,8 +69,8 @@ LIDAR_MAX_RANGE = params.LidarRangeMax / MetersPerPixel     # maximale Messdista
 LIDAR_NOISE_STD = 0.5                                       # Gauß‑Rauschen (σ) auf Distanzmessung
 
 # Roboterkinematik
-ROBOT_RADIUS = 11  # 16                    # nur für Zeichnung/Kollision (Kreis)
-WHEEL_BASE = 2 * ROBOT_RADIUS        # Radabstand (vereinfacht)
+#ROBOT_RADIUS = 11  # 16                    # nur für Zeichnung/Kollision (Kreis)
+#WHEEL_BASE = 2 * ROBOT_RADIUS        # Radabstand (vereinfacht)
 MAX_WHEEL_SPEED = 120.0              # Sättigung der Radspeed‑Kommandos [px/s]
 #BASE_SPEED = 70.0                    # Basisfahrgeschwindigkeit [px/s]
 
@@ -97,15 +96,166 @@ STATE_DONE = 4                       # hinter dem Tor angehalten
 def NormalizeAngle(angle_rad):
     return (angle_rad + math.pi) % math.tau - np.pi
 
+    
+class DiffDriveRobot:
+    """Kinematik (teilweise optimiert mit NumPy)."""
+    def __init__(self, x, y, theta):
+        self.v_l = 0.0
+        self.v_r = 0.0
+        #self.state = STATE_SEARCH
+        #self.target_angle = -math.pi
+        self.SetPose(x, y, theta)
+        self.InitRobot()
+
+    def InitRobot(self):
+        # --- Grundgrößen ---
+        self.ROBOT_LENGTH =  17*2     # 60
+        self.ROBOT_WIDTH =   11*2     # 45
+        self.WHEEL_LENGTH =   4*2     # 20
+        self.WHEEL_WIDTH =    2     #  8
+        self.CASTER_RADIUS =  1     #  6
+        
+        # --- NEUE KONFIGURATION FÜR POSITIONEN ---
+        
+        # 1. Gehäuse-Verschiebung (X-Achse): 
+        # Wenn > 0, rückt das Gehäuse nach vorne (Räder wirken weiter hinten).
+        self.LIDAR_X_OFFSET = int(params.LidarX / MetersPerPixel + 0.5)
+        self.BODY_X_OFFSET = self.LIDAR_X_OFFSET - self.ROBOT_LENGTH / 2 #4*2  #15  
+        #assert self.BODY_X_OFFSET >= 0
+        print(f"{self.BODY_X_OFFSET=}")
+        
+        # 2. Spurweite (Abstand der Radmitten voneinander):
+        # Definiert, wie weit die Räder auseinander stehen.
+        self.WHEEL_BASE = 11*2   #50     
+        
+        # 3. Position der Lenkrolle (X-Achse):
+        # Relativ zum Drehpunkt (0,0). Bei 35 liegt sie schön weit vorne im Gehäuse.
+        self.CASTER_X = 8   #35       
+        
+        # --- Lokale Geometrie definieren ---
+        # (Zentrum 0,0 ist und bleibt exakt mittig zwischen den Rädern!)
+        self.local_points = np.array([
+            # Gehäuse (Index 0-3) - verschoben um BODY_X_OFFSET
+            [self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, -self.ROBOT_WIDTH/2],
+            [self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, self.ROBOT_WIDTH/2],
+            [-self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, self.ROBOT_WIDTH/2],
+            [-self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, -self.ROBOT_WIDTH/2],
+            
+            # Linkes Rad (Zentriert bei X=0, Y=-WHEEL_BASE/2)
+            [self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
+            [self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
+            [-self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
+            [-self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
+            
+            # Rechtes Rad (Zentriert bei X=0, Y=WHEEL_BASE/2)
+            [self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
+            [self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
+            [-self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
+            [-self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
+            
+            # Lenkrolle Zentrum
+            [self.CASTER_X, 0],
+            
+            # Front (für die Richtungslinie)
+            [self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, 0]
+        ])
+
+    def SetPose(self, x, y, theta):
+        self.x = self.x0 = X(x)
+        self.y = self.y0 = Y(y)
+        self.theta = self.theta0 = -theta
+
+    def Turn(self, deltaTheta):
+        self.theta = NormalizeAngle(self.theta - deltaTheta)
+            
+    def GetPose(self):
+        return Xm(self.x), Ym(self.y), -self.theta
+        
+    def Reset(self):
+        self.x = self.x0 
+        self.y = self.y0 
+        self.theta = self.theta0 
+        #self.state = STATE_SEARCH
+        self.SetSpeed(0, 0)
+
+    def SetSpeed(self, v_cmd, omega_cmd):
+        """Setzt Radgeschwindigkeiten mit NumPy-Clipping."""
+        v_cmd = V(v_cmd)
+        omega_cmd = -omega_cmd
+        vl = v_cmd - omega_cmd * (self.WHEEL_BASE / 2.0)
+        vr = v_cmd + omega_cmd * (self.WHEEL_BASE / 2.0)
+        # NumPy Clip ist effizienter und lesbarer als max(min(...))
+        self.v_l = np.clip(vl, -MAX_WHEEL_SPEED, MAX_WHEEL_SPEED)
+        self.v_r = np.clip(vr, -MAX_WHEEL_SPEED, MAX_WHEEL_SPEED)
+
+    def step(self, dt):
+        """Update der Pose."""
+        v = (self.v_r + self.v_l) * 0.5
+        omega = (self.v_r - self.v_l) / self.WHEEL_BASE
+        
+        # Winkel normieren auf [0, 2π) mit math.tau
+        self.theta = (self.theta + omega * dt + math.tau) % math.tau
+        
+        self.x += v * math.cos(self.theta) * dt
+        self.y += v * math.sin(self.theta) * dt
+
+    def draw(self, surf):
+        # 1. Rotationsmatrix
+        c = np.cos(self.theta)
+        s = np.sin(self.theta)
+        
+        R_T = np.array([
+            [c, s],
+            [-s, c]
+        ])
+        
+        # 2. Vektorisierte Rotation und Translation
+        global_points = (self.local_points @ R_T) + np.array([self.x, self.y])
+        
+        # 3. Zeichnen
+        #ROBOT_COLOR = (0, 255, 0)       # Grün
+        WHEEL_COLOR = (150, 150, 150)   # Hellgrau, damit es auf dunklem Grund auffällt
+        
+        pygame.draw.polygon(surf, ROBOT_COLOR, global_points[0:4], 1)
+        pygame.draw.polygon(surf, WHEEL_COLOR, global_points[4:8], 0)
+        pygame.draw.polygon(surf, WHEEL_COLOR, global_points[8:12], 0)
+        #pygame.draw.circle(surf, WHEEL_COLOR, global_points[12], self.CASTER_RADIUS)
+        pygame.draw.line(surf, ROBOT_COLOR, (self.x, self.y), global_points[13], 1)
+
+    #def OLDdraw(self, surf):
+    #    pygame.draw.circle(surf, ROBOT_COLOR, ((self.x), (self.y)), ROBOT_RADIUS, 2)
+    #    hx = self.x + math.cos(self.theta) * ROBOT_RADIUS
+    #    hy = self.y + math.sin(self.theta) * ROBOT_RADIUS
+    #    pygame.draw.line(surf, ROBOT_COLOR, (self.x, self.y), (hx, hy), 2)
+
+    def drawPoint(self, surf, point):
+        # cmath wird hier beibehalten, da 'point' vermutlich complex ist (aus RobotLib2)
+        p = point * cmath.exp(1j * self.theta)
+        x = (self.x + p.real)
+        y = (self.y + p.imag)
+        pygame.draw.circle(surf, POINT_COLOR, (x, y), POINT_RADIUS, 2)
+
+    def SetColor(self, r, g, b):
+        pass
+
+
+def G(x):
+    return x * 360 / math.tau
+
 
 # -------------------------
 # LiDAR‑Simulation (NumPy Optimized)
 # -------------------------
-def cast_lidar(world: World, px, py, theta=0.0):
+def cast_lidar(world: World, robot: DiffDriveRobot):
     """
     Berechnet LiDAR-Schnittpunkte vektorisiert mit NumPy.
     FIX: Shape-Mismatch bei 'out' Parameter behoben.
     """
+
+    px = robot.x
+    py = robot.y
+    lidarX = robot.LIDAR_X_OFFSET
+    theta = robot.theta
     
     # 1. Winkelvektor erzeugen
     indices = np.arange(LIDAR_COUNT)
@@ -115,8 +265,11 @@ def cast_lidar(world: World, px, py, theta=0.0):
     # 2. Richtungsvektoren (Shape: [180, 2])
     ray_dirs = np.stack((np.cos(global_angles), np.sin(global_angles)), axis=1)
     
-    # Roboterposition (Explizit als Float)
-    pos = np.array([px, py], dtype=np.float64)
+    # Lidarposition (Explizit als Float)
+    lx = px + math.cos(theta) * lidarX
+    ly = py + math.sin(theta) * lidarX
+    
+    pos = np.array([lx, ly], dtype=np.float64)
 
     # Array für Distanzen initialisieren (Shape: [180])
     dists = np.full(LIDAR_COUNT, LIDAR_MAX_RANGE, dtype=np.float64)
@@ -166,195 +319,163 @@ def cast_lidar(world: World, px, py, theta=0.0):
     dists = np.clip(dists, 0, LIDAR_MAX_RANGE)
 
     # 6. Koordinaten berechnen
-    hits_x = px + dists * ray_dirs[:, 0]
-    hits_y = py + dists * ray_dirs[:, 1]
+    hits_x = lx + dists * ray_dirs[:, 0]
+    hits_y = ly + dists * ray_dirs[:, 1]
     
     hits = np.stack((hits_x, hits_y, dists), axis=1)
     
     return hits, raw_angles, dists
+
+def resolve_collisions(robot, world):
+    """Vektor-Kollisionsauflösung, die direkt die Eigenschaften der Roboter-Instanz nutzt."""
     
-class DiffDriveRobot:
-    """Kinematik (teilweise optimiert mit NumPy)."""
-    def __init__(self, x, y, theta):
-        self.v_l = 0.0
-        self.v_r = 0.0
-        self.state = STATE_SEARCH
-        self.target_angle = -math.pi
-        self.SetPose(x, y, theta)
-        self.InitRobot()
+    # === 1. Roboter-Matrizen vorbereiten ===
+    pivot = np.array([robot.x, robot.y])
+    cos_t, sin_t = np.cos(robot.theta), np.sin(robot.theta)
+    
+    rot_matrix = np.array([[cos_t, -sin_t], [sin_t,  cos_t]])
+    
+    # Werte direkt vom Roboter-Objekt abgreifen
+    hl = robot.ROBOT_LENGTH / 2.0
+    hw = robot.ROBOT_WIDTH / 2.0
+    bx = robot.BODY_X_OFFSET
+    
+    # Lokale Ecken des Gehäuses (exakt wie in InitRobot)
+    local_corners = np.array([
+        [ hl + bx,  hw], # Vorne Links
+        [-hl + bx,  hw], # Hinten Links
+        [-hl + bx, -hw], # Hinten Rechts
+        [ hl + bx, -hw]  # Vorne Rechts
+    ])
+    
+    corners = (local_corners @ rot_matrix.T) + pivot
+    robot_axes = np.array([[cos_t, sin_t], [-sin_t, cos_t]])
+    
+    # Der geometrische Mittelpunkt des Gehäuses liegt bei (BODY_X_OFFSET, 0)
+    geom_center_world = (np.array([bx, 0.0]) @ rot_matrix.T) + pivot
 
-    def InitRobot(self):
-        # --- Grundgrößen ---
-        self.ROBOT_LENGTH =  17*2     # 60
-        self.ROBOT_WIDTH =   11*2     # 45
-        self.WHEEL_LENGTH =   4*2     # 20
-        self.WHEEL_WIDTH =    2     #  8
-        self.CASTER_RADIUS =  1     #  6
-        
-        # --- NEUE KONFIGURATION FÜR POSITIONEN ---
-        
-        # 1. Gehäuse-Verschiebung (X-Achse): 
-        # Wenn > 0, rückt das Gehäuse nach vorne (Räder wirken weiter hinten).
-        self.BODY_X_OFFSET = 4*2  #15  
-        
-        # 2. Spurweite (Abstand der Radmitten voneinander):
-        # Definiert, wie weit die Räder auseinander stehen.
-        self.WHEEL_BASE = 10*2   #50     
-        
-        # 3. Position der Lenkrolle (X-Achse):
-        # Relativ zum Drehpunkt (0,0). Bei 35 liegt sie schön weit vorne im Gehäuse.
-        self.CASTER_X = 8   #35       
-        
-        # --- Lokale Geometrie definieren ---
-        # (Zentrum 0,0 ist und bleibt exakt mittig zwischen den Rädern!)
-        self.local_points = np.array([
-            # Gehäuse (Index 0-3) - verschoben um BODY_X_OFFSET
-            [self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, -self.ROBOT_WIDTH/2],
-            [self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, self.ROBOT_WIDTH/2],
-            [-self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, self.ROBOT_WIDTH/2],
-            [-self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, -self.ROBOT_WIDTH/2],
-            
-            # Linkes Rad (Zentriert bei X=0, Y=-WHEEL_BASE/2)
-            [self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
-            [self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
-            [-self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
-            [-self.WHEEL_LENGTH/2, -self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
-            
-            # Rechtes Rad (Zentriert bei X=0, Y=WHEEL_BASE/2)
-            [self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
-            [self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
-            [-self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 + self.WHEEL_WIDTH/2],
-            [-self.WHEEL_LENGTH/2, self.WHEEL_BASE/2 - self.WHEEL_WIDTH/2],
-            
-            # Lenkrolle Zentrum
-            [self.CASTER_X, 0],
-            
-            # Front (für die Richtungslinie)
-            [self.ROBOT_LENGTH/2 + self.BODY_X_OFFSET, 0]
-        ])
+    # === 2. Wände in ein NumPy-Array laden ===
+    # (Dieses Array liegt schon fertig in der world-Klasse vor)
+    segments = world.segments_array
+    
+    if len(segments) == 0:
+        return
 
-    def SetPose(self, x, y, theta):
-        self.x = self.x0 = X(x)
-        self.y = self.y0 = Y(y)
-        self.theta = self.theta0 = -theta
+    # === 3. Vektoren aller Wände gleichzeitig berechnen ===
+    V = segments[:, 1, :] - segments[:, 0, :] 
+    lengths = np.linalg.norm(V, axis=1, keepdims=True)
+    
+    # Wände mit Länge 0 aussortieren
+    valid = (lengths[:, 0] > 0)
+    segments, V, lengths = segments[valid], V[valid], lengths[valid]
+    
+    N = len(segments)
+    if N == 0: return
 
-    def Turn(self, deltaTheta):
-        self.theta = NormalizeAngle(self.theta - deltaTheta)
-            
-    def GetPose(self):
-        return Xm(self.x), Ym(self.y), -self.theta
-        
-    def Reset(self):
-        self.x = self.x0 
-        self.y = self.y0 
-        self.theta = self.theta0 
-        self.state = STATE_SEARCH
-        self.SetSpeed(0, 0)
+    # Segment-Achsen (Normalen und Parallelen) berechnen
+    seg_para = V / lengths
+    seg_norm = np.column_stack([-seg_para[:, 1], seg_para[:, 0]])
 
-    def SetSpeed(self, v_cmd, omega_cmd):
-        """Setzt Radgeschwindigkeiten mit NumPy-Clipping."""
-        v_cmd = V(v_cmd)
-        omega_cmd = -omega_cmd
-        vl = v_cmd - omega_cmd * (WHEEL_BASE / 2.0)
-        vr = v_cmd + omega_cmd * (WHEEL_BASE / 2.0)
-        # NumPy Clip ist effizienter und lesbarer als max(min(...))
-        self.v_l = np.clip(vl, -MAX_WHEEL_SPEED, MAX_WHEEL_SPEED)
-        self.v_r = np.clip(vr, -MAX_WHEEL_SPEED, MAX_WHEEL_SPEED)
+    # === 4. SAT-Prüfung für ALLE Wände auf einmal ===
+    robot_axes_expanded = np.tile(robot_axes, (N, 1, 1)) 
+    seg_axes = np.stack([seg_para, seg_norm], axis=1)    
+    axes = np.concatenate([robot_axes_expanded, seg_axes], axis=1)
 
-    def step(self, dt):
-        """Update der Pose."""
-        v = (self.v_r + self.v_l) * 0.5
-        omega = (self.v_r - self.v_l) / WHEEL_BASE
-        
-        # Winkel normieren auf [0, 2π) mit math.tau
-        self.theta = (self.theta + omega * dt + math.tau) % math.tau
-        
-        self.x += v * math.cos(self.theta) * dt
-        self.y += v * math.sin(self.theta) * dt
+    # Projektionen
+    r_projs = np.matmul(axes, corners.T) 
+    r_min = np.min(r_projs, axis=2) 
+    r_max = np.max(r_projs, axis=2)
 
-    def draw(self, surf):
-        # 1. Rotationsmatrix
-        c = np.cos(self.theta)
-        s = np.sin(self.theta)
-        
-        R_T = np.array([
-            [c, s],
-            [-s, c]
-        ])
-        
-        # 2. Vektorisierte Rotation und Translation
-        global_points = (self.local_points @ R_T) + np.array([self.x, self.y])
-        
-        # 3. Zeichnen
-        #ROBOT_COLOR = (0, 255, 0)       # Grün
-        WHEEL_COLOR = (150, 150, 150)   # Hellgrau, damit es auf dunklem Grund auffällt
-        
-        pygame.draw.polygon(surf, ROBOT_COLOR, global_points[0:4], 1)
-        pygame.draw.polygon(surf, WHEEL_COLOR, global_points[4:8], 0)
-        pygame.draw.polygon(surf, WHEEL_COLOR, global_points[8:12], 0)
-        #pygame.draw.circle(surf, WHEEL_COLOR, global_points[12], self.CASTER_RADIUS)
-        pygame.draw.line(surf, ROBOT_COLOR, (self.x, self.y), global_points[13], 1)
+    s_projs = np.matmul(axes, segments.transpose(0, 2, 1)) 
+    s_min = np.min(s_projs, axis=2)
+    s_max = np.max(s_projs, axis=2)
 
-    def OLDdraw(self, surf):
-        pygame.draw.circle(surf, ROBOT_COLOR, ((self.x), (self.y)), ROBOT_RADIUS, 2)
-        hx = self.x + math.cos(self.theta) * ROBOT_RADIUS
-        hy = self.y + math.sin(self.theta) * ROBOT_RADIUS
-        pygame.draw.line(surf, ROBOT_COLOR, (self.x, self.y), (hx, hy), 2)
+    # Lücken (Gaps) finden
+    gaps = (r_max < s_min) | (s_max < r_min)
+    intersecting = ~np.any(gaps, axis=1) 
 
-    def drawPoint(self, surf, point):
-        # cmath wird hier beibehalten, da 'point' vermutlich complex ist (aus RobotLib2)
-        p = point * cmath.exp(1j * self.theta)
-        x = (self.x + p.real)
-        y = (self.y + p.imag)
-        pygame.draw.circle(surf, POINT_COLOR, (x, y), POINT_RADIUS, 2)
+    if not np.any(intersecting):
+        return # Keine Kollision
 
-    def SetColor(self, r, g, b):
-        pass
+    # === 5. Kollision auflösen ===
+    axes_int = axes[intersecting]         
+    r_min_int, r_max_int = r_min[intersecting], r_max[intersecting]       
+    s_min_int, s_max_int = s_min[intersecting], s_max[intersecting]
+    seg_int = segments[intersecting]      
 
+    overlaps = np.minimum(r_max_int - s_min_int, s_max_int - r_min_int) 
+    
+    min_axis_idx = np.argmin(overlaps, axis=1) 
+    min_overlaps = np.min(overlaps, axis=1)    
 
-def G(x):
-    return x * 360 / math.tau
+    K = len(min_overlaps)
+    best_axes = axes_int[np.arange(K), min_axis_idx] 
 
+    # Richtung (Push) vom Mittelpunkt weg berechnen
+    s_centers = np.mean(seg_int, axis=1) 
+    r_center_projs = np.sum(geom_center_world * best_axes, axis=1) 
+    s_center_projs = np.sum(s_centers * best_axes, axis=1)         
 
-def resolve_collisions(robot: DiffDriveRobot, world: World):
-    """Kollisionsauflösung."""
-    pushed = False
-    for seg in world.segments:
-        # Vektorrechnung (manuell ist hier okay für wenige Segmente)
-        vx, vy = seg.x2 - seg.x1, seg.y2 - seg.y1
-        wx, wy = robot.x - seg.x1, robot.y - seg.y1
-        
-        vlen2 = vx * vx + vy * vy
-        if vlen2 == 0: continue
-        
-        t = max(0.0, min(1.0, (wx * vx + wy * vy) / vlen2))
-        cx = seg.x1 + t * vx
-        cy = seg.y1 + t * vy
-        
-        dx, dy = robot.x - cx, robot.y - cy
-        d2 = dx * dx + dy * dy
-        r = ROBOT_RADIUS + 2*0
-        
-        if d2 < r * r:
-            d = math.sqrt(max(1e-9, d2))
-            nx, ny = dx / d, dy / d
-            push = (r - d)
-            robot.x += nx * push
-            robot.y += ny * push
-            robot.theta = (robot.theta + 0.05) % math.tau
-            pushed = True
-            
-    if pushed:
-        print("[sim.resolve_collisions] Collision detected")
-        robot.SetSpeed(0.0, 0.0)
+    push_signs = np.where(r_center_projs < s_center_projs, -1.0, 1.0)
+    push_vectors = best_axes * push_signs[:, None] * min_overlaps[:, None] 
+
+    # Bei mehreren Wänden den tiefsten Push nehmen
+    deepest_idx = np.argmax(min_overlaps)
+    final_push = push_vectors[deepest_idx]
+
+    # === 6. Physik / Position anwenden ===
+    robot.x += final_push[0]
+    robot.y += final_push[1]
+    
+    # Leichter Spin beim Aufprall (optional, macht es dynamischer)
+    robot.theta = (robot.theta + 0.05) % (2 * np.pi)
+    
+    print(f"[sim.resolve_collisions] Collision resolved ({K} walls hit)")
+    robot.SetSpeed(0.0, 0.0)
+
+#def resolve_collisions(robot: DiffDriveRobot, world: World):
+#    """Kollisionsauflösung."""
+#    pushed = False
+#    for seg in world.segments:
+#        # Vektorrechnung (manuell ist hier okay für wenige Segmente)
+#        vx, vy = seg.x2 - seg.x1, seg.y2 - seg.y1
+#        wx, wy = robot.x - seg.x1, robot.y - seg.y1
+#        
+#        vlen2 = vx * vx + vy * vy
+#        if vlen2 == 0: continue
+#        
+#        t = max(0.0, min(1.0, (wx * vx + wy * vy) / vlen2))
+#        cx = seg.x1 + t * vx
+#        cy = seg.y1 + t * vy
+#        
+#        dx, dy = robot.x - cx, robot.y - cy
+#        d2 = dx * dx + dy * dy
+#        r = ROBOT_RADIUS
+#        
+#        if d2 < r * r:
+#            d = math.sqrt(max(1e-9, d2))
+#            nx, ny = dx / d, dy / d
+#            push = (r - d)
+#            robot.x += nx * push
+#            robot.y += ny * push
+#            robot.theta = (robot.theta + 0.05) % math.tau
+#            pushed = True
+#            
+#    if pushed:
+#        print("[sim.resolve_collisions] Collision detected")
+#        robot.SetSpeed(0.0, 0.0)
 
 
 def draw_lidar_rays(surf, robot: DiffDriveRobot, hits):
     """Zeichnet Rays. Hits ist jetzt ein NumPy Array (N, 3)."""
+    # Lidarposition (Explizit als Float)
+    lx = robot.x + math.cos(robot.theta) * robot.LIDAR_X_OFFSET
+    ly = robot.y + math.sin(robot.theta) * robot.LIDAR_X_OFFSET
+
     # Wenn hits ein NumPy Array ist, iterieren wir darüber
     for val in hits:
         hx, hy, d = val[0], val[1], val[2]
-        pygame.draw.line(surf, LIDAR_RAY_COLOR, (robot.x, robot.y), (hx, hy), 1)
+        pygame.draw.line(surf, LIDAR_RAY_COLOR, (lx, ly), (hx, hy), 1)
         if d < LIDAR_MAX_RANGE * 0.999:
             pygame.draw.circle(surf, LIDAR_HIT_COLOR, ((hx), (hy)), 2)
 
@@ -368,9 +489,6 @@ class Simulation:
         self.robot.SetSpeed(0.0,0.0)
     
         pygame.init()
-        info = pygame.display.Info()
-        screen_width = info.current_w
-        screen_height = info.current_h
         
         # Falls Fullscreen gewünscht ist:
         # screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
@@ -477,7 +595,7 @@ class Simulation:
 
         # --- NumPy LiDAR (10Hz) ---
         if self.numSteps % 3 == 0:
-            self.lidar_hits, angles, radius = cast_lidar(self.world, self.robot.x, self.robot.y, self.robot.theta)
+            self.lidar_hits, angles, radius = cast_lidar(self.world, self.robot)
             radius = np.flip(radius*MetersPerPixel)
         else: radius = []
 
