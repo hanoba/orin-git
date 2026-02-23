@@ -304,9 +304,9 @@ class World:
         lenX = posX2 - posX1
         lenY = posY2 - posY1
         
-        posX = posX1    #- CenterX
-        posY = posY1    #- CenterY
-        print(f"Creating {name:<12}: Unten links = ({posX:6.2f},{posY:6.2f}), Oben rechts = ({posX+lenX:6.2f},{posY+lenY:6.2f})")
+        posX, posY = posX1, posY1 
+        px, py = posX-CenterX, posY-CenterY
+        print(f"Creating {name:<12}: Unten links = ({px:6.2f},{py:6.2f}), Oben rechts = ({px+lenX:6.2f},{py+lenY:6.2f})")
         self.Line( (posX,       posY     ), (posX+lenX, posY     ) )
         self.Line( (posX+lenX,  posY     ), (posX+lenX, posY+lenY) )
         self.Line( (posX+lenX,  posY+lenY), (posX,      posY+lenY) )
@@ -326,7 +326,9 @@ class World:
         
         posX = posX1
         posY = posY1
-        print(f"Creating {name:<12}: Unten links = ({posX:6.2f},{posY:6.2f}), Oben rechts = ({posX+lenX:6.2f},{posY+lenY:6.2f})")
+        px, py = posX-CenterX, posY-CenterY
+        print(f"Creating {name:<12}: Unten links = ({px:6.2f},{py:6.2f}), Oben rechts = ({px+lenX:6.2f},{py+lenY:6.2f})")
+        #print(f"Creating {name:<12}: Unten links = ({posX:6.2f},{posY:6.2f}), Oben rechts = ({posX+lenX:6.2f},{posY+lenY:6.2f})")
         self.Line( (posX,       posY     ),  (posX+lenX, posY     ) )
         self.Line( (posX+lenX,  posY     ),  (posX+lenX, posY+lenY1) )
         self.Line( (posX+lenX,  posY+lenY2), (posX+lenX, posY+lenY) )
@@ -357,7 +359,7 @@ class World:
         AddLineForPositioning(3, PD, PA, P_WEST, 7.0)
 
         schuppen = Schuppen()
-        self.SchuppenOffen("Schuppen", schuppen)
+        self.SchuppenOffen("SchuppenOffen", schuppen)
         AddLineForPositioning(4, schuppen[3], schuppen[0], P_EAST)
         AddLineForPositioning(5, schuppen[0], schuppen[1], P_NORTH, maxDist=7.0)
         AddLineForPositioning(6, schuppen[1], schuppen[2], P_WEST)

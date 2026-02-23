@@ -110,7 +110,7 @@ class SimNode(Node):
         scan.time_increment = 0.0
         current_sim_time = Time(seconds=self.sim.sim_time_sec)
         scan.header.stamp = current_sim_time.to_msg()
-        scan.header.frame_id = 'lidar'      # wenn Lidar vor der Achsenmitte montiert ist (BackWheelDrive)
+        scan.header.frame_id = 'lidar'      # wenn Lidar vor der Achsenmitte montiert ist
         #scan.header.frame_id = 'base_link'  # wenn Lidar direkt in Achsenmitte montiert ist
         #scan.time_increment = self.scanTimeInc
         scan.angle_min = math.radians(1-params.LidarMaxAngle)

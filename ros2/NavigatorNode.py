@@ -102,8 +102,7 @@ class Navigator(Node):
         # Set initial task list
         self.NewTaskList(CurrentTaskList)
         self.missedScans = 0
-
-
+    
     def SetVelocities(self, omega, vLinear):
         self.angular = omega
         self.linear = vLinear
@@ -153,14 +152,19 @@ class Navigator(Node):
         drive_msg.angular.z = float(self.angular)
         self.cmd_pub.publish(drive_msg)
 
-    def ScanCallback(self, msg):
+    def ScanCallback(self, scan_msg):
         if self.is_processing: 
             self.missedScans += 1
             return
         start_zeit = time.perf_counter() # Zeitnahme startet
         self.is_processing = True
-        #self.StateMachine(msg)
-        self.TaskStep(msg)
+        # Lidardaten umdrehen bei FrontWheelDrive
+        #if self.frontWheelDrive:
+        #    scan_msg.ranges = scan_msg.ranges[::-1]
+        #    angle_min = scan_msg.angle_min
+        #    scan_msg.angle_min = -scan_msg.angle_max
+        #    scan_msg.angle_max = -angle_min
+        self.TaskStep(scan_msg)
         self.is_processing = False
         ende_zeit = time.perf_counter() # Zeitnahme endet
         dauer_ms = (ende_zeit - start_zeit) * 1000 # Umrechnung in Millisekunden
@@ -170,11 +174,13 @@ class Navigator(Node):
             f"[ScanCallback] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  "
             f"Missed Scans: {self.missedScans}  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=10.0)
 
-    def Walldetector(self, msg):
+    def Walldetector(self, msg, angMin=-np.pi, angMax=np.pi):
         ranges = np.array(msg.ranges)
-        valid = np.isfinite(ranges) & (ranges > params.LidarRangeMin + 0.01) & (ranges < params.LidarRangeMax - 0.1)
+        rangeMask = np.isfinite(ranges) & (ranges > params.LidarRangeMin + 0.01) & (ranges < params.LidarRangeMax - 0.1)
         #valid = np.isfinite(ranges) & (ranges > 0.1) & (ranges < 30.0)
         angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
+        angMask = (angles >=angMin) & (angles <= angMax)
+        valid = rangeMask & angMask
         
         points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[valid]
 

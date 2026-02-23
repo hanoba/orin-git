@@ -16,7 +16,7 @@ def NormalizeAngle(angle_rad):
 
 class PassGateRansacTask:
     def Init(self, node, params, retvals=None):
-        theta_deg, self.startPointDist, self.min_len, self.max_len = params
+        theta_deg, self.startPointDist, self.min_len, self.max_len, self.revDrv = params
         self.StateSearch = 0        # Dreht sich langsam, bis das Tor erkannt wurde.
         self.StateGotoStart = 1     # Fährt zum Startpunkt
         self.StateAlignAndGo = 2    # Regelt die Ausrichtung auf den Mittelpunkt des Tores und fährt vorwärts.
@@ -37,11 +37,11 @@ class PassGateRansacTask:
         self.gateReachedTimeOut = 80
         self.noGateTimeOut = 10
         self.timeOutCnt = self.noGateTimeOut
-        self.gateReachedThreshold = 0.3                     # Schwellwert für Erreichen des Tores
+        self.gateReachedThreshold = 0.3+0.7                     # Schwellwert für Erreichen des Tores
         self.startPointThreshold = 0.1                      # Schwellwert für Erreichen Startpunktes
         self.startPointDist = 2.0                           # Abstand des Startpunktes vom Tor
         self.targetAngleReachedThreshold = np.deg2rad(8)    # Schwellwert für Ausrichtung zum Ziel
-        self.baseSpeed = 0.2                                # Basisfahrgeschwindigkeit [m/s] (Tordurchfahrt)
+        self.baseSpeed = 0.1                                # Basisfahrgeschwindigkeit [m/s] (Tordurchfahrt)
         self.fastSpeed = 0.5                                # Schnelle Fahrgeschwindigkeit [m/s] (für Fahrten zum Startpunkt)
         self.kHeading = 0.8                                 # Proportionalgain auf den Richtungsfehler
         self.SetState(self.StateSearch)
@@ -63,7 +63,7 @@ class PassGateRansacTask:
         """ Einfache Zustandssteuerung """
         if self.state == self.StateSearch:
             if self.node.wantedThetaReached:
-                self.state = self.StateGotoStart
+                self.SetState(self.StateGotoStart)
                 self.node.ResetDirection()
                 
         elif self.state == self.StateGotoStart:
@@ -71,39 +71,54 @@ class PassGateRansacTask:
             result = self.GateDetector(scan_msg)
             if result is not None:
                 torMitte, startPoint, pfosten1, pfosten2 = result
-                if abs(startPoint) > self.startPointThreshold:
-                    self.targetAngle = cmath.phase(startPoint)
-                    err = self.targetAngle
+                dist = abs(startPoint + params.LidarX)
+                if dist > self.startPointThreshold:
+                    self.targetAngle = cmath.phase(startPoint + params.LidarX)
+                    if self.revDrv:
+                        self.targetAngle = self.targetAngle % math.tau
+                        err = -(np.pi - self.targetAngle) 
+                        v_cmd = -self.baseSpeed   # konstante Rückwärtsfahrt, Stabilität via Heading‑Regelung
+                    else:
+                        err = self.targetAngle
+                        v_cmd = self.baseSpeed   # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
                     omega_cmd = self.kHeading * err
-                    v_cmd = self.fastSpeed  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
-                    if abs(self.targetAngle) > self.targetAngleReachedThreshold: v_cmd = 0
+                    if abs(err) > self.targetAngleReachedThreshold: v_cmd = 0
                     self.node.SetVelocities(omega_cmd, v_cmd)
+                    print(f"err={G(err):.1f}°  dist={dist:.2f}") 
                 else: 
                     # start point reached
                     self.SetState(self.StateAlignAndGo)
                     self.node.SetVelocities(0, 0)
-            else: self.node.SetVelocities(0, 0)
+            else: 
+                print("Tor nicht gefunden")
+                self.node.SetVelocities(0, 0)
         
         elif self.state == self.StateAlignAndGo:
             # Aktualisiere Zielwinkel laufend, falls Gate sich geometrisch verschiebt
             result = self.GateDetector(scan_msg)
             if result is not None:
                 torMitte, startPoint, pfosten1, pfosten2 = result
-                self.targetAngle = cmath.phase(torMitte)  #HB [0]
-
-                err = self.targetAngle
-                print(f"err={G(err)}°")  #HB
+                self.targetAngle = cmath.phase(torMitte + params.LidarX) 
+                if self.revDrv:
+                    self.targetAngle = self.targetAngle % math.tau
+                    err = -(np.pi - self.targetAngle) 
+                    v_cmd = -self.baseSpeed   # konstante Rückwärtsfahrt, Stabilität via Heading‑Regelung
+                else:
+                    err = self.targetAngle
+                    v_cmd = self.baseSpeed   # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
                 omega_cmd = self.kHeading * err
-                v_cmd = self.baseSpeed  # konstante Vorwärtsfahrt, Stabilität via Heading‑Regelung
-                if abs(self.targetAngle) > self.targetAngleReachedThreshold: v_cmd = 0
+                if abs(err) > self.targetAngleReachedThreshold: v_cmd = 0
                 self.node.SetVelocities(omega_cmd, v_cmd)
                 self.timeOutCnt = self.noGateTimeOut
+                dist = abs(torMitte)
+                print(f"err={G(err):.1f}°  dist={dist:.2f}") 
                 # Stop‑Kriterium: geringer Abstand zum Tor
-                if abs(torMitte) <= self.gateReachedThreshold:
+                if dist <= self.gateReachedThreshold:
                     self.timeOutCnt = self.gateReachedTimeOut
                     self.SetState(self.StateGateReached)
             else: 
                 # Stop‑Kriterium: seit geraumer Zeit kein Tor mehr erkannt
+                print("Tor nicht gefunden")
                 self.node.SetVelocities(0, 0)
                 if self.timeOutCnt <= 0:
                     self.SetState(self.StateError)
@@ -115,7 +130,7 @@ class PassGateRansacTask:
                 self.SetState(self.StateDone)
                 self.node.SetVelocities(0, 0)
             else: 
-                self.node.SetVelocities(0, self.baseSpeed)
+                self.node.SetVelocities(0, -self.baseSpeed if self.revDrv else self.baseSpeed)
                 self.timeOutCnt -= 1
 
         elif self.state == self.StateDone:
@@ -127,13 +142,6 @@ class PassGateRansacTask:
             return TaskState.Error, None
             
         return TaskState.Running, None
-
-
-
-
-
-
-
 
     def RotateWalls(self, alpha, walls):
         # walls ins Weltkoordinatensystem drehen
@@ -184,7 +192,9 @@ class PassGateRansacTask:
         # 4. Maske erstellen (Boolean Indexing)
         length_mask = (lengths >= self.min_len) & (lengths <= self.max_len)
         angle_mask = (angles_deg >= self.min_angle) & (angles_deg <= self.max_angle)
-        x_mask = (x0 > 0.0) & (x1 > 0.0) & (x0 < 4.0) & (x1 < 4.0)
+        x_mask1 = (x0 > 0.0) & (x1 > 0.0) & (x0 < 4.0) & (x1 < 4.0)
+        x_mask2 = (x0 < 0.0) & (x1 < 0.0) & (x0 > -4.0) & (x1 > -4.0)
+        x_mask = x_mask1 | x_mask2
         
         final_mask = length_mask & angle_mask & x_mask
         walls = walls[final_mask]
@@ -218,12 +228,14 @@ class PassGateRansacTask:
     def Walldetector(self, msg):
         ranges = np.array(msg.ranges)
         angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
+        #print(f"{len(angles)=} {msg.angle_min=}")
         rangesMask = np.isfinite(ranges) & (ranges > params.LidarRangeMin + 0.01) & (ranges < params.LidarRangeMax - 0.1)
         #maxAngle = np.pi * 0.5
         #anglesMask = np.abs(angles) < maxAngle
         finalMask = rangesMask # & anglesMask
         points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[finalMask]
         allDetectedWalls = Ransac.LineDetection(points)
+        #print(len(allDetectedWalls))
         return allDetectedWalls
 
     def GateDetector(self, scan_msg):
@@ -233,6 +245,7 @@ class PassGateRansacTask:
         #self.PublishMarkers(walls1, [])
         #print(f"{walls1.shape=}")
         alpha = self.wantedTheta - self.node.theta
+        #if self.revDrv: alpha = -alpha
         rotatedWalls = self.RotateWalls(alpha, walls1)
         rotatedWalls = self.FilterWalls(rotatedWalls)
         #print(f"{rotatedWalls.shape=}")
@@ -243,7 +256,7 @@ class PassGateRansacTask:
             torMitte = (pfosten2 + pfosten1) / 2
             tor = pfosten2 - pfosten1
             torBreite = abs(tor)
-            startPoint = torMitte + self.startPointDist * tor / torBreite * 1j  #(1j if self.vonRechts else -1j)
+            startPoint = torMitte + self.startPointDist * tor / torBreite * (-1j if self.revDrv else 1j)
             torPunkte = [pfosten1, pfosten2, torMitte, startPoint]
             self.PublishMarkers(walls, torPunkte)
             return torMitte, startPoint, pfosten1, pfosten2
