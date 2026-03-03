@@ -23,8 +23,8 @@ LidarFreq_Hz = 10
 LidarX = 0.8
 LinearVelocity = 0.5
 
-SimPause = True        # Simulator beim Start im Pause-Modus
-SimShowRays = True      # Simulator zeigt Lidar-Strahlen beim Start
+SimPause = False        # Simulator beim Start im Pause-Modus
+SimShowRays = False     # Simulator zeigt Lidar-Strahlen beim Start
 
 config = 7
 if config==0:

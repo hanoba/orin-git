@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ransac_launch.sh
+# navigator_launch.sh
 
 MY_PID=$$
 

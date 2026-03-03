@@ -5,11 +5,12 @@ from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import Twist
 from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy, HistoryPolicy
 from std_msgs.msg import Float32
+from std_srvs.srv import Trigger
 import numpy as np
 import time
 import math
 import Ransac
-from TaskLists import CurrentTaskList
+import TaskLists
 
 import params
 from params import TaskState
@@ -98,9 +99,18 @@ class Navigator(Node):
         
         # Publisher für rviz Textausgabe:
         self.text_pub = self.create_publisher(Marker, 'text_marker_topic', 10)
+
+        # Services erstellen: Typ (Trigger)
+        self.srv1 = self.create_service(Trigger, 'Localization',                    self.cb_Localization)
+        self.srv2 = self.create_service(Trigger, 'Mowing',                          self.cb_Mowing)
+        self.srv3 = self.create_service(Trigger, 'Fahre_zum_Schuppen',              self.cb_Fahre_zum_Schuppen)
+        self.srv4 = self.create_service(Trigger, 'Fahre_in_den_Wald',               self.cb_Fahre_in_den_Wald)
+        self.srv5 = self.create_service(Trigger, 'Durchs_Gartentor_in_den_Garten',  self.cb_Durchs_Gartentor_in_den_Garten)
+        self.srv6 = self.create_service(Trigger, 'Fahre_hinters_Haus',              self.cb_Fahre_hinters_Haus)
+        self.srv7 = self.create_service(Trigger, 'Reset',                           self.cb_Reset)
         
-        # Set initial task list
-        self.NewTaskList(CurrentTaskList)
+        # Set empty task list
+        self.Reset()
         self.missedScans = 0
     
     def SetVelocities(self, omega, vLinear):
@@ -188,6 +198,37 @@ class Navigator(Node):
         
         return all_detected_walls
 
+    # Callback functions for trigger services
+    def cb_Localization(self, req, resp):                      return self.Service(req, resp, TaskLists.Localization_TaskList)
+    def cb_Mowing(self, req, resp):                            return self.Service(req, resp, TaskLists.Mowing_TaskList)
+    def cb_Fahre_zum_Schuppen(self, req, resp):                return self.Service(req, resp, TaskLists.Fahre_zum_Schuppen_TaskList)
+    def cb_Fahre_in_den_Wald(self, req, resp):                 return self.Service(req, resp, TaskLists.Fahre_in_den_Wald_TaskList)
+    def cb_Durchs_Gartentor_in_den_Garten(self, req, resp):    return self.Service(req, resp, TaskLists.Durchs_Gartentor_in_den_Garten_TaskList)
+    def cb_Fahre_hinters_Haus(self, req, resp):                return self.Service(req, resp, TaskLists.Fahre_hinters_Haus_TaskList)
+    
+    def cb_Reset(self, request, response):
+        self.Reset()
+        self.RvizPrint("Reset")
+        response.success = True 
+        response.message = "Ein Reset wurde durchgeführt"
+        return response
+
+    def Service(self, request, response, taskList):
+        # 1. Das Signal ist angekommen! Hier führst du deine Aktion aus.
+        taskListName = taskList["name"]
+        self.get_logger().info(f"Trigger empfangen für {taskListName}")
+        self.NewTaskList(taskList)
+        response.success = True 
+        response.message = f"Die Taskliste {taskListName} wurde gestartet"
+        return response
+        
+    def Reset(self):
+        self.taskListName = "None"
+        self.taskList = None
+        self.taskIndex = 0
+        self.SetVelocities(0.0, 0.0)
+        print("Reset() called")
+        
     def NewTaskList(self, taskList):
         self.taskListName = taskList["name"]
         self.taskList = taskList["tasks"]
@@ -197,16 +238,21 @@ class Navigator(Node):
             task.Init(self, params, self.retvals)
         
     def TaskStep(self, scan_msg):
-        if self.taskIndex < len(self.taskList):
-            task, params = self.taskList[self.taskIndex]
-            status, self.retvals = task.Step(scan_msg)
-            if status == TaskState.Ready:
-                nextTaskIndex = self.taskIndex+1
-                if nextTaskIndex < len(self.taskList):
-                    self.GotoTask(nextTaskIndex)
-            elif status == TaskState.Error:
-                self.get_logger().error(f"[TaskStep] Error in task with task index: {self.taskIndex}")
-                self.taskIndex = len(self.taskList)
+        if self.taskList is not None:
+            if self.taskIndex >= len(self.taskList):
+                self.Reset()
+            else:    
+                task, params = self.taskList[self.taskIndex]
+                status, self.retvals = task.Step(scan_msg)
+                if status == TaskState.Ready:
+                    nextTaskIndex = self.taskIndex+1
+                    if nextTaskIndex < len(self.taskList):
+                        self.GotoTask(nextTaskIndex)
+                    else:
+                        self.Reset()
+                elif status == TaskState.Error:
+                    self.get_logger().error(f"[TaskStep] Error in task with task index: {self.taskIndex}")
+                    self.Reset()
 
     def GotoTask(self, taskIndex):
         self.taskIndex = taskIndex

@@ -8,6 +8,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import TransformStamped, Twist, PoseStamped
 from std_msgs.msg import Float32
 from tf2_ros import TransformBroadcaster
+from turtlesim.srv import TeleportAbsolute
 import socket
 import struct
 import math
@@ -69,7 +70,13 @@ class SimNode(Node):
             10                      # Queue size
         )
 
-        #self.create_timer(0.005, self.poll_udp)
+        # Service zum Setzen der Robotorposition bereitstellen
+        # Usage: ros2 service call /teleport_absolute turtlesim/srv/TeleportAbsolute "{x: 2.0, y: 8.0, theta: 1.57}"
+        self.srv = self.create_service(
+            TeleportAbsolute, 
+            'absolute_position', 
+            self.teleport_callback
+        )
         
         # Diese Meldung hat gefehlt:
         self.get_logger().info("Simulation running...")
@@ -102,6 +109,14 @@ class SimNode(Node):
         
         self.get_logger().info(f"Neues Ziel empfangen: X={target_x:.2f}, Y={target_y:.2f}")
 
+    def teleport_callback(self, request, response):
+        """Aktualisiere die Roboter-Koordinaten mit den Werten aus dem Request"""
+        # Usage: ros2 service call /teleport_absolute turtlesim/srv/TeleportAbsolute "{x: 2.0, y: 8.0, theta: 1.57}"
+        self.sim.robot.SetPose(request.x, request.y, request.theta)        
+        self.get_logger().info(f'Teleportiert nach: x={request.x:.2f}, y={request.y:.2f}, theta={request.theta:.2f}')
+        
+        # Der Service gibt keine Daten zurück (Empty Response), wir geben ihn nur frei
+        return response
 
     def PublishLidarData(self, dist):
         # --- PUBLISH SCAN ---
@@ -163,7 +178,7 @@ class SimNode(Node):
         theta_deg = int(np.rad2deg(theta))
         self.get_logger().info(
             f"[{self.sim.sim_time_sec:.3f}] Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°", throttle_duration_sec=1.0)
-
+        
 import sys
 
 def main():

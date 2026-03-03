@@ -334,6 +334,14 @@ class GotoTask:
     def Init(self, node, taskIndex, retvals=None):
         node.GotoTask(taskIndex)
 
+class StopTask:
+    def Init(self, node, params, retvals=None):
+        return
+
+    def Step(self, scan_msg):
+        return TaskState.Ready, None
+        
+
 Localization_TaskList = {
     "name": "Localization_TaskList",
     "tasks": [  (LocalizationTask(), None),
@@ -361,6 +369,13 @@ Fahre_in_den_Wald_TaskList = {
              ]
 }
 
+Fahre_hinters_Haus_TaskList = {
+    "name": "Fahre_hinters_Haus",
+    "tasks": [  (LocalizationTask(),     None),
+                (FollowPathTask(),       "Wald")
+             ]
+}
+
 Durchs_Gartentor_in_den_Garten_TaskList = {
     "name": "Durchs_Gartentor_in_den_Garten",
     "tasks": [  (PassGateRansacTask(), (-90.0, 2.0, 1.0, 99.0, False)),
@@ -374,12 +389,11 @@ Durchs_Gartentor_in_den_Wald_TaskList = {
     "tasks": [ (PassThroughGateTask(), "Wald") ]    # Beachte: PassGateRansacTask kann wegen offenem Gartentor nicht verwendet werden!
 }
 
-In_den_Schuppen_einparken_Tasklist = {
+In_den_Schuppen_einparken_TaskList = {
     "name": "In_den_Schuppen_einparken",
     "tasks": [  (PassGateRansacTask(), (0.0, 2.0, 1.5, 2.0, True)),
                 (FollowPathTask(), "Parkplatz")      # Fahre bis zum ersten Hindernis im Schuppen
              ]
 }
 
-CurrentTaskList = Fahre_zum_Schuppen_TaskList
 

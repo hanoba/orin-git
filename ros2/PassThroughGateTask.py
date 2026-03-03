@@ -418,11 +418,11 @@ class PassThroughGateTask:
         dt = 0.1
         result = self.robotController.Run(angles, radius, dt)
 
-        if result is None: 
-            return TaskState.Ready, None
-            
-        torMitte, startPoint, pfosten1, pfosten2 = result
-        self.PublishMarkers(
-                [torMitte.real, startPoint.real, pfosten1.real, pfosten2.real], 
-                [torMitte.imag, startPoint.imag, pfosten1.imag, pfosten2.imag])
+        if self.robotController.Ready(): return TaskState.Ready, None
+
+        if result is not None: 
+            torMitte, startPoint, pfosten1, pfosten2 = result
+            self.PublishMarkers(
+                    [torMitte.real, startPoint.real, pfosten1.real, pfosten2.real], 
+                    [torMitte.imag, startPoint.imag, pfosten1.imag, pfosten2.imag])
         return TaskState.Running, None

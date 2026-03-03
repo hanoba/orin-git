@@ -355,7 +355,7 @@ class World:
         self.Line(PD, PA)
         AddLineForPositioning(0, PA, PB, P_NORTH,  7.0)
         AddLineForPositioning(1, PB, PC, P_EAST,   4.0)
-        AddLineForPositioning(2, PC, PD, P_SOUTH,  7.0)
+        AddLineForPositioning(2, PC, PD, P_SOUTH,  3.0)   # war 7.0
         AddLineForPositioning(3, PD, PA, P_WEST, 7.0)
 
         schuppen = Schuppen()
