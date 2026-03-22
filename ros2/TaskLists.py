@@ -376,8 +376,8 @@ Fahre_hinters_Haus_TaskList = {
              ]
 }
 
-Durchs_Gartentor_in_den_Garten_TaskList = {
-    "name": "Durchs_Gartentor_in_den_Garten",
+Fahre_in_den_Garten_TaskList = {
+    "name": "Fahre_in_den_Garten",
     "tasks": [  (PassGateRansacTask(), (-90.0, 2.0, 1.0, 99.0, False)),
                 (FollowPathTask(),   "Bassin")                      # Fahre bis 2m vor dem Bassin
              ]

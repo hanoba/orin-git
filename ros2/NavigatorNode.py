@@ -105,7 +105,7 @@ class Navigator(Node):
         self.srv2 = self.create_service(Trigger, 'Mowing',                          self.cb_Mowing)
         self.srv3 = self.create_service(Trigger, 'Fahre_zum_Schuppen',              self.cb_Fahre_zum_Schuppen)
         self.srv4 = self.create_service(Trigger, 'Fahre_in_den_Wald',               self.cb_Fahre_in_den_Wald)
-        self.srv5 = self.create_service(Trigger, 'Durchs_Gartentor_in_den_Garten',  self.cb_Durchs_Gartentor_in_den_Garten)
+        self.srv5 = self.create_service(Trigger, 'Fahre_in_den_Garten',             self.cb_Fahre_in_den_Garten)
         self.srv6 = self.create_service(Trigger, 'Fahre_hinters_Haus',              self.cb_Fahre_hinters_Haus)
         self.srv7 = self.create_service(Trigger, 'Reset',                           self.cb_Reset)
         
@@ -199,12 +199,12 @@ class Navigator(Node):
         return all_detected_walls
 
     # Callback functions for trigger services
-    def cb_Localization(self, req, resp):                      return self.Service(req, resp, TaskLists.Localization_TaskList)
-    def cb_Mowing(self, req, resp):                            return self.Service(req, resp, TaskLists.Mowing_TaskList)
-    def cb_Fahre_zum_Schuppen(self, req, resp):                return self.Service(req, resp, TaskLists.Fahre_zum_Schuppen_TaskList)
-    def cb_Fahre_in_den_Wald(self, req, resp):                 return self.Service(req, resp, TaskLists.Fahre_in_den_Wald_TaskList)
-    def cb_Durchs_Gartentor_in_den_Garten(self, req, resp):    return self.Service(req, resp, TaskLists.Durchs_Gartentor_in_den_Garten_TaskList)
-    def cb_Fahre_hinters_Haus(self, req, resp):                return self.Service(req, resp, TaskLists.Fahre_hinters_Haus_TaskList)
+    def cb_Localization(self, req, resp):          return self.Service(req, resp, TaskLists.Localization_TaskList)
+    def cb_Mowing(self, req, resp):                return self.Service(req, resp, TaskLists.Mowing_TaskList)
+    def cb_Fahre_zum_Schuppen(self, req, resp):    return self.Service(req, resp, TaskLists.Fahre_zum_Schuppen_TaskList)
+    def cb_Fahre_in_den_Wald(self, req, resp):     return self.Service(req, resp, TaskLists.Fahre_in_den_Wald_TaskList)
+    def cb_Fahre_in_den_Garten(self, req, resp):   return self.Service(req, resp, TaskLists.Fahre_in_den_Garten_TaskList)
+    def cb_Fahre_hinters_Haus(self, req, resp):    return self.Service(req, resp, TaskLists.Fahre_hinters_Haus_TaskList)
     
     def cb_Reset(self, request, response):
         self.Reset()

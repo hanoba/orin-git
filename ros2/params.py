@@ -13,7 +13,7 @@ class TaskState(IntEnum):
     Error = 2
 
 # angle range = -(LidarMaxAngle-1) ... LidarMaxAngle
-LidarMaxAngle = 180
+LidarMaxAngle = 120
 LidarRangeMin = 0.1
 LidarRangeMax = 20.0
 LidarFreq_Hz = 10
