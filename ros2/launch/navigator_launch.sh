@@ -30,6 +30,7 @@ export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cyclonedds_wsl2.xml
 # Pfade
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
 LIDAR_X=0.8
+SIM_TIME=false
 
 clear
 echo "🚀 Starte System im GROUND TRUTH Modus..."
@@ -45,31 +46,31 @@ python3 ros_sim_node.py --ros-args \
     -p publish_odom_tf:=true &
 
 # Statischer Transform: Lidar zu base_link
-ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar --ros-args -p use_sim_time:=true &
+ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar --ros-args -p use_sim_time:=$SIM_TIME &
 
 # Transform 2 (NEU): Map -> Odom (Ersetzt AMCL)
-ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom --ros-args -p use_sim_time:=true &
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom --ros-args -p use_sim_time:=$SIM_TIME &
 
 # RViz
-rviz2 -d config/ransac.rviz --ros-args -p use_sim_time:=true &
+rviz2 -d config/ransac.rviz --ros-args -p use_sim_time:=$SIM_TIME &
 
 # Map Server (Damit wir die Karte im Hintergrund sehen)
 ros2 run nav2_map_server map_server \
     --ros-args \
     -p yaml_filename:=$MAP_YAML \
-    -p use_sim_time:=true &
+    -p use_sim_time:=$SIM_TIME &
 
 # Lifecycle Manager (Nur für den Map Server)
 ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args \
   -p node_names:="['map_server']" \
   -p autostart:=true \
-  -p use_sim_time:=true &
+  -p use_sim_time:=$SIM_TIME &
 
 echo "⏳ Warte auf Initialisierung..."
 sleep 3.0
 
 # --- 3. FEATURE EXTRACTION & NAVIGATION ---
 echo "🚀 Starte Navigator..."
-python3 NavigatorNode.py --ros-args -p use_sim_time:=true
+python3 NavigatorNode.py --ros-args -p use_sim_time:=$SIM_TIME
 
 echo "✅ System läuft mit Ground Truth von der Bridge."

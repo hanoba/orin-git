@@ -40,25 +40,23 @@ python3 ros_sim_node.py --ros-args \
     -p publish_odom_tf:=true &
 
 # Statischer Transform: Lidar zu base_link
-ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar --ros-args -p use_sim_time:=true &
+ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar &
 
 # Transform 2 (NEU): Map -> Odom (Ersetzt AMCL)
-ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom --ros-args -p use_sim_time:=true &
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom &
 
 # RViz
-rviz2 -d config/ransac.rviz --ros-args -p use_sim_time:=true &
+rviz2 -d config/ransac.rviz &
 
 # Map Server (Damit wir die Karte im Hintergrund sehen)
 ros2 run nav2_map_server map_server \
     --ros-args \
-    -p yaml_filename:=$MAP_YAML \
-    -p use_sim_time:=true &
+    -p yaml_filename:=$MAP_YAML &
 
 # Lifecycle Manager (Nur für den Map Server)
 ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args \
   -p node_names:="['map_server']" \
-  -p autostart:=true \
-  -p use_sim_time:=true &
+  -p autostart:=true &
 
 echo "⏳ Warte auf Initialisierung..."
 sleep 3

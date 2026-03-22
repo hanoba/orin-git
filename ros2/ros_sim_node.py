@@ -1,16 +1,16 @@
 import rclpy
 from rclpy.node import Node
-from rclpy.time import Time
-from rclpy.duration import Duration
+#from rclpy.time import Time
+#from rclpy.duration import Duration
 from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-from rosgraph_msgs.msg import Clock
+#from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import TransformStamped, Twist, PoseStamped
 from std_msgs.msg import Float32
 from tf2_ros import TransformBroadcaster
 from turtlesim.srv import TeleportAbsolute
-import socket
-import struct
+#import socket
+#import struct
 import math
 import numpy as np # Vergiss nicht numpy zu importieren!
 import sys
@@ -36,11 +36,11 @@ class SimNode(Node):
         
         self.lidarCounter = 0
         
-        clock_qos = QoSProfile(
-            depth=1,
-            reliability=ReliabilityPolicy.BEST_EFFORT,
-            durability=DurabilityPolicy.TRANSIENT_LOCAL)
-        self.clock_pub = self.create_publisher(Clock, '/clock', clock_qos)
+        #clock_qos = QoSProfile(
+        #    depth=1,
+        #    reliability=ReliabilityPolicy.BEST_EFFORT,
+        #    durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        #self.clock_pub = self.create_publisher(Clock, '/clock', clock_qos)
 
         # Custom Profil: Wir akzeptieren nur den EINEN neuesten Scan.
         # Alles was älter ist, wird sofort gelöscht.
@@ -123,8 +123,9 @@ class SimNode(Node):
         scan = LaserScan()
         # 2. Zur Sicherheit: time_increment nullen
         scan.time_increment = 0.0
-        current_sim_time = Time(seconds=self.sim.sim_time_sec)
-        scan.header.stamp = current_sim_time.to_msg()
+        #current_sim_time = Time(seconds=self.sim.sim_time_sec)
+        #scan.header.stamp = current_sim_time.to_msg()
+        scan.header.stamp = self.get_clock().now().to_msg()
         scan.header.frame_id = 'lidar'      # wenn Lidar vor der Achsenmitte montiert ist
         #scan.header.frame_id = 'base_link'  # wenn Lidar direkt in Achsenmitte montiert ist
         #scan.time_increment = self.scanTimeInc
@@ -147,14 +148,14 @@ class SimNode(Node):
                 
     def PublishPositionAndTime(self, posX, posY, theta):
         # Compute time
-        current_time = Time(seconds=self.sim.sim_time_sec)
-        tf_offset = Duration(seconds=0.1)
-        tf_time = current_time   #+ tf_offset
+        #current_time = Time(seconds=self.sim.sim_time_sec)
+        #tf_offset = Duration(seconds=0.1)
+        #tf_time = current_time   #+ tf_offset
         
         # --- PUBLISH CLOCK ---
-        clock_msg = Clock()
-        clock_msg.clock = current_time.to_msg()
-        self.clock_pub.publish(clock_msg)
+        #clock_msg = Clock()
+        #clock_msg.clock = current_time.to_msg()
+        #self.clock_pub.publish(clock_msg)
 
         # --- PUBLISH THETA ---
         msg = Float32()
@@ -164,7 +165,7 @@ class SimNode(Node):
         if self.publishOdomTf:
             # --- PUBLISH TF ---
             t = TransformStamped()
-            t.header.stamp = tf_time.to_msg()
+            t.header.stamp = self.get_clock().now().to_msg()   #tf_time.to_msg()
             t.header.frame_id = 'odom'
             t.child_frame_id = 'base_link'
             t.transform.translation.x = float(posX)
@@ -179,7 +180,6 @@ class SimNode(Node):
         self.get_logger().info(
             f"[{self.sim.sim_time_sec:.3f}] Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°", throttle_duration_sec=1.0)
         
-import sys
 
 def main():
     # ROS2 Initialisierung

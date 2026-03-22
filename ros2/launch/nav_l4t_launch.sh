@@ -19,6 +19,6 @@ ros2 daemon start
 
 # --- NAVIGATION ---
 echo "🚀 Starte Navigator..."
-python3 NavigatorNode.py --ros-args -p use_sim_time:=true
+python3 NavigatorNode.py
 
 echo "✅ System läuft mit Ground Truth von der Bridge."
