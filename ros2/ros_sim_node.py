@@ -51,7 +51,7 @@ class SimNode(Node):
             durability=DurabilityPolicy.VOLATILE)
         self.scan_pub = self.create_publisher(LaserScan, '/scan', custom_qos)   #qos_profile_sensor_data)
         
-        self.angle_pub = self.create_publisher(Float32, '/compass_heading', qos_profile_sensor_data)
+        self.angle_pub = self.create_publisher(Float32, '/compass_heading', custom_qos)   #qos_profile_sensor_data)
         if self.publishOdomTf:
             self.tf_broadcaster = TransformBroadcaster(self)
         

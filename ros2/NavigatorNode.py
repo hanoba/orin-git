@@ -78,7 +78,8 @@ class Navigator(Node):
             Float32,
             '/compass_heading',
             self.CompassCallback,
-            qos_profile_sensor_data
+            qos_policy
+            #qos_profile_sensor_data
         )
         self.is_processing = False
         self.max_gap = self.get_parameter('max_gap').value
