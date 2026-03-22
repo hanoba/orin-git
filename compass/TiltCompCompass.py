@@ -1,3 +1,6 @@
+# TiltCompCompass.py
+
+# Entzerrung und Neigungskorrektur für Magnetometer MMC5883L (GY-801)
 import smbus2
 import time
 import math
@@ -16,6 +19,19 @@ class ProCompass:
         # ADXL345 Setup
         self.bus.write_byte_data(ACC_ADDR, 0x2D, 0x08)
         self.bus.write_byte_data(ACC_ADDR, 0x31, 0x0B)
+        self.counter = 0
+        self.init_mag()
+
+    def init_mag(self):
+        # Register 0x08 (Internal Control 0)
+        # Bit 3 (0x08) sendet einen SET-Puls in die interne Spule
+        self.bus.write_byte_data(MAG_ADDR, 0x08, 0x08)
+        time.sleep(0.05) # Kurz warten, bis der Kondensator sich entladen hat
+        
+        # Optional: Einmal blind lesen, um alte Daten aus dem Puffer zu spülen
+        self.bus.write_byte_data(MAG_ADDR, 0x08, 0x01)
+        time.sleep(0.02)
+        self.bus.read_i2c_block_data(MAG_ADDR, 0x00, 6)
 
     def load_cal(self):
         with open('mag_ellipsoid.json', 'r') as f:
@@ -37,11 +53,16 @@ class ProCompass:
         
         # Vollständige 3D-Korrektur (Hard & Soft Iron)
         m_cal = (m_raw - self.offset) @ self.matrix.T
-        return ax, ay, az, m_cal
+
+        # --- DER FIX ---
+        # Dreht die Z-Achse des Magnetometers um, damit die 
+        # Neigungskorrektur in die richtige Richtung drückt!
+        m_cal[2] = -m_cal[2]
+        return ax, ay, az, m_cal, m_raw
 
     def run(self):
         while True:
-            ax, ay, az, m = self.get_data()
+            ax, ay, az, m, mRaw = self.get_data()
             
             # Neigung berechnen
             roll = math.atan2(ay, az)
@@ -58,8 +79,14 @@ class ProCompass:
             heading = math.degrees(math.atan2(-yh, xh))
             if heading < 0: heading += 360
             
-            print(f"Kurs: {heading:5.0f}° | P: {math.degrees(pitch):4.0f}°", end='\r')
-            time.sleep(0.05)
+            mx = mRaw[0]
+            my = mRaw[1]
+            mz = mRaw[2]
+            print(f"{self.counter:5d} Kurs:{heading:3.0f}°  | Pitch:{math.degrees(pitch):3.0f}°  |"
+                  f"  ACCEL -> ax:{ax:<4}  ay:{ay:<4}  az:{az:<4}  |"
+                  f"  MAG -> mx:{mx:<4}  my:{my:<4}  mz:{mz:<4}", end='\r')
+            self.counter += 1
+            time.sleep(0.2)
 
 if __name__ == "__main__": 
     ProCompass().run()
