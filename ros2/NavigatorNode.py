@@ -2,8 +2,9 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
 from visualization_msgs.msg import MarkerArray, Marker
-from geometry_msgs.msg import Twist
-from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy, HistoryPolicy
+from geometry_msgs.msg import Twist, TransformStamped
+from tf2_ros import TransformBroadcaster
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from std_msgs.msg import Float32
 from std_srvs.srv import Trigger
 import numpy as np
@@ -47,6 +48,31 @@ def DistY(start, end):
     a, b = LineEquation(start, end)
     return b
 
+# Odometrie-Funktionen zur Schätzung der Position
+class Odometry:   
+    def __init__(self):
+        self.pos = np.array([0.0, 0.0])    
+        self.theta = 0
+    
+    def SetPos(self, x, theta):
+        """ Wird immer aufgerufen, wenn Position bestimmt wurde """
+        self.pos = x
+        self.theta = theta
+       
+    def GetPos(self):
+        return float(self.pos[0]), float(self.pos[1])
+       
+    def SetStartPoint(self, dist, theta):
+        """ Wird von FollowPathTask aufgerufen, wenn neues Pfadsegment Format 1 gestartet wird. """
+        self.theta = theta
+        self.startDist = dist
+        self.startPos = self.pos
+        self.heading = np.array([math.cos(theta), math.sin(theta)])
+        
+    def UpdatePos(self, dist):
+        d = self.startDist - dist
+        self.pos = self.startPos + d*self.heading
+
 
 class Navigator(Node):
     def __init__(self):
@@ -54,8 +80,21 @@ class Navigator(Node):
         self.declare_parameter('distance_threshold', 0.05) 
         self.declare_parameter('min_points', 6)
         # NEU: Wenn Punkte weiter als max_gap auseinander liegen -> Tor/Lücke
-        self.declare_parameter('max_gap', 5.50) 
 
+        self.declare_parameter('max_gap', 5.50) 
+        # ROS2 Parameter deklarieren (Name, Standardwert)
+        self.declare_parameter('publish_odom_tf', False)
+        
+        self.publishOdomTf = self.get_parameter('publish_odom_tf').value
+        self.get_logger().info(f"publish_odom_tf={self.publishOdomTf}")
+
+        # Odometrie-Funktionen
+        self.odom = Odometry()
+
+    
+        if self.publishOdomTf:
+            self.tf_broadcaster = TransformBroadcaster(self)
+        
         #self.sub = self.create_subscription(LaserScan, '/scan', self.ScanCallback, qos_profile_sensor_data)
         # 1. Wir definieren ein striktes Profil: "Ich will nur das Allerneueste!"
         qos_policy = QoSProfile(
@@ -163,6 +202,7 @@ class Navigator(Node):
         drive_msg.angular.z = float(self.angular)
         self.cmd_pub.publish(drive_msg)
 
+
     def ScanCallback(self, scan_msg):
         if self.is_processing: 
             self.missedScans += 1
@@ -179,6 +219,28 @@ class Navigator(Node):
         self.is_processing = False
         ende_zeit = time.perf_counter() # Zeitnahme endet
         dauer_ms = (ende_zeit - start_zeit) * 1000 # Umrechnung in Millisekunden
+
+        # Publish estimated position
+        if self.publishOdomTf:
+            t = TransformStamped()
+            # WICHTIG: Auf Hardware immer die aktuelle Systemzeit nutzen!
+            t.header.stamp = self.get_clock().now().to_msg() 
+
+            t.header.frame_id = 'map'       # Die Karte ist der Ursprung
+            t.child_frame_id = 'odom'       # Wir bewegen den Odom-Frame (der starr am Roboter klebt)
+
+            # Deine geschätzte Position (Absolute Koordinaten auf der Karte)
+            posX, posY = self.odom.GetPos()
+            
+            t.transform.translation.x = float(posX)
+            t.transform.translation.y = float(posY)
+            t.transform.translation.z = 0.0
+
+            # Rotation aus deinem geschätzten Theta
+            t.transform.rotation.z = math.sin(self.theta / 2.0)
+            t.transform.rotation.w = math.cos(self.theta / 2.0)
+
+            self.tf_broadcaster.sendTransform(t)
         
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
         self.get_logger().info(
