@@ -62,7 +62,7 @@ class LidarPlot():
         self.win.setYRange(-10, 10)
         self.win.showGrid(x=True, y=True)
         # --- Vollbildmodus aktivieren ---
-        self.win.showFullScreen()
+        #self.win.showFullScreen()
         self.curve = self.win.plot(pen=None, symbol='o', symbolSize=2, symbolBrush=(0, 255, 0))
 
     def Points(self, points):

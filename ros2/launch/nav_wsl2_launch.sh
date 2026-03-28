@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# navigator_launch.sh
-
 MY_PID=$$
 
 cleanup() {
@@ -23,14 +21,10 @@ export ROS_DOMAIN_ID=15
 #export ROS_LOCALHOST_ONLY=1
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cyclonedds_wsl2.xml
-#export CYCLONEDDS_URI=/home/harald/cyclonedds_pc.xml
-#export CYCLONEDDS_URI='<CycloneDDS><Domain><Discovery><MaxAutoParticipantIndex>500</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
-#export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 # Pfade
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
 LIDAR_X=0.8
-SIM_TIME=false
 
 clear
 echo "🚀 Starte System im GROUND TRUTH Modus..."
@@ -46,31 +40,30 @@ python3 ros_sim_node.py --ros-args \
     -p publish_odom_tf:=true &
 
 # Statischer Transform: Lidar zu base_link
-ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar --ros-args -p use_sim_time:=$SIM_TIME &
+ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar &
 
 # Transform 2 (NEU): Map -> Odom (Ersetzt AMCL)
-ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom --ros-args -p use_sim_time:=$SIM_TIME &
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom &
 
 # RViz
-rviz2 -d config/ransac.rviz --ros-args -p use_sim_time:=$SIM_TIME &
+rviz2 -d config/ransac.rviz &
 
 # Map Server (Damit wir die Karte im Hintergrund sehen)
 ros2 run nav2_map_server map_server \
     --ros-args \
-    -p yaml_filename:=$MAP_YAML \
-    -p use_sim_time:=$SIM_TIME &
+    -p yaml_filename:=$MAP_YAML &
 
 # Lifecycle Manager (Nur für den Map Server)
 ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args \
   -p node_names:="['map_server']" \
-  -p autostart:=true \
-  -p use_sim_time:=$SIM_TIME &
+  -p autostart:=true &
 
 echo "⏳ Warte auf Initialisierung..."
-sleep 3.0
+sleep 3
 
 # --- 3. FEATURE EXTRACTION & NAVIGATION ---
-echo "🚀 Starte Navigator..."
-python3 NavigatorNode.py --ros-args -p use_sim_time:=$SIM_TIME
+#echo "🚀 Starte Navigator..."
+#python3 NavigatorNode.py --ros-args -p use_sim_time:=true
 
 echo "✅ System läuft mit Ground Truth von der Bridge."
+wait

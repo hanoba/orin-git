@@ -1,27 +1,111 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
-from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Point
-from geometry_msgs.msg import Twist
-from rclpy.qos import qos_profile_sensor_data
+from visualization_msgs.msg import MarkerArray, Marker
+from geometry_msgs.msg import Twist, TransformStamped
+from tf2_ros import TransformBroadcaster
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from std_msgs.msg import Float32
+from std_srvs.srv import Trigger
 import numpy as np
 import time
-import sys
+import math
+import Ransac
+import TaskLists
 
-sys.path.append('../HostSim')
 import params
+from params import TaskState
+
+
+def NormalizeAngle(angle_rad):
+    return (angle_rad + math.pi) % math.tau - np.pi
+
+def CheckAngle(angle_rad, value_rad):
+    MaxDiff = np.deg2rad(5.0)
+    diff1 = NormalizeAngle(angle_rad - value_rad)
+    diff2 = NormalizeAngle(angle_rad + math.pi - value_rad)
+    return abs(diff1) < MaxDiff or abs(diff2) < MaxDiff 
+
+def CheckAngleResult_deg(angle_rad, value_rad):
+    diff1 = NormalizeAngle(angle_rad - value_rad)
+    diff2 = NormalizeAngle(angle_rad + math.pi - value_rad)
+    return np.rad2deg(min(abs(diff1), abs(diff2)))
+
+def CheckLength(vektorLen, value):
+    Margin = 0.50
+    if vektorLen < value - Margin: return False
+    if vektorLen > value + Margin: return False
+    return True
+
+def LineEquation(A, B):
+    """ Berechne die Parameter a und b der Geraden y=a*x+b, die durch die Punkte A und B geht """
+    a = (B[1] - A[1]) / (B[0] - A[0])
+    b = A[1] - a*A[0]
+    return a, b
+
+def DistY(start, end):
+    """ Berechne den Abstand in Y-Richtung von der Geraden, die durch die Punkte start und end geht """
+    a, b = LineEquation(start, end)
+    return b
+
+# Odometrie-Funktionen zur Schätzung der Position
+class Odometry:   
+    def __init__(self):
+        self.pos = np.array([0.0, 0.0])    
+        self.theta = 0
+    
+    def SetPos(self, x, theta):
+        """ Wird immer aufgerufen, wenn Position bestimmt wurde """
+        self.pos = x
+        self.theta = theta
+       
+    def GetPos(self):
+        return float(self.pos[0]), float(self.pos[1])
+       
+    def SetStartPoint(self, dist, theta):
+        """ Wird von FollowPathTask aufgerufen, wenn neues Pfadsegment Format 1 gestartet wird. """
+        self.theta = theta
+        self.startDist = dist
+        self.startPos = self.pos
+        self.heading = np.array([math.cos(theta), math.sin(theta)])
+        
+    def UpdatePos(self, dist):
+        d = self.startDist - dist
+        self.pos = self.startPos + d*self.heading
+
 
 class Navigator(Node):
     def __init__(self):
         super().__init__('navigator')
         self.declare_parameter('distance_threshold', 0.05) 
         self.declare_parameter('min_points', 6)
-        # NEU: Wenn Punkte weiter als 50cm auseinander liegen -> Tor/Lücke
-        self.declare_parameter('max_gap', 5.50) 
+        # NEU: Wenn Punkte weiter als max_gap auseinander liegen -> Tor/Lücke
 
-        self.sub = self.create_subscription(LaserScan, '/scan', self.scan_callback, qos_profile_sensor_data)
+        self.declare_parameter('max_gap', 5.50) 
+        # ROS2 Parameter deklarieren (Name, Standardwert)
+        self.declare_parameter('publish_odom_tf', False)
+        
+        self.publishOdomTf = self.get_parameter('publish_odom_tf').value
+        self.get_logger().info(f"publish_odom_tf={self.publishOdomTf}")
+
+        # Odometrie-Funktionen
+        self.odom = Odometry()
+
+    
+        if self.publishOdomTf:
+            self.tf_broadcaster = TransformBroadcaster(self)
+        
+        #self.sub = self.create_subscription(LaserScan, '/scan', self.ScanCallback, qos_profile_sensor_data)
+        # 1. Wir definieren ein striktes Profil: "Ich will nur das Allerneueste!"
+        qos_policy = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT, # Wichtig: Muss zum Lidar passen (meist Best Effort)
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1  # <--- DER ENTSCHEIDENDE PUNKT: Queue-Größe = 1
+        )
+        
+        # 2. Subscription mit diesem Profil erstellen
+        self.sub = self.create_subscription(LaserScan, '/scan', self.ScanCallback, qos_policy)
+        
         self.marker_pub = self.create_publisher(MarkerArray, '/garden_features', 10)
         
         # Erstellen der Subscription
@@ -32,239 +116,259 @@ class Navigator(Node):
         self.subCompass = self.create_subscription(
             Float32,
             '/compass_heading',
-            self.compass_callback,
-            qos_profile_sensor_data
+            self.CompassCallback,
+            qos_policy
+            #qos_profile_sensor_data
         )
         self.is_processing = False
         self.max_gap = self.get_parameter('max_gap').value
-        self.theta = 0
+        self.theta = 0.0
+        self.wantedTheta = 0.0
+        self.wantedThetaReached = True
         self.K_head = 1.0
+        self.angularMax = 2.0*2
+        self.angular = 0.0
+        self.linear = 0.0
+        self.directionFlag = False
+        self.simTimeSec = 0.0
+        
+        self.retvals = None
                 
         # Publisher für die Fahrbefehle
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         
+        # Publisher für rviz Textausgabe:
+        self.text_pub = self.create_publisher(Marker, 'text_marker_topic', 10)
 
-    def compass_callback(self, msg):
-        self.theta = msg.data
-                
-        # Nach Norden ausrichten
-        self.SetTheta(-np.pi/2)
+        # Services erstellen: Typ (Trigger)
+        self.srv1 = self.create_service(Trigger, 'Localization',                    self.cb_Localization)
+        self.srv2 = self.create_service(Trigger, 'Mowing',                          self.cb_Mowing)
+        self.srv3 = self.create_service(Trigger, 'Fahre_zum_Schuppen',              self.cb_Fahre_zum_Schuppen)
+        self.srv4 = self.create_service(Trigger, 'Fahre_in_den_Wald',               self.cb_Fahre_in_den_Wald)
+        self.srv5 = self.create_service(Trigger, 'Fahre_in_den_Garten',             self.cb_Fahre_in_den_Garten)
+        self.srv6 = self.create_service(Trigger, 'Fahre_hinters_Haus',              self.cb_Fahre_hinters_Haus)
+        self.srv7 = self.create_service(Trigger, 'Reset',                           self.cb_Reset)
+        
+        # Set empty task list
+        self.Reset()
+        self.missedScans = 0
+    
+    def SetVelocities(self, omega, vLinear):
+        self.angular = omega
+        self.linear = vLinear
+        self.wantedThetaReached = True
+        self.directionFlag = False
+        
+    def SetWantedTheta(self, wantedTheta):
+        self.wantedTheta = wantedTheta
+        self.wantedThetaReached = False
+        self.directionFlag = False
+        self.get_logger().info(f"[{self.simTimeSec:.3f}] [SetWantedTheta] wantedTheta={self.wantedTheta}")
+        self.linear = 0.0
 
+    def SetDirection(self, theta, vLinear):
+        self.directionFlag = True
+        self.wantedTheta = theta
+        self.linear = vLinear
+        self.wantedThetaReached = True
 
-    def SetTheta(self, wantedTheta):
-        vLinear = 0.0
-        e = wantedTheta - self.theta
-        if abs(e) < 0.02: omega = 0.0
-        else: omega = self.K_head*e
+    def ResetDirection(self):
+        self.linear = 0.0
+        self.angular = 0.0
+        self.wantedThetaReached = True
+        self.directionFlag = False
+
+    def CompassCallback(self, msg):
+        self.theta = NormalizeAngle(msg.data)
+        if self.directionFlag:
+            e = self.wantedTheta - self.theta
+            e = (e + math.pi) % math.tau - np.pi
+            e = np.clip(e, -self.angularMax, self.angularMax)
+            self.angular = e * self.K_head
+        elif not self.wantedThetaReached:
+            e = self.wantedTheta - self.theta
+            e = (e + math.pi) % math.tau - np.pi
+            e = np.clip(e, -self.angularMax, self.angularMax)
+            #print(f"{self.theta=}  {e=}  {self.wantedTheta=}")        
+            if abs(e) < 0.002: 
+                self.wantedThetaReachedTime = self.get_clock().now().nanoseconds / 1e9
+                self.wantedThetaReached = True
+                self.get_logger().info(f"[{self.wantedThetaReachedTime:.3f}] [CompassCallback] wantedThetaReached")
+                self.angular = 0.0
+            else: 
+                self.angular = e * self.K_head
         drive_msg = Twist()
-        drive_msg.linear.x = float(vLinear)
-        drive_msg.angular.z = float(omega)
+        drive_msg.linear.x = float(self.linear)
+        drive_msg.angular.z = float(self.angular)
         self.cmd_pub.publish(drive_msg)
 
 
-    def find_intersection(self, line1, line2):
-        p1, p2 = line1; p3, p4 = line2
-        x1, y1 = p1; x2, y2 = p2; x3, y3 = p3; x4, y4 = p4
-        denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
-        if denom == 0: return None 
-        ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom
-        return np.array([x1 + ua * (x2 - x1), y1 + ua * (y2 - y1)])
-
-    def get_lines_with_gap_check(self, points):
-        """Findet die beste Linie und teilt sie bei Lücken auf."""
-        if len(points) < 6: return [], None
-        
-        pts = points.astype(np.float32)
-        best_mask = None
-        best_count = 0
-        dist_thresh = 0.05
-
-        # 1. RANSAC wie gehabt
-        for _ in range(40):
-            idx = np.random.choice(len(pts), 2, replace=False)
-            p1, p2 = pts[idx[0]], pts[idx[1]]
-            vec = p2 - p1
-            norm = np.linalg.norm(vec)
-            if norm < 0.01: continue 
-            normal = np.array([-vec[1], vec[0]]) / norm
-            dists = np.abs(np.dot(pts - p1, normal))
-            mask = dists < dist_thresh
-            count = np.sum(mask)
-            if count > best_count:
-                best_count = count
-                best_mask = mask
-
-        if best_count < 6: return [], None
-
-        # 2. Inlier verfeinern
-        inliers = points[best_mask]
-        mean = np.mean(inliers, axis=0)
-        uu, dd, vv = np.linalg.svd(inliers - mean)
-        direction = vv[0]
-        
-        # 3. GAP-CHECK (Tor-Erkennung)
-        projections = np.dot(inliers - mean, direction)
-        sort_idx = np.argsort(projections)
-        sorted_inliers = inliers[sort_idx]
-        sorted_proj = projections[sort_idx]
-
-        # Abstände zwischen aufeinanderfolgenden Punkten berechnen
-        diffs = np.linalg.norm(sorted_inliers[1:] - sorted_inliers[:-1], axis=1)
-        # Wo ist die Lücke größer als max_gap?
-        gap_indices = np.where(diffs > self.max_gap)[0]
-
-        split_lines = []
-        last_idx = 0
-        
-        # Wand an den Lücken zerteilen
-        for gap_idx in gap_indices:
-            segment = sorted_inliers[last_idx : gap_idx + 1]
-            if len(segment) >= 5: # Nur Segmente mit genug Punkten nehmen
-                p_start = segment[0]
-                p_end = segment[-1]
-                split_lines.append((p_start, p_end))
-            last_idx = gap_idx + 1
-        
-        # Das letzte (oder einzige) Stück hinzufügen
-        final_segment = sorted_inliers[last_idx:]
-        if len(final_segment) >= 5:
-            split_lines.append((final_segment[0], final_segment[-1]))
-
-        return split_lines, best_mask
-
-
-    def RansacLineDetection(self, points):
-        all_detected_walls = []
-        temp_points = points.copy()
-
-        # Iterativ Linien suchen
-        for _ in range(10):
-            if len(temp_points) < 6: break
-            lines, mask = self.get_lines_with_gap_check(temp_points)
-            if not lines: break
-            
-            all_detected_walls.extend(lines)
-            temp_points = temp_points[~mask]
-        return all_detected_walls
-    
-    
-    def PublishMarkers(self, all_detected_walls):
-            # Visualisierung (Stabil mit festen IDs)
-        markers = MarkerArray()
-        # Vorhandene Marker löschen (einfachste Art für Tor-Visualisierung)
-        m_del = Marker()
-        m_del.header.frame_id = "lidar"
-        m_del.header.stamp = self.get_clock().now().to_msg()
-        m_del.action = 3 # DELETEALL
-        markers.markers.append(m_del)
-
-        current_time = self.get_clock().now().to_msg()
-        frame_id = "lidar"
-        z_height = -0.1 # Die Höhe, auf der alles gezeichnet wird
-
-        for i, (start, end) in enumerate(all_detected_walls):
-            # ============================================
-            # Linien-Marker
-            # ============================================
-            m_line = Marker()
-            m_line.header.frame_id = frame_id
-            m_line.header.stamp = current_time
-            m_line.ns = "walls_lines" # Namespace geändert zur Unterscheidung
-            m_line.id = i
-            m_line.type = Marker.LINE_STRIP
-            m_line.action = Marker.ADD
-            m_line.scale.x = 0.15  # Linienbreite
-            m_line.color.g = 1.0; m_line.color.a = 0.8 # Grün, leicht transparent
-            
-            # Start- und Endpunkte für die Linie setzen
-            p_start = Point(x=float(start[0]), y=float(start[1]), z=z_height)
-            p_end = Point(x=float(end[0]), y=float(end[1]), z=z_height)
-            m_line.points = [p_start, p_end]
-            
-            markers.markers.append(m_line)
-
-            # ============================================
-            # Marker für den Start-Kreis
-            # ============================================
-            m_start_sphere = Marker()
-            m_start_sphere.header.frame_id = frame_id
-            m_start_sphere.header.stamp = current_time
-            m_start_sphere.ns = "walls_endpoints" # Neuer Namespace für die Punkte
-            # Wir brauchen eine eindeutige ID. Trick: Wir nutzen gerade Zahlen für Starts.
-            m_start_sphere.id = i * 2 
-            m_start_sphere.type = Marker.SPHERE # Typ ist jetzt eine Kugel
-            m_start_sphere.action = Marker.ADD
-            
-            # Größe der Kugel (Durchmesser in x, y, z)
-            # Machen wir sie etwas dicker als die Linie (0.25m vs 0.15m)
-            m_start_sphere.scale.x = 0.25
-            m_start_sphere.scale.y = 0.25
-            m_start_sphere.scale.z = 0.25
-            
-            # Farbe: Machen wir die Endpunkte ROT, damit sie auffallen
-            m_start_sphere.color.r = 1.0
-            m_start_sphere.color.a = 1.0 # Voll sichtbar
-            
-            # Position setzen (Sphären nutzen pose.position, nicht points!)
-            m_start_sphere.pose.position = p_start
-            # WICHTIG: Eine Orientierung muss gesetzt sein, auch wenn sie neutral ist
-            m_start_sphere.pose.orientation.w = 1.0
-            
-            markers.markers.append(m_start_sphere)
-
-            # ============================================
-            # Marker für den End-Kreis (Kugel)
-            # ============================================
-            # Wir kopieren die Eigenschaften des Start-Markers und passen nur ID und Position an
-            m_end_sphere = Marker()
-            # Kopiere Header und generelle Infos vom Start-Marker
-            m_end_sphere.header = m_start_sphere.header
-            m_end_sphere.ns = m_start_sphere.ns
-            m_end_sphere.type = m_start_sphere.type
-            m_end_sphere.action = m_start_sphere.action
-            m_end_sphere.scale = m_start_sphere.scale
-            m_end_sphere.color = m_start_sphere.color
-            m_end_sphere.pose.orientation = m_start_sphere.pose.orientation
-
-            # ID: Ungerade Zahl für das Ende, damit sie eindeutig bleibt
-            m_end_sphere.id = i * 2 + 1
-            
-            # Position auf den Endpunkt setzen
-            m_end_sphere.pose.position = p_end
-            
-            markers.markers.append(m_end_sphere)
-
-        self.marker_pub.publish(markers)
-
-    
-    def scan_callback(self, msg):
-        if self.is_processing: return
-        self.is_processing = True
-
+    def ScanCallback(self, scan_msg):
+        if self.is_processing: 
+            self.missedScans += 1
+            return
         start_zeit = time.perf_counter() # Zeitnahme startet
-        ranges = np.array(msg.ranges)
-        valid = np.isfinite(ranges) & (ranges > params.LidarRangeMin) & (ranges < params.LidarRangeMax)
-        #valid = np.isfinite(ranges) & (ranges > 0.1) & (ranges < 30.0)
-        angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
-        points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[valid]
-
-        all_detected_walls = self.RansacLineDetection(points)
-        self.PublishMarkers(all_detected_walls)
-        
+        self.is_processing = True
+        # Lidardaten umdrehen bei FrontWheelDrive
+        #if self.frontWheelDrive:
+        #    scan_msg.ranges = scan_msg.ranges[::-1]
+        #    angle_min = scan_msg.angle_min
+        #    scan_msg.angle_min = -scan_msg.angle_max
+        #    scan_msg.angle_max = -angle_min
+        self.TaskStep(scan_msg)
+        self.is_processing = False
         ende_zeit = time.perf_counter() # Zeitnahme endet
         dauer_ms = (ende_zeit - start_zeit) * 1000 # Umrechnung in Millisekunden
+
+        # Publish estimated position
+        if self.publishOdomTf:
+            t = TransformStamped()
+            # WICHTIG: Auf Hardware immer die aktuelle Systemzeit nutzen!
+            t.header.stamp = self.get_clock().now().to_msg() 
+
+            t.header.frame_id = 'map'       # Die Karte ist der Ursprung
+            t.child_frame_id = 'odom'       # Wir bewegen den Odom-Frame (der starr am Roboter klebt)
+
+            # Deine geschätzte Position (Absolute Koordinaten auf der Karte)
+            posX, posY = self.odom.GetPos()
+            
+            t.transform.translation.x = float(posX)
+            t.transform.translation.y = float(posY)
+            t.transform.translation.z = 0.0
+
+            # Rotation aus deinem geschätzten Theta
+            t.transform.rotation.z = math.sin(self.theta / 2.0)
+            t.transform.rotation.w = math.cos(self.theta / 2.0)
+
+            self.tf_broadcaster.sendTransform(t)
         
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
-        self.get_logger().info(f"⏱️ Rechenzeit: {dauer_ms:.2f} ms  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=1.0)
+        self.get_logger().info(
+            f"[ScanCallback] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  "
+            f"Missed Scans: {self.missedScans}  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=10.0)
 
-        self.is_processing = False
+    def Walldetector(self, msg, angMin=-np.pi, angMax=np.pi):
+        ranges = np.array(msg.ranges)
+        rangeMask = np.isfinite(ranges) & (ranges > params.LidarRangeMin + 0.01) & (ranges < params.LidarRangeMax - 0.1)
+        #valid = np.isfinite(ranges) & (ranges > 0.1) & (ranges < 30.0)
+        angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
+        angMask = (angles >=angMin) & (angles <= angMax)
+        valid = rangeMask & angMask
+        
+        points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[valid]
 
+        all_detected_walls = Ransac.LineDetection(points)
+        
+        return all_detected_walls
+
+    # Callback functions for trigger services
+    def cb_Localization(self, req, resp):          return self.Service(req, resp, TaskLists.Localization_TaskList)
+    def cb_Mowing(self, req, resp):                return self.Service(req, resp, TaskLists.Mowing_TaskList)
+    def cb_Fahre_zum_Schuppen(self, req, resp):    return self.Service(req, resp, TaskLists.Fahre_zum_Schuppen_TaskList)
+    def cb_Fahre_in_den_Wald(self, req, resp):     return self.Service(req, resp, TaskLists.Fahre_in_den_Wald_TaskList)
+    def cb_Fahre_in_den_Garten(self, req, resp):   return self.Service(req, resp, TaskLists.Fahre_in_den_Garten_TaskList)
+    def cb_Fahre_hinters_Haus(self, req, resp):    return self.Service(req, resp, TaskLists.Fahre_hinters_Haus_TaskList)
+    
+    def cb_Reset(self, request, response):
+        self.Reset()
+        self.RvizPrint("Reset")
+        response.success = True 
+        response.message = "Ein Reset wurde durchgeführt"
+        return response
+
+    def Service(self, request, response, taskList):
+        # 1. Das Signal ist angekommen! Hier führst du deine Aktion aus.
+        taskListName = taskList["name"]
+        self.get_logger().info(f"Trigger empfangen für {taskListName}")
+        self.NewTaskList(taskList)
+        response.success = True 
+        response.message = f"Die Taskliste {taskListName} wurde gestartet"
+        return response
+        
+    def Reset(self):
+        self.taskListName = "None"
+        self.taskList = None
+        self.taskIndex = 0
+        self.SetVelocities(0.0, 0.0)
+        print("Reset() called")
+        
+    def NewTaskList(self, taskList):
+        self.taskListName = taskList["name"]
+        self.taskList = taskList["tasks"]
+        self.taskIndex = 0
+        if self.taskIndex < len(self.taskList):
+            task, params = self.taskList[self.taskIndex]
+            task.Init(self, params, self.retvals)
+        
+    def TaskStep(self, scan_msg):
+        if self.taskList is not None:
+            if self.taskIndex >= len(self.taskList):
+                self.Reset()
+            else:    
+                task, params = self.taskList[self.taskIndex]
+                status, self.retvals = task.Step(scan_msg)
+                if status == TaskState.Ready:
+                    nextTaskIndex = self.taskIndex+1
+                    if nextTaskIndex < len(self.taskList):
+                        self.GotoTask(nextTaskIndex)
+                    else:
+                        self.Reset()
+                elif status == TaskState.Error:
+                    self.get_logger().error(f"[TaskStep] Error in task with task index: {self.taskIndex}")
+                    self.Reset()
+
+    def GotoTask(self, taskIndex):
+        self.taskIndex = taskIndex
+        if self.taskIndex < len(self.taskList):
+            task, params = self.taskList[self.taskIndex]
+            task.Init(self, params, self.retvals)
+        else:
+            self.get_logger().error(f"[GotoTask] Illegal task index: {taskIndex}")
+
+    def RvizPrint(self, text):
+        marker = Marker()
+        marker.header.frame_id = "map"  # Muss mit deinem Fixed Frame in RViz übereinstimmen
+        marker.type = Marker.TEXT_VIEW_FACING
+        marker.action = Marker.ADD
+        
+        # Inhalt des Strings
+        marker.text = f"{self.taskListName}: {text}"
+        self.get_logger().info(text)
+        
+        # Position und Größe
+        # Position setzen
+        marker.pose.position.x = 0.0  # 2 Meter nach vorne
+        marker.pose.position.y = -14.0 # 1,5 Meter nach rechts
+        marker.pose.position.z = 0.5  # 0,5 Meter über dem Boden
+        #marker.pose.position.z = 1.0  # Schwebt 1 Meter über dem Boden
+        marker.scale.z = 1.0          # Texthöhe in Metern
+        
+        # Farbe (RGBA) - Weiß und voll sichtbar
+        marker.color.r = 1.0
+        marker.color.g = 0.0
+        marker.color.b = 0.0
+        marker.color.a = 1.0
+        
+        self.text_pub.publish(marker)    
 def main():
     rclpy.init()
     node = Navigator()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        # Wird ausgelöst, wenn du Ctrl+C drückst
+        node.get_logger().info("Simulation wird durch Benutzer abgebrochen...")
+    #except Exception as e:
+    #    # Fängt unerwartete Fehler ab
+    #    node.get_logger().error(f"Unerwarteter Fehler: {e}")
+    finally:
+        # Dieser Block wird IMMER ausgeführt, egal ob Fehler oder Ctrl+C
+        node.get_logger().info("Bereinige Ressourcen...")
+        # ROS nur herunterfahren, wenn es noch "ok" ist
+        if rclpy.ok():
+            node.destroy_node()
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
