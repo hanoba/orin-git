@@ -34,16 +34,14 @@ import numpy as np  # WICHTIG: NumPy importieren
 from dataclasses import dataclass
 import pygame
 from RobotLib2 import Gate, RobotController
+from GartenWorld import Segment, World, WIN_W, WIN_H, X, Y, V, meterPerPixel
 
-numSteps = 0
 
 # =========================
 # Globale Parameter / Konfiguration
 # =========================
-WIN_W, WIN_H = 900, 600              # Fenstergröße in Pixeln
 FPS = 30                             # Simulationsrate (Frames pro Sekunde)
 BG_COLOR = (25, 28, 35)              # Hintergrundfarbe
-WALL_COLOR = (180, 180, 180)         # Farbe der Wände
 GATE_COLOR = (50, 200, 120)          # Farbe für Tor‑Markierung
 ROBOT_COLOR = (80, 160, 255)         # Roboterfarbe
 POINT_COLOR = (255, 0, 0)            # Farbe für berechnetes Tor und Startpunkt
@@ -53,7 +51,6 @@ LIDAR_HIT_COLOR = (220, 220, 80)     # Punktfarbe für LiDAR‑Treffer
 TARGET_COLOR = (255, 120, 120)       # Visualisierung der Zielrichtung
 
 # Weltgeometrie
-BORDER_MARGIN = 40                   
 WALL_X = 500                         
 GATE_Y1 = 240                        
 GATE_Y2 = 360                        
@@ -86,53 +83,6 @@ STATE_GOTO_START = 1                 # Ausrichten auf Startpunkt und zufahren
 STATE_ALIGN_AND_GO = 2               # Ausrichten auf Gate und zufahren
 STATE_GATE_REACHED = 3               # Distance to gate less than GATE_REACHED_THRE
 STATE_DONE = 4                       # hinter dem Tor angehalten
-
-
-@dataclass
-class Segment:
-    """Liniensegment (Wand/Begrenzung) in Weltkoordinaten."""
-    x1: float
-    y1: float
-    x2: float
-    y2: float
-
-    def draw(self, surf, color):
-        pygame.draw.line(surf, color, (self.x1, self.y1), (self.x2, self.y2), 2)
-    
-    # Neu für NumPy: Segment als Vektor zurückgeben
-    def to_numpy(self):
-        return np.array([self.x1, self.y1]), np.array([self.x2, self.y2])
-
-
-class World:
-    """Enthält alle kollidierenden Liniensegmente und zeichnet die Szene."""
-    def __init__(self):
-        self.segments = []
-        # Außenrahmen erzeugen
-        x0, y0 = BORDER_MARGIN, BORDER_MARGIN
-        x1, y1 = WIN_W - BORDER_MARGIN, WIN_H - BORDER_MARGIN
-        x1_wall = WALL_X      
-        
-        # Außenrahmen
-        self.add_rect_border(x0, y0, x1_wall, y1)
-        # Tor Segmente
-        self.segments.append(Segment(WALL_X, y0, WALL_X, GATE_Y1))
-        self.segments.append(Segment(WALL_X, GATE_Y2, WALL_X, y1))
-
-    def add_rect_border(self, x0, y0, x1, y1):
-        self.segments += [
-            Segment(x0, y0, x1, y0),  # oben
-            # Segment(x1, y0, x1, y1),  # rechts (offen lassen?)
-            Segment(x1, y1, x0, y1),  # unten
-            Segment(x0, y1, x0, y0),  # links
-        ]
-
-    def draw(self, surf):
-        for s in self.segments:
-            s.draw(surf, WALL_COLOR)
-        # Tor Visualisierung
-        # pygame.draw.line(surf, GATE_COLOR, (WALL_X, GATE_Y1), (WALL_X, GATE_Y2), 3)
-
 
 # -------------------------
 # LiDAR‑Simulation (NumPy Optimized)
@@ -208,17 +158,21 @@ def cast_lidar(world: World, px, py, theta=0.0):
     hits = np.stack((hits_x, hits_y, dists), axis=1)
     
     return hits, raw_angles, dists
+    
 class DiffDriveRobot:
     """Kinematik (teilweise optimiert mit NumPy)."""
     def __init__(self, x, y, theta):
-        self.x = self.x0 = x
-        self.y = self.y0 = y
+        self.x = self.x0 = X(x)
+        self.y = self.y0 = Y(y)
         self.theta = self.theta0 = theta
         self.v_l = 0.0
         self.v_r = 0.0
         self.state = STATE_SEARCH
         self.target_angle = -math.pi
 
+    def GetPose(self):
+        return self.x*meterPerPixel, self.y*meterPerPixel, self.theta
+        
     def Reset(self):
         self.x = self.x0 
         self.y = self.y0 
@@ -228,6 +182,7 @@ class DiffDriveRobot:
 
     def SetSpeed(self, v_cmd, omega_cmd):
         """Setzt Radgeschwindigkeiten mit NumPy-Clipping."""
+        v_cmd = V(v_cmd)
         vl = v_cmd - omega_cmd * (WHEEL_BASE / 2.0)
         vr = v_cmd + omega_cmd * (WHEEL_BASE / 2.0)
         # NumPy Clip ist effizienter und lesbarer als max(min(...))
@@ -307,136 +262,116 @@ def draw_lidar_rays(surf, robot: DiffDriveRobot, hits):
         if d < LIDAR_MAX_RANGE * 0.999:
             pygame.draw.circle(surf, LIDAR_HIT_COLOR, (int(hx), int(hy)), 2)
 
-
-def main():
-    gate = Gate(
-        gateWidthMin=120-40,    
-        gateWidthMax=120+40,
-        startPointDist=200,     
-        maxWinkel=90,          
-        vonRechts=True, 
-        segBasedDetection=False,
-        freeRangeDist=600
-    )
+class Simulation:
+    def __init__(self):
+        self.numSteps = 0
+        self.robot = DiffDriveRobot(x=15.0, y=7.5, theta=0) 
+        self.robot.SetSpeed(0.0,1.0)
+    
+        pygame.init()
+        info = pygame.display.Info()
+        screen_width = info.current_w
+        screen_height = info.current_h
         
-    robot = DiffDriveRobot(x=180, y=100, theta=0) 
-    robotController = RobotController(
-            robot, 
-            gate,
-                gateReachedThreshold=30,            # Schwellwert für Erreichen des Tores
-                startPointThreshold=10,             # Schwellwert für Erreichen Startpunktes
-                baseSpeed = 70.0,                   # Basisfahrgeschwindigkeit [px/s]#
-                kHeading = 2.2                      # Proportionalgain auf den Richtungsfehler
-    )
-
-    pygame.init()
-    info = pygame.display.Info()
-    screen_width = info.current_w
-    screen_height = info.current_h
+        # Falls Fullscreen gewünscht ist:
+        # screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
+        # Für Fenstermodus (besser zum Debuggen):
+        self.screen = pygame.display.set_mode((WIN_W, WIN_H))
+        
+        pygame.display.set_caption("NumPy Optimized LiDAR Bot")
+        self.clock = pygame.time.Clock()
     
-    # Falls Fullscreen gewünscht ist:
-    # screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
-    # Für Fenstermodus (besser zum Debuggen):
-    screen = pygame.display.set_mode((WIN_W, WIN_H))
+        self.world = World()
+        
+        self.show_rays = True   
+        self.manual = True     
+        self.running = True
+        self.debugMode = False
+        self.first = True
     
-    pygame.display.set_caption("NumPy Optimized LiDAR Bot")
-    clock = pygame.time.Clock()
-
-    world = World()
+        self.fwd = 0.0
+        self.turn = 1.0
     
-    show_rays = True   
-    manual = False     
-    running = True
-    debugMode = False
-    first = True
-    
-    while running:
-        dt = clock.tick(FPS) / 1000.0 
+    def Step(self):
+        dt = self.clock.tick(FPS) / 1000.0 
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
+                self.running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    running = False
+                    self.running = False
                 elif event.key == pygame.K_r:
-                    show_rays = not show_rays
+                    self.show_rays = not self.show_rays
                 elif event.key == pygame.K_m:
-                    manual = not manual
+                    self.manual = not self.manual
                 elif event.key == pygame.K_SPACE:
-                    robot.Reset()
-                    robotController.Reset()
+                    self.fwd = 0.0
+                    self.turn = 0.0
                 elif event.key == pygame.K_d:
-                    debugMode = not debugMode
+                    self.debugMode = not self.debugMode
 
-        screen.fill(BG_COLOR)
-        world.draw(screen)
+        self.screen.fill(BG_COLOR)
+        self.world.draw(self.screen)
 
-        # --- NumPy LiDAR ---
-        lidar_hits, angles, radius = cast_lidar(world, robot.x, robot.y, robot.theta)
+        # --- NumPy LiDAR (10Hz) ---
+        if self.numSteps % 3 == 0:
+            self.lidar_hits, angles, radius = cast_lidar(self.world, self.robot.x, self.robot.y, self.robot.theta)
+            radius *= meterPerPixel
+        else: radius = None
 
-        if show_rays:
-            draw_lidar_rays(screen, robot, lidar_hits)
+        if self.show_rays:
+            draw_lidar_rays(self.screen, self.robot, self.lidar_hits)
 
-        if manual:
+        if self.manual:
             keys = pygame.key.get_pressed()
-            fwd = 0.0
-            turn = 0.0
-            if keys[pygame.K_UP]: fwd += 1.0
-            if keys[pygame.K_DOWN]: fwd -= 1.0
-            if keys[pygame.K_LEFT]: turn -= 1.0
-            if keys[pygame.K_RIGHT]: turn += 1.0
+            if keys[pygame.K_UP]: self.fwd += 0.1
+            if keys[pygame.K_DOWN]: self.fwd -= 0.1
+            if keys[pygame.K_LEFT]: self.turn -= 0.1
+            if keys[pygame.K_RIGHT]: self.turn += 0.1
             
-            vl = BASE_SPEED * fwd - turn * 40.0
-            vr = BASE_SPEED * fwd + turn * 40.0
-            robot.SetSpeed(vl, vr)
-        else:
-            # Wichtig: RobotLib2 muss mit NumPy Arrays umgehen können.
-            # Falls nicht, hier .tolist() verwenden: radius.tolist()
-            result = robotController.Run(angles, radius, dt)
-            
-            if result is not None and not robotController.Ready():
-                torMitte, startPoint, pfosten1, pfosten2 = result
-                robot.drawPoint(screen, pfosten1)
-                robot.drawPoint(screen, pfosten2)
-                robot.drawPoint(screen, torMitte)
-                robot.drawPoint(screen, startPoint)
+            self.robot.SetSpeed(self.fwd, self.turn)
 
-        if debugMode:
-            if first:
-                print(f"{robot.x=:.2f}  {robot.y=:.2f}")
-                first = False
+        if self.debugMode:
+            if self.first:
+                print(f"{self.robot.x=:.2f}  {self.robot.y=:.2f}")
+                self.first = False
         else:
-            first = True
-            robot.step(dt)
-            resolve_collisions(robot, world)
+            self.first = True
+            self.robot.step(dt)
+            resolve_collisions(self.robot, self.world)
 
-        robot.draw(screen)
+        self.robot.draw(self.screen)
         
         font = pygame.font.SysFont(None, 18)
         txt = (
-            f"State: {robotController.GetState()}  "
-            f"FPS: {clock.get_fps():.1f}  "
+            #f"State: {robotController.GetState()}  "
+            f"FPS: {self.clock.get_fps():.1f}  "
             f"Rays:{LIDAR_COUNT} (NumPy)"
         )
-        # Visualisierung Tor-Mitte (fix)
-        pygame.draw.circle(screen, GATE_COLOR, (WALL_X, (GATE_Y1 + GATE_Y2)//2), 4)
 
         # HUD zeichnen (mit Flip für Koordinatensystem, falls nötig)
         # Hier normal zeichnen:
-        screen.blit(font.render(txt, True, (220, 220, 220)), (10, 10))
+        self.screen.blit(font.render(txt, True, (220, 220, 220)), (10, 10))
         
         pygame.display.flip()
         
-        global numSteps
-        numSteps += 1
+        self.numSteps += 1
+        return radius
+        
+    def Quit(self):
+        pygame.quit()
 
-    pygame.quit()
 
+    
 if __name__ == "__main__":
+    sim = Simulation()
     try:
-        main()
+        while sim.running:
+            sim.Step()
     except Exception as e:
         print("Error:", e, file=sys.stderr)
-        pygame.quit()
-        raise
+        #sim.Quit()
+        #raise
+    sim.Quit()
+    
