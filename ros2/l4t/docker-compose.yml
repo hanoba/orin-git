@@ -1,7 +1,13 @@
 services:
   ekarren-dev:
-    # Image für JetPack 6 (L4T R36.x)
-    image: dustynv/ros:humble-desktop-l4t-r36.2.0
+    # Sagt Docker Compose, dass das Dockerfile im aktuellen Ordner (.) gebaut werden soll
+    build: 
+      context: .
+      network: host    
+      
+    # Wir geben dem fertigen Image einen eigenen, lokalen Namen
+    image: my-ekarren-ros2:latest    # Image für JetPack 6 (L4T R36.x)
+
     container_name: ros2_dev_container
     
     # Netzwerk-Modus "host" ist PFLICHT für ROS 2 Kommunikation
@@ -28,11 +34,14 @@ services:
       # Wir mappen den aktuellen Ordner (.) nach .../src
       # Alles in ~/orin-git/ros2 wird also Quellcode im Container
       - ../:/root/ros2
-      
+
+      # Das komplette /dev Verzeichnis durchreichen (inkl. /dev/ttyUSB0)
+      - /dev:/dev      
+
       # Hardware durchreichen
-      - /dev/i2c-1:/dev/i2c-1
-      - /dev/i2c-8:/dev/i2c-8
-      - /dev/bus/usb:/dev/bus/usb
+      #- /dev/i2c-1:/dev/i2c-1
+      #- /dev/i2c-8:/dev/i2c-8
+      #- /dev/bus/usb:/dev/bus/usb
 
     # Arbeitsverzeichnis beim Einloggen ist direkt der Workspace-Root
     working_dir: /root/ros2
