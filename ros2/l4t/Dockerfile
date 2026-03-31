@@ -31,6 +31,7 @@ RUN cd /tmp/YDLidar-SDK && \
 
 # Alle neuen Python Packages hier installieren
 RUN pip3 install --no-cache-dir smbus2
+#RUN pip3 install --no-cache-dir pyserial
 
 # 5. Startverzeichnis festlegen (passend zu deinem Volume-Mount)
 WORKDIR /root/ros2

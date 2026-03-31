@@ -147,7 +147,7 @@ class Navigator(Node):
         self.srv4 = self.create_service(Trigger, 'Fahre_in_den_Wald',               self.cb_Fahre_in_den_Wald)
         self.srv5 = self.create_service(Trigger, 'Fahre_in_den_Garten',             self.cb_Fahre_in_den_Garten)
         self.srv6 = self.create_service(Trigger, 'Fahre_hinters_Haus',              self.cb_Fahre_hinters_Haus)
-        self.srv7 = self.create_service(Trigger, 'Reset',                           self.cb_Reset)
+        self.srv7 = self.create_service(Trigger, 'Stop',                            self.cb_Stop)
         
         # Set empty task list
         self.Reset()
@@ -269,7 +269,7 @@ class Navigator(Node):
     def cb_Fahre_in_den_Garten(self, req, resp):   return self.Service(req, resp, TaskLists.Fahre_in_den_Garten_TaskList)
     def cb_Fahre_hinters_Haus(self, req, resp):    return self.Service(req, resp, TaskLists.Fahre_hinters_Haus_TaskList)
     
-    def cb_Reset(self, request, response):
+    def cb_Stop(self, request, response):
         self.Reset()
         self.RvizPrint("Reset")
         response.success = True 

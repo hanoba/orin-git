@@ -22,5 +22,6 @@ ros2 daemon start
 ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 base_link lidar &
 
 # E-Karren Node
-python3 eKarrenNode.py 
+python3 eKarrenNode.py  --ros-args \
+    -p device:="eKarrenPC"
 

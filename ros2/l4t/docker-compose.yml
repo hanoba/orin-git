@@ -7,6 +7,7 @@ services:
       
     # Wir geben dem fertigen Image einen eigenen, lokalen Namen
     image: my-ekarren-ros2:latest    # Image für JetPack 6 (L4T R36.x)
+    init: true
 
     container_name: ros2_dev_container
     

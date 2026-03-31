@@ -27,8 +27,6 @@ DEV_EKARREN = 1         # send UDP commands to eKarren
 DEV_EKARREN_PC = 2      # send UDP commands to PC (AZ-KENKO)
 DEV_EKARREN_EMU = 3     # send UDP commands to Rosmaster
 
-DEVICE = DEV_EKARREN_PC
-
 # Die Klasse eKarren stellt im wesentlichen ein Interface zum Setzen der Geschwindigkeit bereit.
 # Weiterhin erlaubt die KLasse eine Emulation des eKarrens mit dem RosMaster X3 Plus. 
 class eKarren:
@@ -119,8 +117,19 @@ class eKarrenNode(Node):
     def __init__(self):
         super().__init__('ekarren')
 
+        # ROS2 Parameter "device" deklarieren (Name, Standardwert)
+        self.declare_parameter('device', "eKarrenPC")
+        deviceName = self.get_parameter('device').value
+        if deviceName=="eKarren": deviceNum = DEV_EKARREN
+        elif deviceName=="eKarrenPC": deviceNum = DEV_EKARREN_PC
+        elif deviceName=="eKarrenEmulator": deviceNum = DEV_EKARREN_EMU
+        else: 
+            self.get_logger().error(f"Illegal deviceName: {deviceName} Valid: eKarren, eKarrenPC, eKarrenEmulator")
+            sys.exit()
+        self.get_logger().info(f"Device: {deviceName}")
+  
         # Roboter initialisieren
-        self.ekarren = eKarren(device=DEVICE, debug=False)
+        self.ekarren = eKarren(device=deviceNum, debug=False)
         self.vLinear = 0
         self.omega = 0
 
@@ -132,12 +141,7 @@ class eKarrenNode(Node):
             depth=1,                                    # <--- WICHTIG: Puffergröße auf 1 zwingen!
             durability=DurabilityPolicy.VOLATILE)
         self.scan_pub = self.create_publisher(LaserScan, '/scan', custom_qos)  
-        
-        
-        #if self.publishOdomTf:
-        #    self.tf_broadcaster = TransformBroadcaster(self)
-        #
-        
+
         # Subscriber für Fahrbefehle von ROS 2
         self.cmd_sub = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
 
@@ -167,8 +171,7 @@ class eKarrenNode(Node):
                 self.PublishTheta()
                 self.PublishLidarData()
                 self.ekarren.SetSpeed(self.vLinear, self.omega)
-
-    
+                    
     def LidarInit(self):
         # === Parameter anpassen ===
         PORT = "/dev/ttyUSB0"
@@ -201,7 +204,7 @@ class eKarrenNode(Node):
         self.laser.turnOff() 
         
         # Verbindung trennen
-        laser.disconnecting()
+        self.laser.disconnecting()
     
     def cmd_vel_callback(self, msg):
         """Wird aufgerufen, wenn ROS2 einen Fahrbefehl sendet."""
