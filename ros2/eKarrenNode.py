@@ -27,6 +27,12 @@ DEV_EKARREN = 1         # send UDP commands to eKarren
 DEV_EKARREN_PC = 2      # send UDP commands to PC (AZ-KENKO)
 DEV_EKARREN_EMU = 3     # send UDP commands to Rosmaster
 
+compassCalibrationRunning = False
+
+def SetCompassCalibrationRunning(value)
+    global compassCalibrationRunning
+    compassCalibrationRunning = value
+
 # Die Klasse eKarren stellt im wesentlichen ein Interface zum Setzen der Geschwindigkeit bereit.
 # Weiterhin erlaubt die KLasse eine Emulation des eKarrens mit dem RosMaster X3 Plus. 
 class eKarren:
@@ -168,7 +174,8 @@ class eKarrenNode(Node):
         while rclpy.ok() and ydlidar.os_isOk():
             # doProcessSimple blockiert hier solange, bis ein 360° Scan fertig ist
             if self.laser.doProcessSimple(self.scan_data):
-                self.PublishTheta()
+                if not compassCalibrationRunning:
+                    self.PublishTheta()
                 self.PublishLidarData()
                 self.ekarren.SetSpeed(self.vLinear, self.omega)
                     
