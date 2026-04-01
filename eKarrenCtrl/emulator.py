@@ -144,7 +144,7 @@ class Emulator:
         if udpMsg != "": 
             fields = udpMsg.split(",")
             vLinearQ = int(fields[1])
-            vAngularQ = int(fields[2])
+            vAngularQ = -int(fields[2])
             rcKeyStatus =  int(fields[3])
             self.vLinear, f = self.eKarrenSimulation(vLinearQ, vAngularQ, rcKeyStatus)
             self.omega = math.tau*f

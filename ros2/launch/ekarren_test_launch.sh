@@ -16,12 +16,12 @@ trap cleanup SIGINT SIGTERM
 clear
 echo "Starte E-Karren..."
 
-cd /home/harald/orin-git/ros2
+cd ~/ros2
 ros2 daemon start
 
 ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 base_link lidar &
 
 # E-Karren Node
 python3 eKarrenNode.py  --ros-args \
-    -p device:="eKarrenPC"
+    -p device:="eKarrenEmulator"
 
