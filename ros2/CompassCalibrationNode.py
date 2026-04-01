@@ -1,18 +1,20 @@
+import rclpy
+from rclpy.node import Node
 import numpy as np
 import math
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Twist
 from std_srvs.srv import Trigger
+from std_msgs.msg import Bool
 import smbus2
 import time
 import json
-import eKarrenNode
 
 I2C_BUS = 7
 MAG_ADDR = 0x30
 
 
-class CompassCalibrationNode:
+class CompassCalibrationNode(Node):
     def __init__(self):
         super().__init__('calibration')
                 
@@ -24,9 +26,20 @@ class CompassCalibrationNode:
 
         # Services erstellen: Typ (Trigger)
         self.srv = self.create_service(Trigger, 'Kompass_Kalibrierung',            self.CompassCalibrationCallBack)
+
+        # Erstelle einen Publisher für den Kalibrierungs-Status
+        self.calib_pub = self.create_publisher(Bool, '/compass_calibration', 10)
+
+    def SetCompassCalibrationRunning(self, status: bool):
+        # Sende den neuen Status ans Netzwerk
+        msg = Bool()
+        msg.data = status
+        self.calib_pub.publish(msg)
+        self.get_logger().info(f"Sende Kalibrierungs-Status: {status}")
+
         
     def CompassCalibrationCallBack(self, request, response):
-        eKarrenNode.SetCompassCalibrationRunning(True)
+        self.SetCompassCalibrationRunning(True)
         circleMeasurements = 600
         zOffsetMeasurements = 100
         measCounter = 0
@@ -44,12 +57,14 @@ class CompassCalibrationNode:
         # PHASE 1: XY-Kreise
         print("Kalibrierung PHASE 1: Langsame 360° Kreise auf FLACHEM Boden fahren")
         
-        for i in range(self.circleMeasurements):
+        for i in range(circleMeasurements):
             measCounter += 1
             points_xy.append(self.read_mag_raw())
             self.RvizPrint(f"Kalibrierung Phase 1: Kreisfahrt - Punkte gesammelt: {measCounter}/{circleMeasurements}")
+            time.sleep(0.05)
 
-        points_xy = np.array(self.points_xy)
+
+        points_xy = np.array(points_xy)
         center_xy, T_xy = self.fit_2d_ellipse(points_xy[:, 0], points_xy[:, 1])
         
         # Radius R berechnen: Transformiere Punkte und nimm den mittleren Abstand zum Zentrum
@@ -66,13 +81,13 @@ class CompassCalibrationNode:
         # Warte bis E-Karren steht
         time.sleep(0.5)
 
-        print(f"Kalibrierung Phase 2: Z-Offset-Messung über {self.zOffsetMeasurements} Messpunkte")
+        self.RvizPrint(f"Kalibrierung Phase 2: Z-Offset-Messung über {zOffsetMeasurements} Messpunkte")
         for _ in range(zOffsetMeasurements):
             z_vals.append(self.read_mag_raw()[2])
             time.sleep(0.02)
-            self.measCounter += 1
+            measCounter += 1
 
-        eKarrenNode.SetCompassCalibrationRunning(False)
+        self.SetCompassCalibrationRunning(False)
         z_raw_avg = np.mean(z_vals)
         
         # Z-Offset über Inklination (65° für Deutschland)
@@ -175,8 +190,8 @@ class CompassCalibrationNode:
         marker.action = Marker.ADD
         
         # Inhalt des Strings
-        marker.text = f"{self.taskListName}: {text}"
-        self.get_logger().info(text)
+        marker.text = f"{text}"
+        #self.get_logger().info(text)
         
         # Position und Größe
         # Position setzen
@@ -193,3 +208,32 @@ class CompassCalibrationNode:
         marker.color.a = 1.0
         
         self.text_pub.publish(marker)    
+
+def main():
+    # ROS2 Initialisierung
+    rclpy.init()
+    node = CompassCalibrationNode()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        # Wird ausgelöst, wenn du Ctrl+C drückst
+        node.get_logger().info("Node calibration wird durch Benutzer abgebrochen...")
+    except Exception as e:
+        # Fängt unerwartete Fehler ab
+        node.get_logger().error(f"Unerwarteter Fehler: {e}")
+    finally:
+        # Dieser Block wird IMMER ausgeführt, egal ob Fehler oder Ctrl+C
+        node.get_logger().info("Bereinige Ressourcen...")
+               
+        # Nur zerstören, wenn der Kontext noch gültig ist
+        if rclpy.ok():
+            node.destroy_node()
+            rclpy.shutdown()
+        
+        # Optional: Komplettes Beenden erzwingen (hilft bei WSL2-Hängern)
+        #sys.exit(0)
+
+    
+if __name__ == '__main__':
+    main()

@@ -3,7 +3,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Bool
 import math
 import numpy as np # Vergiss nicht numpy zu importieren!
 import sys
@@ -27,11 +27,6 @@ DEV_EKARREN = 1         # send UDP commands to eKarren
 DEV_EKARREN_PC = 2      # send UDP commands to PC (AZ-KENKO)
 DEV_EKARREN_EMU = 3     # send UDP commands to Rosmaster
 
-compassCalibrationRunning = False
-
-def SetCompassCalibrationRunning(value)
-    global compassCalibrationRunning
-    compassCalibrationRunning = value
 
 # Die Klasse eKarren stellt im wesentlichen ein Interface zum Setzen der Geschwindigkeit bereit.
 # Weiterhin erlaubt die KLasse eine Emulation des eKarrens mit dem RosMaster X3 Plus. 
@@ -72,7 +67,6 @@ class eKarren:
         # tau = (v - bv)/av = at*v + bt
         self.bt = bv/av
         self.at = 1/av
-
 
     def GetVersion(self):
         if self.device==DEV_ROSMASTER: return self.rosmaster.get_version()
@@ -158,15 +152,23 @@ class eKarrenNode(Node):
         self.theta_pub = self.create_publisher(Float32, '/compass_heading', custom_qos)
         self.lastTheta = 0.0
 
+        # Höre auf das Topic des CompassCalibrationNode
+        self.compassCalibrationRunning = False
+        self.calib_sub = self.create_subscription(Bool, '/compass_calibration', self.calib_callback, 10)
+
         # Lidar initialisieren
         self.LidarInit()
 
         # Eigener Thread für den Lidar, Compass und Fahrbefehle, da doProcessSimple blockiert!
         self.thread = threading.Thread(target=self.MainLoop, daemon=True)
         self.thread.start()
-        
-        # Diese Meldung hat gefehlt:
-        self.get_logger().info("Node ekarren running...")
+
+
+    def calib_callback(self, msg):
+        # Wird automatisch aufgerufen, wenn der CompassCalibrationNode publiziert
+        self.compassCalibrationRunning = msg.data
+        self.get_logger().info(f"Neuer Status empfangen: compassCalibrationRunning={self.compassCalibrationRunning}")
+           
 
     def MainLoop(self):
         # Läuft permanent im Hintergrund und wartet auf neue Lidar-Scans.
@@ -174,7 +176,7 @@ class eKarrenNode(Node):
         while rclpy.ok() and ydlidar.os_isOk():
             # doProcessSimple blockiert hier solange, bis ein 360° Scan fertig ist
             if self.laser.doProcessSimple(self.scan_data):
-                if not compassCalibrationRunning:
+                if not self.compassCalibrationRunning:
                     self.PublishTheta()
                 self.PublishLidarData()
                 self.ekarren.SetSpeed(self.vLinear, self.omega)

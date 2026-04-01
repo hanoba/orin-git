@@ -2,6 +2,7 @@
 
 if [ -z "$1" ]; then
     echo "Bitte gib einen der folgenden Service-Namen an:"
+    echo "    Kompass_Kalibrierung"
     echo "    Fahre_in_den_Garten"
     echo "    Fahre_hinters_Haus"
     echo "    Fahre_in_den_Wald"

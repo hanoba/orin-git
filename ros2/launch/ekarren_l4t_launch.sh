@@ -37,5 +37,8 @@ ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 odom base_link &
 # E-Karren Node (publiziert /scan und /compass_heading. Steuert E-Karren based on subscribed /cmd_vel)
 python3 eKarrenNode.py  --ros-args -p device:=$DEVICE &
 
+# Macht Kompass-Kalibrierung (Service: Kompass_Kalibrierung)
+python3 CompassCalibrationNode.py &
+
 # Main Node zur Steuerung des E-Karrens
 python3 NavigatorNode.py --ros-args -p publish_odom_tf:=True

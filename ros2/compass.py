@@ -82,6 +82,8 @@ class Compass:
 
             yaw = math.atan2(-yh, xh) + self.yawOffset
             return (yaw + math.pi) % math.tau - math.pi
+        # nächste Messung triggern
+        self.bus.write_byte_data(MAG_ADDR, 0x08, 0x01)
         print("Error no MAG data")
         return None
 
