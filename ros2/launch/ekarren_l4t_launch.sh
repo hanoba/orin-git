@@ -3,10 +3,18 @@
 # ekarren_l4t_launch.sh
 
 LIDAR_X=0.8
-#DEVICE="eKarren"              # E-Karren (echte Hardware
-#DEVICE="eKarrenPC"            # Fahrbefehle werden via UDP an PC gesendet. Benötigt: orin-git/eKarrenCtrl/UdpHostTest.py auf PC
-DEVICE="eKarrenEmulator"      # Rosmaster-Roboter emuliert E-Karren. Benötigt: sudo service start eKarrenEmulator auf Orin-NX
 
+if [ -z "$1" ]; then
+    DEVICE="eKarren"              # E-Karren (echte Hardware)
+elif [ "$1" == "eKarrenEmulator" ]; then
+    DEVICE="eKarrenEmulator"      # Rosmaster-Roboter emuliert E-Karren. Benötigt: sudo service start eKarrenEmulator auf Orin-NX
+elif [ "$1" == "eKarrenPC" ]; then
+    DEVICE="eKarrenPC"            # Fahrbefehle werden via UDP an PC gesendet. Benötigt: orin-git/eKarrenCtrl/UdpHostTest.py auf PC
+else
+    echo "Unbekannter DEVICE: $DEVICE"
+    echo "Usage: bash ekarren_l4t_launch.sh [eKarrenEmulator|eKarrenPC]"
+    exit 1    
+fi
 #
 
 MY_PID=$$
@@ -37,8 +45,12 @@ ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 odom base_link &
 # E-Karren Node (publiziert /scan und /compass_heading. Steuert E-Karren based on subscribed /cmd_vel)
 python3 eKarrenNode.py  --ros-args -p device:=$DEVICE &
 
+# Main Node zur Steuerung des E-Karrens
+python3 NavigatorNode.py --ros-args -p publish_odom_tf:=True &
+
+wait 1.0
+
 # Macht Kompass-Kalibrierung (Service: Kompass_Kalibrierung)
 python3 CompassCalibrationNode.py &
 
-# Main Node zur Steuerung des E-Karrens
-python3 NavigatorNode.py --ros-args -p publish_odom_tf:=True
+ros2 topic echo /cmd_vel

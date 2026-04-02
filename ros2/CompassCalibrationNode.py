@@ -25,12 +25,12 @@ class CompassCalibrationNode(Node):
         self.text_pub = self.create_publisher(Marker, 'text_marker_topic', 10)
 
         # Services erstellen: Typ (Trigger)
-        self.srv = self.create_service(Trigger, 'Kompass_Kalibrierung',            self.CompassCalibrationCallBack)
+        self.srv = self.create_service(Trigger, 'Kompass_Kalibrierung', self.CompassCalibrationCallBack)
 
         # Erstelle einen Publisher für den Kalibrierungs-Status
         self.calib_pub = self.create_publisher(Bool, '/compass_calibration', 10)
 
-    def SetCompassCalibrationRunning(self, status: bool):
+    def PubCompassCalibrationRunning(self, status: bool):
         # Sende den neuen Status ans Netzwerk
         msg = Bool()
         msg.data = status
@@ -39,10 +39,11 @@ class CompassCalibrationNode(Node):
 
         
     def CompassCalibrationCallBack(self, request, response):
-        self.SetCompassCalibrationRunning(True)
+        self.PubCompassCalibrationRunning(True)
         circleMeasurements = 600
         zOffsetMeasurements = 100
         measCounter = 0
+        time.sleep(1.0)
         self.SetVelocities(omega=0.2, vLinear=0)
         
         self.bus = smbus2.SMBus(I2C_BUS)
@@ -87,7 +88,7 @@ class CompassCalibrationNode(Node):
             time.sleep(0.02)
             measCounter += 1
 
-        self.SetCompassCalibrationRunning(False)
+        self.PubCompassCalibrationRunning(False)
         z_raw_avg = np.mean(z_vals)
         
         # Z-Offset über Inklination (65° für Deutschland)
