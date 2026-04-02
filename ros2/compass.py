@@ -21,7 +21,7 @@ class Compass:
         self.bus.write_byte_data(ACC_ADDR, 0x31, 0x0B)
         self.counter = 0
         self.init_mag()
-        self.yawOffset = math.pi/2
+        self.yawOffset = np.radians(54-4)
 
     def init_mag(self):
         # Register 0x08 (Internal Control 0)
