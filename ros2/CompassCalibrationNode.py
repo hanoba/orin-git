@@ -61,7 +61,7 @@ class CompassCalibrationNode(Node):
         for i in range(circleMeasurements):
             measCounter += 1
             points_xy.append(self.read_mag_raw())
-            self.RvizPrint(f"Kalibrierung Phase 1: Kreisfahrt - Punkte gesammelt: {measCounter}/{circleMeasurements}")
+            self.RvizPrint(f"Kalibrierung Phase 1: Kreisfahrt - Messpunkte: {measCounter}/{circleMeasurements}")
             time.sleep(0.05)
 
 
@@ -82,7 +82,7 @@ class CompassCalibrationNode(Node):
         # Warte bis E-Karren steht
         time.sleep(0.5)
 
-        self.RvizPrint(f"Kalibrierung Phase 2: Z-Offset-Messung über {zOffsetMeasurements} Messpunkte")
+        self.RvizPrint(f"Kalibrierung Phase 2: Z-Offset-Messung ({zOffsetMeasurements} Messpunkte)")
         for _ in range(zOffsetMeasurements):
             z_vals.append(self.read_mag_raw()[2])
             time.sleep(0.02)
@@ -120,6 +120,7 @@ class CompassCalibrationNode(Node):
         print(f"Z-Offset:   {z_offset:.1f}")
         print(f"Radius R:   {R:.1f}")
         print("Gespeichert in mag_ellipsoid.json")
+        self.RvizPrint(f"Kalibrierung beendet (gespeichert in mag_ellipsoid.json)")
 
         response.success = True 
         response.message = "Gespeichert in mag_ellipsoid.json"

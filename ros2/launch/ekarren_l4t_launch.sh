@@ -48,9 +48,9 @@ python3 eKarrenNode.py  --ros-args -p device:=$DEVICE &
 # Main Node zur Steuerung des E-Karrens
 python3 NavigatorNode.py --ros-args -p publish_odom_tf:=True &
 
-wait 1.0
-
 # Macht Kompass-Kalibrierung (Service: Kompass_Kalibrierung)
 python3 CompassCalibrationNode.py &
 
-ros2 topic echo /cmd_vel
+#ros2 topic echo /cmd_vel
+
+wait
