@@ -1,0 +1,17 @@
+image: garten_map_10cm.pgm
+mode: trinary
+resolution: 0.1
+# origin:
+# - -25.2
+# - -14.2
+# - 0.0
+# oben ist der theoretisch richtige Wert
+# unten ist der manuelle korrigierte Wert damit 
+# der Lidar-Scan in Rviz genau die Mauern trifft
+origin:
+- -25.2
+- -15.75
+- 0.0
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.25
