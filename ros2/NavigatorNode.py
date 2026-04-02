@@ -154,10 +154,17 @@ class Navigator(Node):
         self.missedScans = 0
     
     def SetVelocities(self, omega, vLinear):
-        self.angular = omega
-        self.linear = vLinear
+        self.angular = 0.0
+        self.linear = 0.0
         self.wantedThetaReached = True
         self.directionFlag = False
+        self.PubVelocities(omega, vLinear)
+        
+    def PubVelocities(self, omega, linear):
+        drive_msg = Twist()
+        drive_msg.linear.x = float(linear)
+        drive_msg.angular.z = float(omega)
+        self.cmd_pub.publish(drive_msg)
         
     def SetWantedTheta(self, wantedTheta):
         self.wantedTheta = wantedTheta
@@ -173,10 +180,7 @@ class Navigator(Node):
         self.wantedThetaReached = True
 
     def ResetDirection(self):
-        self.linear = 0.0
-        self.angular = 0.0
-        self.wantedThetaReached = True
-        self.directionFlag = False
+        self.SetVelocities(0.0, 0.0)
 
     def CompassCallback(self, msg):
         self.theta = NormalizeAngle(msg.data)
@@ -185,6 +189,7 @@ class Navigator(Node):
             e = (e + math.pi) % math.tau - np.pi
             e = np.clip(e, -self.angularMax, self.angularMax)
             self.angular = e * self.K_head
+            self.PubVelocities(self.angular, self.linear)    
         elif not self.wantedThetaReached:
             e = self.wantedTheta - self.theta
             e = (e + math.pi) % math.tau - np.pi
@@ -197,11 +202,7 @@ class Navigator(Node):
                 self.angular = 0.0
             else: 
                 self.angular = e * self.K_head
-        drive_msg = Twist()
-        drive_msg.linear.x = float(self.linear)
-        drive_msg.angular.z = float(self.angular)
-        self.cmd_pub.publish(drive_msg)
-
+            self.PubVelocities(self.angular, self.linear)    
 
     def ScanCallback(self, scan_msg):
         if self.is_processing: 
