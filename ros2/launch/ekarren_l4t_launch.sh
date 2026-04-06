@@ -33,7 +33,7 @@ trap cleanup SIGINT SIGTERM
 clear
 echo "Starte E-Karren..."
 
-cd /home/harald/orin-git/ros2
+cd /root/ros2
 ros2 daemon start
 
 # Statischer Transform: Lidar zu base_link

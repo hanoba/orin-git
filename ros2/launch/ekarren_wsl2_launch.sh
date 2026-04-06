@@ -18,6 +18,7 @@ trap cleanup SIGINT SIGTERM
 export ROS_DOMAIN_ID=15
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cyclonedds_wsl2.xml
+export LIBGL_ALWAYS_SOFTWARE=1
 
 # Pfade
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
