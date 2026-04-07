@@ -3,7 +3,7 @@
 # CYCLONEDDS_URI für LEGION Laptop generieren
 
 # SSID-Abfrage
-_SSID=$(netsh.exe wlan show interfaces | grep -i '^ *SSID' | cut -d: -f2 | tr -d ' \r')
+_SSID=$(powershell.exe -Command "(Get-NetConnectionProfile).Name")
 
 if [ -n "$_SSID" ]; then
     export WLAN_NAME="$_SSID"

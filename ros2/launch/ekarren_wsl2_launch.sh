@@ -17,7 +17,8 @@ trap cleanup SIGINT SIGTERM
 # --- 1. NETZWERK-FIX ---
 export ROS_DOMAIN_ID=15
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cyclonedds_wsl2.xml
+# CYCLONEDDS_URI muss in .bashrc gesetzt werden
+#export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cyclonedds_wsl2.xml
 export LIBGL_ALWAYS_SOFTWARE=1
 
 # Pfade

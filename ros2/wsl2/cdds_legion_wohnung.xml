@@ -10,6 +10,7 @@
             <Peers>
                 <Peer address="127.0.0.1"/>
                 <Peer address="192.168.178.85"/>
+                <Peer address="192.168.178.104"/>
             </Peers>
         </Discovery>
     </Domain>
