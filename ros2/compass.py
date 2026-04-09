@@ -12,6 +12,17 @@ I2C_BUS = 7
 ACC_ADDR = 0x53
 MAG_ADDR = 0x30
 
+FileName = "yaw_offset_deg.txt"
+
+def ReadYawOffset():
+    with open(FileName, "r") as file:
+        yawOffset = np.radians(float(file.read()))
+    return yawOffset
+
+def WriteYawOffset(yawOffset):
+    with open(FileName, "w") as file:
+        file.write(str(yawOffset))
+
 class Compass:
     def __init__(self):
         self.bus = smbus2.SMBus(I2C_BUS)
@@ -21,7 +32,9 @@ class Compass:
         self.bus.write_byte_data(ACC_ADDR, 0x31, 0x0B)
         self.counter = 0
         self.init_mag()
-        self.yawOffset = np.radians(54-4)
+        #self.yawOffset = np.radians(54-4)
+        self.yawOffset = ReadYawOffset()
+        print(f"YawOffset={np.degrees(self.yawOffset)}°")
 
     def init_mag(self):
         # Register 0x08 (Internal Control 0)
