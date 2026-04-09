@@ -250,7 +250,8 @@ class Navigator(Node):
 
     def Walldetector(self, msg, angMin=-np.pi, angMax=np.pi):
         ranges = np.array(msg.ranges)
-        rangeMask = np.isfinite(ranges) & (ranges > params.LidarRangeMin + 0.01) & (ranges < params.LidarRangeMax - 0.1)
+        #rangeMask = np.isfinite(ranges) & (ranges > params.LidarRangeMin + 0.01) & (ranges < params.LidarRangeMax - 0.1)
+        rangeMask = np.isfinite(ranges) & (ranges > msg.range_min + 0.01) & (ranges < msg.range_max - 0.1)
         #valid = np.isfinite(ranges) & (ranges > 0.1) & (ranges < 30.0)
         angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
         angMask = (angles >=angMin) & (angles <= angMax)

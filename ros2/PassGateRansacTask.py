@@ -229,7 +229,8 @@ class PassGateRansacTask:
         ranges = np.array(msg.ranges)
         angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
         #print(f"{len(angles)=} {msg.angle_min=}")
-        rangesMask = np.isfinite(ranges) & (ranges > params.LidarRangeMin + 0.01) & (ranges < params.LidarRangeMax - 0.1)
+        #rangesMask = np.isfinite(ranges) & (ranges > params.LidarRangeMin + 0.01) & (ranges < params.LidarRangeMax - 0.1)
+        rangesMask = np.isfinite(ranges) & (ranges > msg.range_min + 0.01) & (ranges < msg.range_max - 0.1)
         #maxAngle = np.pi * 0.5
         #anglesMask = np.abs(angles) < maxAngle
         finalMask = rangesMask # & anglesMask

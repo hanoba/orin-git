@@ -222,7 +222,9 @@ class SmartCornerDetector(Node):
 
         start_zeit = time.perf_counter() # Zeitnahme startet
         ranges = np.array(msg.ranges)
-        valid = np.isfinite(ranges) & (ranges > params.LidarRangeMin) & (ranges < params.LidarRangeMax)
+        #valid = np.isfinite(ranges) & (ranges > params.LidarRangeMin) & (ranges < params.LidarRangeMax)
+        valid = np.isfinite(ranges) & (ranges > msg.range_min) & (ranges < msg.range_max)
+
         #valid = np.isfinite(ranges) & (ranges > 0.1) & (ranges < 30.0)
         angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
         points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[valid]
