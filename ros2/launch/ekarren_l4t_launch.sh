@@ -31,7 +31,7 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 clear
-echo "Starte E-Karren..."
+echo "Starte E-Karren (DEVICE=$DEVICE)"
 
 cd /root/ros2
 ros2 daemon start
