@@ -8,6 +8,7 @@ if [ -z "$1" ]; then
     echo "    Fahre_in_den_Wald"
     echo "    Fahre_zum_Schuppen"
     echo "    Localization"
+    echo "    Bestimme_YawOffset"
     echo "    Mowing"
     echo "    Stop"
     exit 1

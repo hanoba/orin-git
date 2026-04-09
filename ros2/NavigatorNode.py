@@ -13,7 +13,6 @@ import math
 import Ransac
 import TaskLists
 
-import params
 from params import TaskState
 
 
@@ -148,6 +147,8 @@ class Navigator(Node):
         self.srv5 = self.create_service(Trigger, 'Fahre_in_den_Garten',             self.cb_Fahre_in_den_Garten)
         self.srv6 = self.create_service(Trigger, 'Fahre_hinters_Haus',              self.cb_Fahre_hinters_Haus)
         self.srv7 = self.create_service(Trigger, 'Stop',                            self.cb_Stop)
+        self.srv8 = self.create_service(Trigger, 'Bestimme_YawOffset',              self.cb_Bestimme_YawOffset)
+        
         
         # Set empty task list
         self.Reset()
@@ -270,6 +271,7 @@ class Navigator(Node):
     def cb_Fahre_in_den_Wald(self, req, resp):     return self.Service(req, resp, TaskLists.Fahre_in_den_Wald_TaskList)
     def cb_Fahre_in_den_Garten(self, req, resp):   return self.Service(req, resp, TaskLists.Fahre_in_den_Garten_TaskList)
     def cb_Fahre_hinters_Haus(self, req, resp):    return self.Service(req, resp, TaskLists.Fahre_hinters_Haus_TaskList)
+    def cb_Bestimme_YawOffset(self, req, resp):    return self.Service(req, resp, TaskLists.Bestimme_YawOffset_TaskList)
     
     def cb_Stop(self, request, response):
         self.Reset()

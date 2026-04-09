@@ -4,6 +4,7 @@ from GartenWorld import Localization, lineNames, World, GetWallPosX, GetWallPosY
 from MowingTask import MowingTask
 from PassThroughGateTask import PassThroughGateTask
 from PassGateRansacTask import PassGateRansacTask
+from YawOffsetDetectionTask import YawOffsetDetectionTask
 import params
 from params import TaskState
 
@@ -437,4 +438,8 @@ In_den_Schuppen_einparken_TaskList = {
              ]
 }
 
+Bestimme_YawOffset_TaskList = {
+    "name": "Bestimme_YawOffset",
+    "tasks": [ (YawOffsetDetectionTask(), None) ]
+}
 
