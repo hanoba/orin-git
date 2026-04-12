@@ -26,6 +26,16 @@ LinearVelocity = 0.5
 SimPause = False        # Simulator beim Start im Pause-Modus
 SimShowRays = False     # Simulator zeigt Lidar-Strahlen beim Start
 
+
+def ReadYawOffset():
+    with open("yaw_offset_deg.txt", "r") as file:
+        yawOffset_rad = np.radians(float(file.read()))
+    return yawOffset_rad
+
+def WriteYawOffset(yawOffset_rad):
+    with open("yaw_offset_new_deg.txt", "w") as file:
+        file.write(str(np.degrees(yawOffset_rad)))
+
 config = 7
 if config==0:
     RobotInitX = 15.00      # Im Garten beim Gartentor

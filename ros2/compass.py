@@ -7,21 +7,12 @@ import math
 import struct
 import json
 import numpy as np
+from params import ReadYawOffset, WriteYawOffset
+
 
 I2C_BUS = 7
 ACC_ADDR = 0x53
 MAG_ADDR = 0x30
-
-FileName = "yaw_offset_deg.txt"
-
-def ReadYawOffset():
-    with open(FileName, "r") as file:
-        yawOffset = np.radians(float(file.read()))
-    return yawOffset
-
-def WriteYawOffset(yawOffset):
-    with open(FileName, "w") as file:
-        file.write(str(yawOffset))
 
 class Compass:
     def __init__(self):

@@ -184,7 +184,8 @@ class Navigator(Node):
         self.SetVelocities(0.0, 0.0)
 
     def CompassCallback(self, msg):
-        self.theta = NormalizeAngle(msg.data)
+        self.theta = NormalizeAngle(msg.data) 
+        # self.theta += np.radians(10.0)    # for test of YawOffsetDetectionTask.py
         if self.directionFlag:
             e = self.wantedTheta - self.theta
             e = (e + math.pi) % math.tau - np.pi

@@ -4,12 +4,13 @@ from geometry_msgs.msg import Point
 from std_msgs.msg import ColorRGBA
 import Ransac
 from params import TaskState
+from params import ReadYawOffset, WriteYawOffset
 
 
 class YawOffsetDetectionTask:
     def Init(self, node, params, retvals=None):
         self.node = node
-        self.node.SetWantedTheta(np.pi/2/2)
+        self.node.SetWantedTheta(np.radians(45.0))
         self.numMeas = 0
         self.maxMeas = 1
         self.sumAngle_rad = 0.0
@@ -28,14 +29,22 @@ class YawOffsetDetectionTask:
         if self.numMeas < self.maxMeas:
             return TaskState.Running, None
           
-        rad = self.sumAngle_rad / self.maxMeas
-        grad = np.degrees(rad)
+        w_rad = self.sumAngle_rad / self.maxMeas
+        w_grad = np.degrees(rad)
+        
+        yawOld = self.node.theta
+        yawNew = -w_rad
+        yawOffsetOld = ReadYawOffset()
+        yawOffsetNew = yawNew - yawOld + yawOffsetOld
+        WriteYawOffset(yawOffsetNew)
         
         print("--- Ergebnisse ---")
         print(f"Punkte der längsten Linie: {linie}")
         print(f"Länge:                     {laenge:.2f}")
-        print(f"Winkel (Bogenmaß):         {rad:.4f} rad")
-        print(f"Winkel (Grad):             {grad:.2f}°")
+        print(f"Winkel (Bogenmaß):         {w_rad:.4f} rad")
+        print(f"Winkel (Grad):             {w_grad:.2f}°")
+        print(f"YawOffsetOld (Grad):       {np.degrees(yawOffsetOld):.2f}°")
+        print(f"YawOffsetNew (Grad):       {np.degrees(yawOffsetNew):.2f}°")
 
         self.PublishMarkers(walls, linie)
         return TaskState.Ready, None
@@ -61,14 +70,17 @@ class YawOffsetDetectionTask:
         max_index = np.argmax(laengen)
         
         # 4. Extrahiere die längste Linie und ihren Vektor
+        #    Vektor muss nach rechts zeigen
         laengste_linie = walls[max_index]
-        laengster_vektor = vektoren[max_index]
+        if laengste_linie[1][0] > laengste_linie[0][0]:
+            laengster_vektor = vektoren[max_index]
+        else:
+            laengster_vektor = -vektoren[max_index]
         
         # 5. Berechne den Winkel mit arctan2 (gibt den Winkel im Bogenmaß zurück)
         # arctan2(y, x) beachtet den Quadranten korrekt
+        
         winkel_rad = np.arctan2(laengster_vektor[1], laengster_vektor[0])
-        if winkel_rad > np.pi/2: winkel_rad -= np.pi
-        elif winkel_rad < -np.pi/2: winkel_rad += np.pi
         
         return laengste_linie, laengen[max_index], winkel_rad
 
