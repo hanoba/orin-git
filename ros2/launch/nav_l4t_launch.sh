@@ -24,4 +24,7 @@ ros2 daemon start
 echo "🚀 Starte Navigator..."
 python3 NavigatorNode.py
 
+# Macht Kompass-Kalibrierung (Service: Kompass_Kalibrierung)
+python3 CompassCalibrationNode.py &
+
 echo "✅ System läuft mit Ground Truth von der Bridge."

@@ -67,6 +67,9 @@ ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args \
 echo "⏳ Warte auf Initialisierung..."
 sleep 3
 
+# GUI zur Service-Auswahl
+ros2 run rqt_service_caller rqt_service_caller &
+
 # --- 3. FEATURE EXTRACTION & NAVIGATION ---
 #echo "🚀 Starte Navigator..."
 #python3 NavigatorNode.py --ros-args -p use_sim_time:=true
