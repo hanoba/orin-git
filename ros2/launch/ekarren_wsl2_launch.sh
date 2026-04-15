@@ -5,11 +5,12 @@
 MY_PID=$$
 
 cleanup() {
-    echo -e "\n🛑 Beende alle Prozesse (Ground Truth Mode)..."
+    echo -e "\n🛑 Beende alle Prozesse..."
     pkill -P $MY_PID
     pkill -f "rviz2"
     pkill -f "map_server"
     pkill -f "lifecycle_manager"
+    pkill -f "rqt_service_caller"
     exit 0
 }
 
@@ -32,7 +33,8 @@ clear
 echo "🚀 Starte ROS2-Ausgabesystem für E-Karren..."
 
 cd /home/harald/orin-git/ros2
-ros2 daemon stop && ros2 daemon start
+pkill -9 -f _ros2_daemon
+ros2 daemon start
 
 # Statischer Transform: Lidar zu base_link
 ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar &
@@ -52,5 +54,8 @@ ros2 run nav2_map_server map_server \
 ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args \
   -p node_names:="['map_server']" \
   -p autostart:=true &
+
+# GUI zur Service-Auswahl
+ros2 run rqt_service_caller rqt_service_caller &
 
 wait

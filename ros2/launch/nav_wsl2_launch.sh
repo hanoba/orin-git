@@ -36,6 +36,7 @@ clear
 echo "🚀 Starte System im GROUND TRUTH Modus..."
 
 cd /home/harald/orin-git/ros2
+pkill -9 -f _ros2_daemon
 ros2 daemon start
 
 # --- 2. CORE KOMPONENTEN ---

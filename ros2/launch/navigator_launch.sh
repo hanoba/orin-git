@@ -12,6 +12,7 @@ cleanup() {
     pkill -f "rviz2"
     pkill -f "map_server"
     pkill -f "lifecycle_manager"
+    pkill -f "rqt_service_caller"
     exit 0
 }
 
@@ -32,6 +33,7 @@ clear
 echo "🚀 Starte Host-Simulation des E-Karren..."
 
 cd /home/harald/orin-git/ros2
+pkill -9 -f _ros2_daemon
 ros2 daemon start
 
 # --- 2. CORE KOMPONENTEN ---
@@ -68,5 +70,8 @@ sleep 3.0
 # --- 3. FEATURE EXTRACTION & NAVIGATION ---
 echo "🚀 Starte Navigator..."
 python3 NavigatorNode.py --ros-args -p use_sim_time:=$SIM_TIME
+
+# GUI zur Service-Auswahl
+ros2 run rqt_service_caller rqt_service_caller &
 
 echo "✅ Host-Simulation läuft."
