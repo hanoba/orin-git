@@ -10,10 +10,11 @@ from params import ReadYawOffset, WriteYawOffset
 class YawOffsetDetectionTask:
     def Init(self, node, params, retvals=None):
         self.node = node
-        self.node.SetWantedTheta(np.radians(45.0))
+        self.node.SetWantedTheta(np.radians(90.0))
         self.numMeas = 0
-        self.maxMeas = 1
+        self.maxMeas = 10
         self.sumAngle_rad = 0.0
+        self.yawOffsetOld = ReadYawOffset()
 
     def Step(self, scan_msg):
         if not self.node.wantedThetaReached:
@@ -22,31 +23,34 @@ class YawOffsetDetectionTask:
         all_detected_walls = self.Walldetector(scan_msg) 
         walls = np.array(all_detected_walls)
 
-        linie, laenge, rad = self.ComputeLongestLine(walls)
-        self.sumAngle_rad += rad
+        linie, laenge, w_rad = self.ComputeLongestLine(walls)
+        self.sumAngle_rad += w_rad
         
         self.numMeas += 1    
+        w_grad = np.degrees(w_rad)
+        
+        yawOld = self.node.theta
+        yawNew = -w_rad
+        yawOffsetNew = yawNew - yawOld + self.yawOffsetOld
+        
+        print(f"--- Messung {self.numMeas} ---")
+        print(f"Punkte der längsten Linie: {linie[0,:]}, {linie[1,:]}")
+        print(f"Länge:                     {laenge:.2f}")
+        print(f"Winkel (Bogenmaß):         {w_rad:.4f} rad")
+        print(f"Winkel (Grad):             {w_grad:.2f}°")
+        print(f"YawOffsetNew (Grad):       {np.degrees(yawOffsetNew):.2f}°")
+
+        self.PublishMarkers(walls, linie)
         if self.numMeas < self.maxMeas:
             return TaskState.Running, None
           
         w_rad = self.sumAngle_rad / self.maxMeas
-        w_grad = np.degrees(rad)
-        
-        yawOld = self.node.theta
         yawNew = -w_rad
-        yawOffsetOld = ReadYawOffset()
-        yawOffsetNew = yawNew - yawOld + yawOffsetOld
+        yawOffsetNew = yawNew - yawOld + self.yawOffsetOld
         WriteYawOffset(yawOffsetNew)
-        
-        print("--- Ergebnisse ---")
-        print(f"Punkte der längsten Linie: {linie}")
-        print(f"Länge:                     {laenge:.2f}")
-        print(f"Winkel (Bogenmaß):         {w_rad:.4f} rad")
-        print(f"Winkel (Grad):             {w_grad:.2f}°")
-        print(f"YawOffsetOld (Grad):       {np.degrees(yawOffsetOld):.2f}°")
-        print(f"YawOffsetNew (Grad):       {np.degrees(yawOffsetNew):.2f}°")
-
-        self.PublishMarkers(walls, linie)
+        print("--- Endergebnis ---")
+        print(f"YawOffsetOld (Grad):       {np.degrees(self.yawOffsetOld):.2f}°")
+        print(f"YawOffsetNewMean (Grad):   {np.degrees(yawOffsetNew):.2f}°")
         return TaskState.Ready, None
     
     def Walldetector(self, msg):
@@ -72,14 +76,13 @@ class YawOffsetDetectionTask:
         # 4. Extrahiere die längste Linie und ihren Vektor
         #    Vektor muss nach rechts zeigen
         laengste_linie = walls[max_index]
-        if laengste_linie[1][0] > laengste_linie[0][0]:
+        if laengste_linie[1][1] < laengste_linie[0][1]:
             laengster_vektor = vektoren[max_index]
         else:
             laengster_vektor = -vektoren[max_index]
         
         # 5. Berechne den Winkel mit arctan2 (gibt den Winkel im Bogenmaß zurück)
         # arctan2(y, x) beachtet den Quadranten korrekt
-        
         winkel_rad = np.arctan2(laengster_vektor[1], laengster_vektor[0])
         
         return laengste_linie, laengen[max_index], winkel_rad

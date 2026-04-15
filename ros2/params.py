@@ -28,12 +28,12 @@ SimShowRays = False     # Simulator zeigt Lidar-Strahlen beim Start
 
 
 def ReadYawOffset():
-    with open("yaw_offset_deg.txt", "r") as file:
+    with open("YawOffset_deg.txt", "r") as file:
         yawOffset_rad = np.radians(float(file.read()))
     return yawOffset_rad
 
 def WriteYawOffset(yawOffset_rad):
-    with open("yaw_offset_new_deg.txt", "w") as file:
+    with open("YawOffsetNew_deg.txt", "w") as file:
         file.write(str(np.degrees(yawOffset_rad)))
 
 config = 7

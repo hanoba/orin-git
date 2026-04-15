@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# File: nav_wsl2_launch.sh
+# Startet PyGame-Simulator für den E-Karren unter WSL2. 
+# Auf dem Orin-NX muss das komplementäre Skript nav_l4t_launch.sh ausgeführt werden.
+
 MY_PID=$$
 
 cleanup() {
@@ -16,15 +20,16 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 
-# --- 1. NETZWERK-FIX ---
+# --- 1. UMGEBUNG SETZEN ---
+# bereits in .bashrc source /opt/ros/humble/setup.bash
 export ROS_DOMAIN_ID=15
-#export ROS_LOCALHOST_ONLY=1
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cyclonedds_wsl2.xml
+export LIBGL_ALWAYS_SOFTWARE=1
+# CYCLONEDDS_URI muss in .bashrc gesetzt werden
+# Zum Beispiel: export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cdds_az-kengo.xml
 
-# Pfade
+# Konstanten
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
-LIDAR_X=0.8
 
 clear
 echo "🚀 Starte System im GROUND TRUTH Modus..."
@@ -38,12 +43,6 @@ ros2 daemon start
 python3 ros_sim_node.py --ros-args \
     --log-level error \
     -p publish_odom_tf:=true &
-
-# Statischer Transform: Lidar zu base_link
-ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar &
-
-# Transform 2 (NEU): Map -> Odom (Ersetzt AMCL)
-ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom &
 
 # RViz
 rviz2 -d config/ransac.rviz &

@@ -14,7 +14,8 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 
-# --- 1. NETZWERK-FIX ---
+# --- 1. UMGEBUNG SETZEN ---
+# bereits in .bashrc source /opt/ros/humble/setup.bash
 export ROS_DOMAIN_ID=15
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 # CYCLONEDDS_URI muss in .bashrc gesetzt werden
@@ -26,10 +27,10 @@ MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
 LIDAR_X=0.8
 
 clear
-echo "🚀 Starte System im GROUND TRUTH Modus..."
+echo "🚀 Starte ROS2-Ausgabesystem für E-Karren..."
 
 cd /home/harald/orin-git/ros2
-ros2 daemon start
+ros2 daemon stop && ros2 daemon start
 
 # RViz
 rviz2 -d config/ekarren_wsl2.rviz &

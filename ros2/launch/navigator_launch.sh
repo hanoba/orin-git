@@ -20,27 +20,23 @@ trap cleanup SIGINT SIGTERM
 
 # --- 1. NETZWERK-FIX ---
 export ROS_DOMAIN_ID=15
-#export ROS_LOCALHOST_ONLY=1
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cyclonedds_wsl2.xml
-#export CYCLONEDDS_URI=/home/harald/cyclonedds_pc.xml
-#export CYCLONEDDS_URI='<CycloneDDS><Domain><Discovery><MaxAutoParticipantIndex>500</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
-#export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
-# Pfade
+# Konstanten
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
 LIDAR_X=0.8
 SIM_TIME=false
 
 clear
-echo "🚀 Starte System im GROUND TRUTH Modus..."
+echo "🚀 Starte Host-Simulation des E-Karren..."
 
 cd /home/harald/orin-git/ros2
 ros2 daemon start
 
 # --- 2. CORE KOMPONENTEN ---
 
-# Bridge: JETZT MIT publish_odom_tf:=true (Ground Truth übernimmt Positionierung)
+# PyGame-Simulator
 python3 ros_sim_node.py --ros-args \
     --log-level error \
     -p publish_odom_tf:=true &
@@ -73,4 +69,4 @@ sleep 3.0
 echo "🚀 Starte Navigator..."
 python3 NavigatorNode.py --ros-args -p use_sim_time:=$SIM_TIME
 
-echo "✅ System läuft mit Ground Truth von der Bridge."
+echo "✅ Host-Simulation läuft."
