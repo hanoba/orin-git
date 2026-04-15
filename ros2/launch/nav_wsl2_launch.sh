@@ -30,6 +30,7 @@ export LIBGL_ALWAYS_SOFTWARE=1
 
 # Konstanten
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
+LIDAR_X=0.8
 
 clear
 echo "🚀 Starte System im GROUND TRUTH Modus..."
@@ -43,6 +44,12 @@ ros2 daemon start
 python3 ros_sim_node.py --ros-args \
     --log-level error \
     -p publish_odom_tf:=true &
+
+# Statischer Transform: Lidar zu base_link
+ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar &
+
+# Transform 2 (NEU): Map -> Odom (Ersetzt AMCL)
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom &
 
 # RViz
 rviz2 -d config/ransac.rviz &
