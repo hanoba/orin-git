@@ -2,7 +2,6 @@
 
 # ekarren_l4t_launch.sh
 
-LIDAR_X=0.8
 
 if [ -z "$1" ]; then
     DEVICE="eKarren"              # E-Karren (echte Hardware)
@@ -36,12 +35,6 @@ echo "Starte E-Karren (DEVICE=$DEVICE)"
 cd /root/ros2
 ros2 daemon start
 
-# Statischer Transform: Lidar zu base_link
-ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar &
-
-# Odom ist jetzt fest mit dem Roboter verbunden (da keine Encoder vorhanden)
-ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 odom base_link &
-
 # E-Karren Node (publiziert /scan und /compass_heading. Steuert E-Karren based on subscribed /cmd_vel)
 python3 eKarrenNode.py  --ros-args -p device:=$DEVICE &
 
@@ -50,7 +43,5 @@ python3 NavigatorNode.py --ros-args -p publish_odom_tf:=True &
 
 # Macht Kompass-Kalibrierung (Service: Kompass_Kalibrierung)
 python3 CompassCalibrationNode.py &
-
-#ros2 topic echo /cmd_vel
 
 wait

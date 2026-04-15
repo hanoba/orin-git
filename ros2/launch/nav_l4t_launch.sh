@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# File: nav_l4t_launch.sh
+
 MY_PID=$$
 
 cleanup() {
@@ -15,16 +17,18 @@ trap cleanup SIGINT SIGTERM
 LIDAR_X=0.8
 
 clear
-echo "🚀 Starte System..."
+echo "🚀 Starte verteilte Simulation auf Orin-NX..."
 
 cd /root/ros2
 ros2 daemon start
 
 # --- NAVIGATION ---
 echo "🚀 Starte Navigator..."
-python3 NavigatorNode.py
+python3 NavigatorNode.py &
 
 # Macht Kompass-Kalibrierung (Service: Kompass_Kalibrierung)
 python3 CompassCalibrationNode.py &
 
-echo "✅ System läuft mit Ground Truth von der Bridge."
+echo "✅ Verteilte Simulation auf Orin-NX gestartet."
+
+wait

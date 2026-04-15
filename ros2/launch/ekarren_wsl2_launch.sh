@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# File: ekarren_wsl2_launch.sh
+
 MY_PID=$$
 
 cleanup() {
@@ -14,15 +16,15 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 
-# --- 1. UMGEBUNG SETZEN ---
+# --- UMGEBUNG SETZEN ---
 # bereits in .bashrc source /opt/ros/humble/setup.bash
 export ROS_DOMAIN_ID=15
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-# CYCLONEDDS_URI muss in .bashrc gesetzt werden
-#export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cyclonedds_wsl2.xml
 export LIBGL_ALWAYS_SOFTWARE=1
+# CYCLONEDDS_URI muss in .bashrc gesetzt werden
+# Zum Beispiel: export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cdds_az-kengo.xml
 
-# Pfade
+# Konstanten
 MAP_YAML="/home/harald/orin-git/ros2/map/garten_map_10cm.yaml"
 LIDAR_X=0.8
 
@@ -31,6 +33,12 @@ echo "🚀 Starte ROS2-Ausgabesystem für E-Karren..."
 
 cd /home/harald/orin-git/ros2
 ros2 daemon stop && ros2 daemon start
+
+# Statischer Transform: Lidar zu base_link
+ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar &
+
+# Odom ist jetzt fest mit dem Roboter verbunden (da keine Encoder vorhanden)
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 odom base_link &
 
 # RViz
 rviz2 -d config/ekarren_wsl2.rviz &
