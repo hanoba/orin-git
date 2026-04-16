@@ -8,4 +8,4 @@ if [ -z "$ROS_SOURCED" ]; then
     #export CYCLONEDDS_URI=file:///root/ros2/l4t/cyclonedds_l4t.xml
     export ROS_SOURCED=1
 fi
-
+cd /root/ros2/launch
