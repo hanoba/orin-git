@@ -14,6 +14,7 @@ cleanup() {
     pkill -f "rviz2"
     pkill -f "map_server"
     pkill -f "lifecycle_manager"
+    pkill -f "rqt_service_caller"
     exit 0
 }
 
