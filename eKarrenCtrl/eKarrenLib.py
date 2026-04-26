@@ -89,7 +89,7 @@ class eKarren:
             return
 
         vLinearQ = self.Quantize(vLinear / vLinearMax * rcMaxValue)
-        vAngular = omega*radAbstand/2
+        vAngular = -omega*radAbstand/2
         vAngularQ = self.Quantize(vAngular / vAngularMax * rcMaxValue)
         
         #print(f"{vLinear=}m/s  {vAngular=}m/s  {vLinearQ=}  {vAngularQ=}")
