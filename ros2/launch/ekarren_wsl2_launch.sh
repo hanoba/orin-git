@@ -7,6 +7,7 @@ MY_PID=$$
 cleanup() {
     echo -e "\n🛑 Beende alle Prozesse..."
     pkill -P $MY_PID
+    pkill -f "static_transform_publisher"
     pkill -f "rviz2"
     pkill -f "map_server"
     pkill -f "lifecycle_manager"
@@ -35,6 +36,7 @@ echo "🚀 Starte ROS2-Ausgabesystem für E-Karren..."
 cd /home/harald/orin-git/ros2
 pkill -9 -f _ros2_daemon
 ros2 daemon start
+sleep 2
 
 # Statischer Transform: Lidar zu base_link
 ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar &
@@ -42,18 +44,20 @@ ros2 run tf2_ros static_transform_publisher $LIDAR_X 0 0 0 0 0 base_link lidar &
 # Odom ist jetzt fest mit dem Roboter verbunden (da keine Encoder vorhanden)
 ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 odom base_link &
 
-# RViz
-rviz2 -d config/ekarren_wsl2.rviz &
-
 # Map Server (Damit wir die Karte im Hintergrund sehen)
 ros2 run nav2_map_server map_server \
     --ros-args \
     -p yaml_filename:=$MAP_YAML &
+sleep 2
 
 # Lifecycle Manager (Nur für den Map Server)
 ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args \
   -p node_names:="['map_server']" \
   -p autostart:=true &
+sleep 3 # Gib dem Map Server Zeit, die Karte wirklich zu laden
+
+# RViz
+rviz2 -d config/ekarren_wsl2.rviz &
 
 # GUI zur Service-Auswahl
 ros2 run rqt_service_caller rqt_service_caller &
