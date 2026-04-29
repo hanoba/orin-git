@@ -99,7 +99,7 @@ class eKarren:
             return
 
         vLinearQ = self.Quantize(vLinear / vLinearMax * rcMaxValue)
-        vAngular = omega*radAbstand/2
+        vAngular = -omega*radAbstand/2/10
         vAngularQ = self.Quantize(vAngular / vAngularMax * rcMaxValue)
         
         #print(f"{vLinear=}m/s  {vAngular=}m/s  {vLinearQ=}  {vAngularQ=}")
@@ -151,6 +151,7 @@ class eKarrenNode(Node):
         # Publisher für Kompass (theta)
         self.theta_pub = self.create_publisher(Float32, '/compass_heading', custom_qos)
         self.lastTheta = 0.0
+        self.yawCompass = 0.0
 
         # Höre auf das Topic des CompassCalibrationNode
         self.compassCalibrationRunning = False
@@ -163,7 +164,14 @@ class eKarrenNode(Node):
         self.thread = threading.Thread(target=self.MainLoop, daemon=True)
         self.thread.start()
 
+        # --- TIMER FÜR 50 HZ ---
+        # 0.02 Sekunden = 50 Hz. Diese Funktion ruft selbstständig timer_callback auf.
+        self.timer = self.create_timer(0.02, self.timer_callback)
+        self.get_logger().info("50 Hz Timer gestartet. Node ist aktiv.")
 
+    def timer_callback(self):
+        self.yawCompass = self.compass.ReadYaw()
+    
     def calib_callback(self, msg):
         # Wird automatisch aufgerufen, wenn der CompassCalibrationNode publiziert
         self.compassCalibrationRunning = msg.data
@@ -300,8 +308,9 @@ class eKarrenNode(Node):
         
         self.scan_pub.publish(msg)
 
+    # Im Moment noch nur mit 10Hz
     def PublishTheta(self):
-        theta = self.compass.ReadYaw()
+        theta = self.yawCompass
         if theta is not None: 
             self.lastTheta = theta
         msg = Float32()

@@ -84,7 +84,7 @@ class ProCompass:
             mz = mRaw[2]
             print(f"{self.counter:5d} Kurs:{heading:3.0f}°  | Pitch:{math.degrees(pitch):3.0f}°  |"
                   f"  ACCEL -> ax:{ax:<4}  ay:{ay:<4}  az:{az:<4}  |"
-                  f"  MAG -> mx:{mx:<4}  my:{my:<4}  mz:{mz:<4}", end='\r')
+                  f"  MAG -> mx:{mx:<4}  my:{my:<4}  mz:{mz:<4}")  #, end='\r')
             self.counter += 1
             time.sleep(0.2)
 

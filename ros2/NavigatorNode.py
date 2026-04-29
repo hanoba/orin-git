@@ -197,7 +197,7 @@ class Navigator(Node):
             e = (e + math.pi) % math.tau - np.pi
             e = np.clip(e, -self.angularMax, self.angularMax)
             #print(f"{self.theta=}  {e=}  {self.wantedTheta=}")        
-            if abs(e) < 0.002: 
+            if abs(e) < np.deg2rad(10): # 0.002: 
                 self.wantedThetaReachedTime = self.get_clock().now().nanoseconds / 1e9
                 self.wantedThetaReached = True
                 self.get_logger().info(f"[{self.wantedThetaReachedTime:.3f}] [CompassCallback] wantedThetaReached")
