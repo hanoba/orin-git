@@ -1,0 +1,6 @@
+{
+  "WantedYaw_deg": 180.0,
+  "GotoWallFlag": true,
+  "StopDist": 2.0,
+  "LinearSpeed": 0.5
+}

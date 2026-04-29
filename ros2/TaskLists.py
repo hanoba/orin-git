@@ -5,6 +5,7 @@ from MowingTask import MowingTask
 from PassThroughGateTask import PassThroughGateTask
 from PassGateRansacTask import PassGateRansacTask
 from YawOffsetDetectionTask import YawOffsetDetectionTask
+from TestTask import TestTask
 import params
 from params import TaskState
 
@@ -443,3 +444,7 @@ Bestimme_YawOffset_TaskList = {
     "tasks": [ (YawOffsetDetectionTask(), None) ]
 }
 
+Test_TaskList = {
+    "name": "Test",
+    "tasks": [ (TestTask(), None) ]
+}
