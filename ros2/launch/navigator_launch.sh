@@ -69,9 +69,11 @@ sleep 3.0
 
 # --- 3. FEATURE EXTRACTION & NAVIGATION ---
 echo "🚀 Starte Navigator..."
-python3 NavigatorNode.py --ros-args -p use_sim_time:=$SIM_TIME
+python3 NavigatorNode.py --ros-args -p use_sim_time:=$SIM_TIME  &
 
 # GUI zur Service-Auswahl
-ros2 run rqt_service_caller rqt_service_caller &
+ros2 run rqt_service_caller rqt_service_caller --ros-args -p use_sim_time:=$SIM_TIME &
+
 
 echo "✅ Host-Simulation läuft."
+wait
