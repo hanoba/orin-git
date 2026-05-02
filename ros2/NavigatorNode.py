@@ -134,7 +134,7 @@ class Navigator(Node):
         self.retvals = None
                 
         # Publisher für die Fahrbefehle
-        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', qos_policy)
         
         # Publisher für rviz Textausgabe:
         self.text_pub = self.create_publisher(Marker, 'text_marker_topic', 10)

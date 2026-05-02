@@ -143,7 +143,7 @@ class eKarrenNode(Node):
         self.scan_pub = self.create_publisher(LaserScan, '/scan', custom_qos)  
 
         # Subscriber für Fahrbefehle von ROS 2
-        self.cmd_sub = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
+        self.cmd_sub = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, custom_qos)
 
         # Compass initialisieren
         self.compass = Compass()
