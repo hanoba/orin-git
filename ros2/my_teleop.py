@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import Twist
 import pygame
 import sys
@@ -8,8 +9,16 @@ class PygameTeleop(Node):
     def __init__(self):
         super().__init__('pygame_teleop')
         
+        # Custom Profil: Wir akzeptieren nur den EINEN neuesten Wert.
+        # Alles was älter ist, wird sofort gelöscht.
+        custom_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,  # Schnell, keine Garantien (wie UDP)
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,                                    # <--- WICHTIG: Puffergröße auf 1 zwingen!
+            durability=DurabilityPolicy.VOLATILE)
+
         # Topic-Name (hier anpassen, falls nötig)
-        self.publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.publisher_ = self.create_publisher(Twist, '/cmd_vel', custom_qos)
         
         # Timer veröffentlicht 10x pro Sekunde
         self.timer = self.create_timer(0.1, self.timer_callback)
