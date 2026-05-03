@@ -35,8 +35,11 @@ echo "Starte E-Karren (DEVICE=$DEVICE)"
 cd /root/ros2
 ros2 daemon start
 
-# E-Karren Node (publiziert /scan und /compass_heading. Steuert E-Karren based on subscribed /cmd_vel)
+# E-Karren Node (publiziert /compass_heading. Steuert E-Karren based on subscribed /cmd_vel)
 python3 eKarrenNode.py  --ros-args -p device:=$DEVICE &
+
+# Lidar Node (publiziert nur /scan)
+python3 eKarrenLidarNode.py &
 
 # Main Node zur Steuerung des E-Karrens
 python3 NavigatorNode.py --ros-args -p publish_odom_tf:=True &
