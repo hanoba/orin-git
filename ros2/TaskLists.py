@@ -9,6 +9,9 @@ from TestTask import TestTask
 import params
 from params import TaskState
 
+from visualization_msgs.msg import Marker
+
+
 LocXLT =    0   # Endkriterium: xPos < dist
 LocXGE =    1   # Endkriterium: xPos >= dist
 LocYLT =    2   # Endkriterium: yPos < dist
@@ -382,6 +385,10 @@ class StopTask:
         return
 
     def Step(self, scan_msg):
+        # rviz Marker löschen
+        clear_all_marker = Marker()
+        clear_all_marker.action = Marker.DELETEALL
+        self.node.marker_pub.publish(clear_all_marker)
         return TaskState.Ready, None
         
 

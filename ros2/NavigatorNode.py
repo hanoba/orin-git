@@ -279,6 +279,20 @@ class Navigator(Node):
     def cb_Stop(self, request, response):
         self.Reset()
         self.RvizPrint("Reset")
+
+        # rviz Markers löschen
+        # 1. Erstelle den einzelnen Marker für das Löschen
+        single_marker = Marker()
+        single_marker.header.frame_id = "map"  # Sicherhaltshalber setzen (z. B. "map" oder "odom")
+        single_marker.action = Marker.DELETEALL
+
+        # 2. Verpacke ihn in ein MarkerArray
+        clear_all_array = MarkerArray()
+        clear_all_array.markers.append(single_marker)  # Füge den Marker der Liste hinzu
+
+        # 3. Sende das Array über deinen Publisher
+        self.marker_pub.publish(clear_all_array)
+
         response.success = True 
         response.message = "Ein Reset wurde durchgeführt"
         return response

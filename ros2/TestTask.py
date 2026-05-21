@@ -5,6 +5,8 @@ import json
 import os
 import time
 from params import TaskState
+from GartenWorld import Localization
+from Ransac import PublishMarkers
 
 # Task zum Testen des E-Karrens.
 
@@ -13,6 +15,9 @@ from params import TaskState
 # 2) Ausrichtung des E-Karrens auf WantedYaw_deg
 # 3) Fahrt in diese Richtung bis ein Hindernis erreicht wird (wenn GotoWallFlag=True)
 #    Während der Fahrt wird vLinear gemessen
+# 4) Wenn ReturnFlag=True: Änderung der Fahrtrichtung um 180° und Rückfahrt bis Hindernis erkannt wird.
+# 5) Am Ende wird der Walldetector aufgerufen. Die erkannten Walls können mit Rviz angezeigt werden.
+# 6) Der Test muss manuell durch Aufruf des Stop-Service abgebrochen werden.
 
 # Default parameter
 OmegaMeasFlag = False
@@ -139,6 +144,7 @@ class TestTask:
                     self.node.SetDirection(self.yaw, LinearSpeed)
                     self.State = self.StateGotoWall
                 else:
+                    self.node.RvizPrint("Test completed")
                     self.State = self.StateIdle
 
         if self.State == self.StateGotoWall:
@@ -161,9 +167,17 @@ class TestTask:
                     self.node.SetWantedTheta(self.yaw)
                     self.State = self.StateAlignTheta
                 else:
+                    self.node.RvizPrint("Test completed")
                     self.State = self.StateIdle
 
-        if self.State == self.StateIdle:
-            return TaskState.Ready, None
+        elif self.State == self.StateIdle:
+            A = []
+            b = []
+            wallNumbers = []
+            #detectedWalls = self.node.Walldetector(scan_msg, -np.pi/2, np.pi/2)        
+            detectedWalls = self.node.Walldetector(scan_msg)        
+            detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, wallNumbers, debug=False)    #, ignore=ignoreList, debug=False)
+            PublishMarkers(self.node.marker_pub, detectedWalls, detectedWallsValid)
+                 #return TaskState.Ready, None
             
         return TaskState.Running, None

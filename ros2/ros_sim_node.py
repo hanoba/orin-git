@@ -60,7 +60,7 @@ class SimNode(Node):
             Twist, 
             '/cmd_vel', 
             self.cmd_vel_callback, 
-            10)
+            custom_qos)
         
         # Subscriber für das RViz Tool erstellen
         self.goal_sub = self.create_subscription(
@@ -86,6 +86,7 @@ class SimNode(Node):
         """Wird aufgerufen, wenn ROS2 einen Fahrbefehl sendet."""
         vLinear = msg.linear.x
         omega = msg.angular.z
+        #print(vLinear,omega) 
         self.sim.SetRobotSpeed(vLinear, omega)
 
 

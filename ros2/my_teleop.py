@@ -49,9 +49,9 @@ class PygameTeleop(Node):
 
         # Angular (Links / Rechts drehen)
         if keys[pygame.K_LEFT] and not keys[pygame.K_RIGHT]:
-            self.twist.angular.z = self.speed_angular
-        elif keys[pygame.K_RIGHT] and not keys[pygame.K_LEFT]:
             self.twist.angular.z = -self.speed_angular
+        elif keys[pygame.K_RIGHT] and not keys[pygame.K_LEFT]:
+            self.twist.angular.z = self.speed_angular
         else:
             self.twist.angular.z = 0.0
 
