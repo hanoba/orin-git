@@ -4,6 +4,7 @@ from geometry_msgs.msg import Point
 from std_msgs.msg import ColorRGBA
 
 MAX_GAP = 0.50      # 1.0
+DIST_THRESH = 0.05   # 0.05
 
 def find_intersection(line1, line2):
     p1, p2 = line1; p3, p4 = line2
@@ -20,7 +21,7 @@ def get_lines_with_gap_check(points):
     pts = points.astype(np.float32)
     best_mask = None
     best_count = 0
-    dist_thresh = 0.05
+    dist_thresh = DIST_THRESH
 
     # 1. RANSAC wie gehabt
     for _ in range(40):
@@ -82,7 +83,7 @@ def get_lines_without_gap_check(points):
     pts = points.astype(np.float32)
     best_mask = None
     best_count = 0
-    dist_thresh = 0.05
+    dist_thresh = DIST_THRESH
 
     # 1. RANSAC (unverändert)
     for _ in range(40):
@@ -130,7 +131,7 @@ def LineDetection(points):
     # Iterativ Linien suchen
     for _ in range(10):
         if len(temp_points) < 6: break
-        lines, mask = get_lines_with_gap_check(temp_points)
+        lines, mask = get_lines_without_gap_check(temp_points)
         if not lines: break
         
         all_detected_walls.extend(lines)
