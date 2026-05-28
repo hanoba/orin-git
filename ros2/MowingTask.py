@@ -72,7 +72,7 @@ class MowingTask:
         self.K_head = 0.8 # 0.7          # 0.5      # heading error (Winkel)
         self.node = node
         self.laneDist = 0.2
-        self.startDist = 2.6+0.6*0
+        self.startDist = 2.6*0+0.6*1
         self.wantedDist = self.startDist
         self.wallAngle = np.deg2rad(85)
         self.wantedTheta = self.wallAngle
@@ -134,7 +134,7 @@ class MowingTask:
             dist, angle, worldAngle = self.DistAngleClosestWall(matchingWalls)
             ok, x, y, res = ComputePosition(self.node, walls)
             
-            if 0.0 < dist < np.inf:
+            if (0.0 < dist < np.inf) and ok:
                 lateralError = dist - self.wantedDist
                 angle = NormalizeAngle(angle)
                 headingError = 0.0 - angle

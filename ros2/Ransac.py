@@ -3,7 +3,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
 from std_msgs.msg import ColorRGBA
 
-MAX_GAP = 0.50      # 1.0
+MAX_GAP = 1.5  #0.50      # 1.0
 DIST_THRESH = 0.05   # 0.05
 
 def find_intersection(line1, line2):
@@ -131,7 +131,7 @@ def LineDetection(points):
     # Iterativ Linien suchen
     for _ in range(10):
         if len(temp_points) < 6: break
-        lines, mask = get_lines_without_gap_check(temp_points)
+        lines, mask = get_lines_with_gap_check(temp_points)
         if not lines: break
         
         all_detected_walls.extend(lines)

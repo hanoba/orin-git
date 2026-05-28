@@ -66,7 +66,7 @@ GATE_Y2 = 360
 # LiDAR Parameter
 LIDAR_COUNT = 2*params.LidarMaxAngle                        # Anzahl der Strahlen (1° Raster)
 LIDAR_MAX_RANGE = params.LidarRangeMax / MetersPerPixel     # maximale Messdistanz in Pixeln
-LIDAR_NOISE_STD = 0.5                                       # Gauß‑Rauschen (σ) auf Distanzmessung
+LIDAR_NOISE_STD = 0.5*3                                       # Gauß‑Rauschen (σ) auf Distanzmessung
 
 # Roboterkinematik
 #ROBOT_RADIUS = 11  # 16                    # nur für Zeichnung/Kollision (Kreis)
