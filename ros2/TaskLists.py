@@ -400,7 +400,7 @@ Localization_TaskList = {
 }
 
 Mowing_TaskList = {
-    "name": "Rasenmähen",
+    "name": "Rasenmaehen",
     "tasks": [ (MowingTask(), None) ]
 }
 

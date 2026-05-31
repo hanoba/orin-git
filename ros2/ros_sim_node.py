@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 #from rclpy.time import Time
 #from rclpy.duration import Duration
-from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 #from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import TransformStamped, Twist, PoseStamped
@@ -16,6 +16,9 @@ import numpy as np # Vergiss nicht numpy zu importieren!
 import sys
 from sim import Simulation
 import params
+from params import Udp
+from UdpSend import UdpSend
+import errno
 
 
 class SimNode(Node):
@@ -145,8 +148,23 @@ class SimNode(Node):
         scan.ranges = dist.tolist()
 
         #count = int(round((scan.angle_max - scan.angle_min) / scan.angle_increment))
-        self.scan_pub.publish(scan)
+
+        # Sicherheits-Block fängt "[Errno 101] Network is unreachable" ab
+        try:
+            self.scan_pub.publish(scan)
+            
+        except OSError as e:
+            # Wenn es der spezifische WSL2-Netzwerkfehler ist: Ignorieren!
+            if e.errno == errno.ENETUNREACH: # ENETUNREACH ist Fehler 101
+                self.get_logger().warn("WSL2 Netzwerk-Schluckauf (Errno 101). Frame wird übersprungen...")
+            else:
+                # Bei anderen Systemfehlern trotzdem warnen, aber NICHT abstürzen
+                self.get_logger().error(f"OS Fehler beim Senden: {e}")
                 
+        except Exception as e:
+            # Fängt alle anderen unerwarteten Fehler ab, damit der Simulator am Leben bleibt
+            self.get_logger().error(f"Unerwarteter Sende-Fehler: {e}")       
+            
     def PublishPositionAndTime(self, posX, posY, theta):
         # Compute time
         #current_time = Time(seconds=self.sim.sim_time_sec)
@@ -175,6 +193,18 @@ class SimNode(Node):
             t.transform.rotation.z = math.sin(theta / 2.0)
             t.transform.rotation.w = math.cos(theta / 2.0)
             self.tf_broadcaster.sendTransform(t)
+            
+            # POSE an Visualizer senden
+            cm = 100.0
+            theta_deg = np.degrees(theta)
+            udp_header = Udp.POSE
+            udp_data = [
+                # round(x) gibt in Python 3 automatisch einen Integer zurück
+                round(posX*cm),       # X-Koordinate in cm
+                round(posY*cm),       # Y-Koordinate in cm
+                round(theta_deg)      # Yaw in Grad
+            ]
+            UdpSend(udp_header, udp_data)
 
         # Kleine Erfolgsmeldung alle 100 Pakete
         theta_deg = int(np.rad2deg(theta))

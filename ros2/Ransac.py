@@ -2,6 +2,8 @@ import numpy as np
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
 from std_msgs.msg import ColorRGBA
+from UdpSend import UdpSend
+from params import Udp
 
 MAX_GAP = 1.5  #0.50      # 1.0
 DIST_THRESH = 0.05   # 0.05
@@ -50,7 +52,7 @@ def get_lines_with_gap_check(points):
     projections = np.dot(inliers - mean, direction)
     sort_idx = np.argsort(projections)
     sorted_inliers = inliers[sort_idx]
-    sorted_proj = projections[sort_idx]
+    #sorted_proj = projections[sort_idx]
 
     # Abstände zwischen aufeinanderfolgenden Punkten berechnen
     diffs = np.linalg.norm(sorted_inliers[1:] - sorted_inliers[:-1], axis=1)
@@ -167,12 +169,32 @@ def PublishMarkers(pub, all_detected_walls, isDetectedWallValid):
     m_spheres.scale.x = m_spheres.scale.y =  m_spheres.scale.z = 0.25*2
     m_spheres.color.b = 1.0; m_spheres.color.a = 1.0
 
+    num_lines = len(all_detected_walls)
+    
+    # UDP Kommando zum Zeichen von Linien
+    udp_header = Udp.MARKER_LINES
+    udp_data = [
+        Udp.FRAME_LIDAR,    # Frame (FRAME_LIDAR oder FRAME_MAP)
+        Udp.BLUE]           # Für Linien-Endpunkte blaue Kreise zeichnen (NONE = keine Kreise)
+        # Es folgen die Linien sx, sy, ex, ey ...
+        # und danach die Farben der Linien
+    cm = 100.0  # zur Umrechnung von Meter in cm
+    udp_line_colors = []
+    
     for i, (start, end) in enumerate(all_detected_walls):
         p_start = Point(x=float(start[0]), y=float(start[1]), z=z_height)
         p_end = Point(x=float(end[0]), y=float(end[1]), z=z_height)
-
-        wall_color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8) if isDetectedWallValid[i] else ColorRGBA(r=0.0, g=1.0, b=0.0, a=0.8)        
         
+        if isDetectedWallValid[i]:
+            wall_color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8)  
+            udp_line_colors.append(Udp.RED)
+        else: 
+            wall_color = ColorRGBA(r=0.0, g=1.0, b=0.0, a=0.8)        
+            udp_line_colors.append(Udp.GREEN)
+
+        sx, sy, ex, ey = int(start[0]*cm), int(start[1]*cm), int(end[0]*cm), int(end[1]*cm)
+        udp_data.extend([sx, sy, ex, ey])
+
         # Punkte zur Linienliste hinzufügen
         m_lines.points.append(p_start)
         m_lines.points.append(p_end)
@@ -189,3 +211,7 @@ def PublishMarkers(pub, all_detected_walls, isDetectedWallValid):
     markers.markers.append(m_spheres)
     
     pub.publish(markers)
+    
+    if num_lines > 0:
+        udp_data.extend(udp_line_colors)
+        UdpSend(udp_header, udp_data)

@@ -12,6 +12,30 @@ class TaskState(IntEnum):
     Ready = 1
     Error = 2
 
+class Udp(IntEnum):
+    # Farben
+    NONE = 0
+    WHITE = 1
+    RED = 2
+    GREEN = 3
+    BLUE = 4 
+    
+    # Frames
+    FRAME_LIDAR = 10
+    FRAME_MAP = 11
+    
+    # UDP-Headers       # Parameters (short)    
+    MARKER_LINES = 20   # frame_id, point_color, sx1, sy1, ex1, ey1, ... sxN, syN, exN, eyN, line_color1, ... line_colorN
+    MARKER_POINTS = 21  # x_cm, y_cm, yaw_deg
+    MARKER_DELETE = 22
+    LIDAR_DATA = 30
+    POSE = 31
+    TEXT = 32
+    
+    # UDP port für Visualisierung auf Laptop
+    PORT = 5006
+
+
 # angle range = -(LidarMaxAngle-1) ... LidarMaxAngle
 LidarMaxAngle = 180  # 120
 LidarRangeMin = 0.1
@@ -36,7 +60,7 @@ def WriteYawOffset(yawOffset_rad):
     with open("YawOffsetNew_deg.txt", "w") as file:
         file.write(str(np.degrees(yawOffset_rad)))
 
-config = 7
+config = 5
 if config==0:
     RobotInitX = 15.00      # Im Garten beim Gartentor
     RobotInitY =  9.00

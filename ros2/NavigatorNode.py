@@ -13,8 +13,8 @@ import math
 import Ransac
 import TaskLists
 
-from params import TaskState
-
+from params import TaskState, Udp
+from UdpSend import UdpSend, UdpPrint
 
 def NormalizeAngle(angle_rad):
     return (angle_rad + math.pi) % math.tau - np.pi
@@ -232,10 +232,10 @@ class Navigator(Node):
 
             t.header.frame_id = 'map'       # Die Karte ist der Ursprung
             t.child_frame_id = 'odom'       # Wir bewegen den Odom-Frame (der starr am Roboter klebt)
-
+            
             # Deine geschätzte Position (Absolute Koordinaten auf der Karte)
             posX, posY = self.odom.GetPos()
-            
+
             t.transform.translation.x = float(posX)
             t.transform.translation.y = float(posY)
             t.transform.translation.z = 0.0
@@ -245,7 +245,19 @@ class Navigator(Node):
             t.transform.rotation.w = math.cos(self.theta / 2.0)
 
             self.tf_broadcaster.sendTransform(t)
-        
+
+            # POSE an Visualizer senden
+            cm = 100.0
+            theta_deg = np.degrees(self.theta)
+            udp_header = Udp.POSE
+            udp_data = [
+                # round(x) gibt in Python 3 automatisch einen Integer zurück
+                round(posX*cm),       # X-Koordinate in cm
+                round(posY*cm),       # Y-Koordinate in cm
+                round(theta_deg)      # Yaw in Grad
+            ]
+            UdpSend(udp_header, udp_data)
+                    
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
         self.get_logger().info(
             f"[ScanCallback] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  "
@@ -347,6 +359,7 @@ class Navigator(Node):
             self.get_logger().error(f"[GotoTask] Illegal task index: {taskIndex}")
 
     def RvizPrint(self, text):
+        UdpPrint(text)
         marker = Marker()
         marker.header.frame_id = "map"  # Muss mit deinem Fixed Frame in RViz übereinstimmen
         marker.type = Marker.TEXT_VIEW_FACING
