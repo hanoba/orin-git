@@ -7,7 +7,8 @@ from PassGateRansacTask import PassGateRansacTask
 from YawOffsetDetectionTask import YawOffsetDetectionTask
 from TestTask import TestTask
 import params
-from params import TaskState
+from params import TaskState, Udp
+from UdpSend import UdpSend
 
 from visualization_msgs.msg import Marker
 
@@ -389,6 +390,7 @@ class StopTask:
         clear_all_marker = Marker()
         clear_all_marker.action = Marker.DELETEALL
         self.node.marker_pub.publish(clear_all_marker)
+        UdpSend(Udp.MARKER_DELETEALL)
         return TaskState.Ready, None
         
 

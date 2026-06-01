@@ -3,9 +3,9 @@ from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
 from std_msgs.msg import ColorRGBA
 import Ransac
-from params import TaskState
+from params import TaskState, Udp
 from params import ReadYawOffset, WriteYawOffset
-
+from UdpSend import UdpSend
 
 class YawOffsetDetectionTask:
     def Init(self, node, params, retvals=None):
@@ -56,8 +56,9 @@ class YawOffsetDetectionTask:
     def Walldetector(self, msg):
         ranges = np.array(msg.ranges)
         angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
+        anglesMask = (angles > -np.pi/2) & (angles < np.pi/2)
         rangesMask = np.isfinite(ranges) & (ranges > msg.range_min + 0.01) & (ranges < msg.range_max - 0.1)
-        points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[rangesMask]
+        points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[anglesMask & rangesMask]
         allDetectedWalls = Ransac.LineDetection(points)
         return allDetectedWalls
         
@@ -117,11 +118,26 @@ class YawOffsetDetectionTask:
         m_spheres.scale.x = m_spheres.scale.y =  m_spheres.scale.z = 0.25*2
         m_spheres.color.b = 1.0; m_spheres.color.a = 1.0
 
+        num_lines = len(walls)
+    
+        # UDP Kommando zum Zeichen von Linien
+        udp_header = Udp.MARKER_LINES
+        udp_data = [
+            Udp.FRAME_LIDAR,    # Frame (FRAME_LIDAR oder FRAME_MAP)
+            Udp.NONE]           # Für Linien-Endpunkte keine Kreise zeichnen
+            # Es folgen die Linien sx, sy, ex, ey ...
+            # und danach die Farben der Linien
+        cm = 100.0  # zur Umrechnung von Meter in cm
+        udp_line_colors = []
+    
         for start, end in walls:
             p_start = Point(x=float(start[0]), y=float(start[1]), z=z_height)
             p_end = Point(x=float(end[0]), y=float(end[1]), z=z_height)
 
-            wall_color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8) # if isDetectedWallValid[i] else ColorRGBA(r=0.0, g=1.0, b=0.0, a=0.8)        
+            wall_color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8) # if isDetectedWallValid[i] else ColorRGBA(r=0.0, g=1.0, b=0.0, a=0.8)      
+            udp_line_colors.append(Udp.RED)
+            sx, sy, ex, ey = round(start[0]*cm), round(start[1]*cm), round(end[0]*cm), round(end[1]*cm)
+            udp_data.extend([sx, sy, ex, ey])
             
             # Punkte zur Linienliste hinzufügen
             m_lines.points.append(p_start)
@@ -130,13 +146,30 @@ class YawOffsetDetectionTask:
             # Farbe zweimal hinzufügen (für beide Enden des Segments)
             m_lines.colors.append(wall_color)
             m_lines.colors.append(wall_color)
+    
+        if num_lines > 0:
+            udp_data.extend(udp_line_colors)
+            UdpSend(udp_header, udp_data)
             
+        # UDP Kommando zum Zeichen von Punkten
+        udp_header = Udp.MARKER_POINTS
+        udp_data = [
+            Udp.FRAME_LIDAR,    # Frame (FRAME_LIDAR oder FRAME_MAP)
+            Udp.BLUE]           # Für Punkte blaue Kreise zeichnen (NONE = keine Kreise)
+            # Es folgen die Punkte px1, py1, px2, py2 ...
+
         for p in punkte:
             # Punkt zur Sphärenliste hinzufügen
             sphere = Point(x=float(p[0]), y=float(p[1]), z=z_height)
             m_spheres.points.append(sphere)
 
+            px, py = round(p[0]*cm), round(p[1]*cm)
+            udp_data.extend([px, py])
+
+        UdpSend(udp_header, udp_data)
+        
         markers.markers.append(m_lines)
         markers.markers.append(m_spheres)
         
         pub.publish(markers)
+        

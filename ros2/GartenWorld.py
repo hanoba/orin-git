@@ -118,10 +118,10 @@ def PrintLineMatrix():
         print(f"{LineMatrixRowText(num)}")
 
 def X(meter):
-    return meter*PixelsPerMeter + PixelOffsetX
+    return round(meter*PixelsPerMeter + PixelOffsetX)
 
 def Y(meter):
-    return PixelOffsetY - meter*PixelsPerMeter
+    return round(PixelOffsetY - meter*PixelsPerMeter)
 
 def Xm(pixel):
     return (pixel - PixelOffsetX)*MetersPerPixel
@@ -353,7 +353,7 @@ class World:
         self.Line(PB, PC)
         self.Line(PC, PD)
         self.Line(PD, PA)
-        AddLineForPositioning(0, PA, PB, P_NORTH,  7.0)
+        AddLineForPositioning(0, PA, PB, P_NORTH,  4.0)   # war 7.0
         AddLineForPositioning(1, PB, PC, P_EAST,   4.0)
         AddLineForPositioning(2, PC, PD, P_SOUTH,  3.0)   # war 7.0
         AddLineForPositioning(3, PD, PA, P_WEST, 7.0)

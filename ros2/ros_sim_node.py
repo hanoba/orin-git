@@ -146,6 +146,11 @@ class SimNode(Node):
         
         dist = np.clip(dist, scan.range_min, scan.range_max)
         scan.ranges = dist.tolist()
+        
+        cm = 100.0
+        dist_cm = dist*cm
+        dist_cm = dist_cm.astype(np.int16)
+        UdpSend(Udp.LIDAR_DATA, dist_cm.tolist())
 
         #count = int(round((scan.angle_max - scan.angle_min) / scan.angle_increment))
 

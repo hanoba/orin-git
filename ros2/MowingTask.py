@@ -193,7 +193,7 @@ class MowingTask:
                             self.followRight = True
                             self.wantedDist += self.laneDist  
             else:
-                print("No position")
+                print(f"No position {res=}")
         elif self.state == self.StateIdle:
             self.node.ResetDirection()
             return TaskState.Ready, None

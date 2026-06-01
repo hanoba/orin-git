@@ -42,7 +42,7 @@ os.environ["SDL_AUDIODRIVER"] = "dummy"
 
 #sys.path.append('../HostSim')
 import params
-from params import Udp
+from params import Udp, LidarMaxAngle
 from UdpReceive import UdpReceive
 
 
@@ -57,7 +57,7 @@ WALL_COLOR = (180, 180, 180)         # Farbe der Wände
 POINT_COLOR = (255, 0, 0)            # Farbe für berechnetes Tor und Startpunkt
 POINT_RADIUS = 8                     # Punktradius für berechnetes Tor und Startpunkt
 LIDAR_RAY_COLOR = (90, 90, 130)      # Linienfarbe der LiDAR‑Strahlen
-LIDAR_HIT_COLOR = (220, 220, 80)     # Punktfarbe für LiDAR‑Treffer
+LIDAR_HIT_COLOR = (255, 255, 0)      # Punktfarbe für LiDAR‑Treffer
 TARGET_COLOR = (255, 120, 120)       # Visualisierung der Zielrichtung
 
 # Weltgeometrie
@@ -289,6 +289,9 @@ class Visualizer:
         self.hideRedLines = False
         self.hideGreenLines = False
         self.hideBlueLines = False
+        self.hideLidarPoints = False
+        
+        self.InitLidar()
 
     def DrawWorld(self, world):
         surf = self.map
@@ -345,6 +348,8 @@ class Visualizer:
                     self.hideGreenLines = not self.hideGreenLines
                 elif event.key == pygame.K_b:
                     self.hideBlueLines = not self.hideBlueLines
+                elif event.key == pygame.K_l:
+                    self.hideLidarPoints = not self.hideLidarPoints
                 
         #self.screen.fill(BG_COLOR)
         self.screen.blit(self.map, (0, 0))
@@ -382,9 +387,13 @@ class Visualizer:
         # Hier normal zeichnen:
         self.screen.blit(self.bitBlock, (10, 10))
 
-        # UDP-Kommandos einlesen und Marker zeichnen
+        # UDP-Kommandos einlesen und dekodieren
         self.HandleUdpCommands()
+
+        # Lidar und Markers zeichnen
+        self.DrawLidarPoints()
         self.DrawMarkerLines()
+        self.DrawMarkerPoints()
         
         pygame.display.flip()
         
@@ -406,21 +415,35 @@ class Visualizer:
                 tu = math.radians(udp_data[2])
                 self.robot.SetPose(xu,yu,tu)
                 #print(xu,yu,tu)    
+            elif udp_header == Udp.LIDAR_DATA:
+                # Kommando-Parameter: range1, range2, ... rangeN
+                assert len(udp_data) == 2*LidarMaxAngle
+                self.CreateLidarPoints(udp_data)                
             elif udp_header == Udp.MARKER_LINES:
                 # Kommando-Parameter:
                 # frameType, endPointColor, sx1, sy1, ex1, ey1, ... sxN, syN, exN, eyN, lineColor1, ... lineColorN
                 frameType = udp_data[0]
-                self.markerEndPointColor = self.Color(udp_data[1])
+                self.markerEndPointColor = udp_data[1]
                 data_len = len(udp_data)
                 num_lines = (data_len - 2) // 5
                 assert num_lines > 0
                 assert num_lines*5 == data_len-2
                 n = 2 + 4*num_lines
                 #print(num_lines)
-                self.CreateMarkerLines(udp_data[2:n], frameType)
+                self.markerLinePoints = self.CreateMarkerPoints(udp_data[2:n], frameType)
                 #self.CreateMarkerLineColors(udp_data[n:])
                 self.markerLineColors = udp_data[n:]
-            elif udp_header == Udp.MARKER_DELETE:
+            elif udp_header == Udp.MARKER_POINTS:
+                # Kommando-Parameter:
+                # frameType, point_color, x1, x2, ... xN
+                frameType = udp_data[0]
+                self.markerPointColor = udp_data[1]
+                data_len = len(udp_data)
+                num_points = (data_len - 2) // 2
+                assert num_points > 0
+                assert num_points*2 == data_len-2
+                self.markerPoints = self.CreateMarkerPoints(udp_data[2:], frameType)
+            elif udp_header == Udp.MARKER_DELETEALL:
                 self.InitMarkers()
             elif udp_header == Udp.TEXT:
                 self.udp_text = udp_data
@@ -429,12 +452,15 @@ class Visualizer:
         if c==Udp.RED: return (200, 0, 0)
         elif c==Udp.GREEN: return (0, 200, 0)
         elif c==Udp.BLUE: return (0, 0, 200)
-        assert c==Udp.WHITE
+        elif c==Udp.WHITE: return (200, 200, 200)
+        assert c==Udp.NONE
         return (200, 200, 200)
 
     def InitMarkers(self):
         self.markerLinePoints = None
-        self.markerEndPointColor = self.Color(Udp.WHITE)
+        self.markerPoints = None
+        self.markerEndPointColor = Udp.WHITE
+        self.markerPointColor = Udp.WHITE
         self.markerLineColors = []
     
     def CreateMarkerLineColors(self, colors):
@@ -442,7 +468,7 @@ class Visualizer:
         for c in colors:
             self.markerLineColors.append(self.Color(c))
 
-    def CreateMarkerLines(self, points_list, frameType):
+    def CreateMarkerPoints(self, points_list, frameType):
         x, y, theta_rad = self.robot.GetPose()
 
         # Position des Roboters als NumPy-Arrays definieren
@@ -456,8 +482,7 @@ class Visualizer:
         points = np.array(points_list).reshape(-1, 2) * meter + lidarOffset
         
         if frameType == Udp.FRAME_MAP:
-            self.markerLinePoints = points
-            return
+            return points
         
         # Rotationsmatrix erstellen
         c, s = np.cos(theta_rad), np.sin(theta_rad)
@@ -468,8 +493,8 @@ class Visualizer:
         ])
         
         # Alle Punkte auf einmal rotieren (Matrixmultiplikation) und Offet addieren
-        self.markerLinePoints = points.dot(rot_matrix) + robotPos
-        
+        return points.dot(rot_matrix) + robotPos
+
     def DrawMarkerLines(self):
         if self.markerLinePoints is None:
             return
@@ -506,18 +531,83 @@ class Visualizer:
                 pygame.draw.line(self.screen, color, (start_x, start_y), (end_x, end_y), 3)
                 
                 # Optional: Kleine Kreise auf die Eckpunkte setzen, um sie zu betonen
-                pygame.draw.circle(self.screen, self.markerEndPointColor, (start_x, start_y), 4)
-                pygame.draw.circle(self.screen, self.markerEndPointColor, (end_x, end_y), 4)            
+                if self.markerEndPointColor != Udp.NONE:
+                    color = self.Color(self.markerEndPointColor)
+                    pygame.draw.circle(self.screen, color, (start_x, start_y), 4)
+                    pygame.draw.circle(self.screen, color, (end_x, end_y), 4)            
+
+    def DrawMarkerPoints(self):
+        if self.markerPoints is None:
+            return
+            
+        for point in self.markerPoints:
+            # Punkt in Pygame-Pixel umrechnen
+            px = X(point[0])
+            py = Y(point[1])
+            
+            # Einen kleinen Kreis zeichnen
+            color = self.Color(self.markerPointColor)
+            pygame.draw.circle(self.screen, color, (px, py), 4)
+
+    def InitLidar(self):
+        angles = np.radians(-(LidarMaxAngle-1) + np.arange(2*LidarMaxAngle))
+        self.cos_angles = np.cos(angles)
+        self.sin_angles = np.sin(angles)
+        self.lidarPoints = None
+
+    def CreateLidarPoints(self, ranges_list):
+        """ Wandelt LiDAR ranges in ein Nx2 NumPy-Array mit [X, Y] Welt-Koordinaten um. """
+
+        # Lidar-Daten in NumPy-Arrays umwandeln
+        meter = 0.01
+        ranges_np = np.array(ranges_list) * meter
+        
+        # Vektorisierte Berechnung von X und Y für alle gültigen Punkte
+        x = ranges_np * self.cos_angles
+        y = ranges_np * self.sin_angles
+
+        # Offset des Lidar-Sensors als NumPy-Arrays definieren
+        lidarOffset = np.array([params.LidarX, 0])        
+        
+        # X und Y zu einer Nx2 Matrix zusammenfügen (wie in unserem vorherigen Code!)
+        # Ergebnis sieht so aus: [[x0, y0], [x1, y1], ...]
+        points = np.column_stack((x, y)) + lidarOffset
+    
+        # Position des Roboters als NumPy-Arrays definieren
+        x, y, theta_rad = self.robot.GetPose()
+        robotPos = np.array([x, y])        
+
+        # Rotationsmatrix erstellen
+        c, s = np.cos(theta_rad), np.sin(theta_rad)
+        # Da wir Zeilenvektoren haben, nutzen wir die transponierte Rotationsmatrix
+        rot_matrix = np.array([
+            [ c, s],
+            [-s, c]
+        ])
+        
+        # Alle Punkte auf einmal rotieren (Matrixmultiplikation) und Offet addieren
+        self.lidarPoints = points.dot(rot_matrix) + robotPos
+
+    def DrawLidarPoints(self):
+        if self.lidarPoints is None or self.hideLidarPoints:
+            return
+            
+        for point in self.lidarPoints:
+            # Lidarpunkt in Pygame-Pixel umrechnen und als kleine Kreise zeichnen
+            x = X(point[0])
+            y = Y(point[1])
+            #pygame.draw.circle(self.screen, LIDAR_HIT_COLOR, (x, y), 2)
+            self.screen.set_at((x, y), LIDAR_HIT_COLOR)
 
     def Quit(self):
         pygame.quit()
     
 if __name__ == "__main__":
     viz = Visualizer()
-    try:
-        while viz.running:
-            viz.Step()
-    except Exception as e:
-        print("Error:", e, file=sys.stderr)
+    #try:
+    while viz.running:
+        viz.Step()
+    #except Exception as e:
+    #    print("Error:", e, file=sys.stderr)
     viz.Quit()
     sys.exit()

@@ -7,7 +7,8 @@ import numpy as np # Vergiss nicht numpy zu importieren!
 import sys
 import ydlidar
 import threading
-from params import LidarMaxAngle
+from params import LidarMaxAngle, Udp
+from UdpSend import UdpSend
 
 
 class eKarrenLidarNode(Node):
@@ -143,7 +144,17 @@ class eKarrenLidarNode(Node):
         msg.range_max = self.scan_data.config.max_range
         
         # Das berechnete NumPy-Array als Python-Liste übergeben
-        msg.ranges = limited_ranges.tolist() if useLimitedRanges else min_ranges.tolist()
+        cm = 100.0
+        if useLimitedRanges:
+            msg.ranges = limited_ranges.tolist()
+            ranges_cm = limited_ranges*cm
+        else:
+            msg.ranges = min_ranges.tolist()
+            ranges_cm = min_ranges*cm
+        
+        ranges_cm = ranges_cm.astype(np.int16)
+        UdpSend(Udp.LIDAR_DATA, ranges_cm.tolist())
+
         
         # Intensities lassen wir leer, da wir das Minimum der Distanzen genommen haben 
         # und die Zuordnung zur Intensität jetzt nicht mehr eindeutig wäre.

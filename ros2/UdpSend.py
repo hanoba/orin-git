@@ -78,16 +78,22 @@ def sendto(packet):
         print(f"Unerwarteter Sende-Fehler: {e}")       
       
 
-def UdpSend(header, data):
+def UdpSend(header, data=[]):
     # '<h bedeutet: '<' = Little-Endian, 'h' = signed short (2 Bytes)
     # Falls du einen unsigned integer brauchst, nutze '<H'
     header_bytes = struct.pack('<h', header)
 
+    data_len = len(data)
+    if data_len <= 0:
+        # nur header senden
+        sendto(header_bytes)
+        return
+        
     # 1. Format-String erstellen
     # '<' bedeutet Little-Endian 
     # 'h' steht für "short" (das ist C-Sprech für einen 16-Bit Integer)
     # Wir multiplizieren das 'h' mit der Länge der Liste (ergibt hier '>4h')
-    format_string = f'<{len(data)}h'
+    format_string = f'<{data_len}h'
 
     # 2. Packen
     # Das Sternchen (*) entpackt die Liste, da pack() einzelne Argumente erwartet
