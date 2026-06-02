@@ -1,62 +1,15 @@
-import subprocess
-import sys
 import socket
 import struct
-import platform
 from params import Udp
 import errno
+import os
 
-IpDesktopWohnung = "127.0.0.1" #"192.168.178.42"
-IpLaptopWohnung  = "192.168.178.104"
-IpLaptopGarten   = "192.168.20.41"
-
-udpIp1 = IpLaptopGarten     # Laptop Garten
-udpIp2 = None               # kein Desktop im Garten
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-
-def is_wsl():
-    # Gibt True zurück, wenn wir in WSL sind
-    return 'microsoft' in platform.release().lower() or 'wsl' in platform.release().lower()    
-
-def get_active_ssid():
-    """Liest die aktive WLAN-SSID über nmcli aus."""
-    if is_wsl(): return "wsl"
-    
-    try:
-        # nmcli ausführen und Ausgabe abfangen
-        result = subprocess.run(
-            ['nmcli', '-t', '-f', 'active,ssid', 'dev', 'wifi'],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=True
-        )
-        
-        # Zeilenweise durchsuchen (ersetzt grep, cut und head)
-        for line in result.stdout.splitlines():
-            if line.startswith('ja:') or line.startswith('yes:'):
-                # Teilt den String am ersten ':' und gibt den zweiten Teil (die SSID) zurück
-                return line.split(':', 1)[1]
-                
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        # Greift, falls nmcli fehlschlägt oder nicht installiert ist
-        print(e)
-        
-    return None
-
-   
-ssid = get_active_ssid()
-if ssid:
-    if ssid != "AndroidHanoba":
-        udpIp1 = IpLaptopWohnung    # Laptop Wohnung
-        udpIp2 = IpDesktopWohnung   # AZ-KENO Wohnung
-        
-    # Optional: Zur Kontrolle ausgeben
-    print(f"Erfolg: SSID={ssid}, {udpIp1=}, {udpIp2=}")
-else:
-    print("Fehler: SSID konnte nicht gefunden werden.", file=sys.stderr)
-    sys.exit(1)
+# Frage Environment-Variablen ab. Falls sie nicht existieren, wird None zurückgegeben.
+udpIp1 = os.environ.get('EKARREN_VIZ_IP1')
+udpIp2 = os.environ.get('EKARREN_VIZ_IP2')
+assert udpIp1 is not None
 
 
 def sendto(packet):

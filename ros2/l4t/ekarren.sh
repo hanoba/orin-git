@@ -9,5 +9,7 @@ sudo docker restart ros2_dev_container
 echo "./ekarren_l4t_launch.sh"
 sudo docker exec -it \
     -e CYCLONEDDS_URI="$CYCLONEDDS_URI" \
+    -e EKARREN_VIZ_IP1="$EKARREN_VIZ_IP1" \
+    -e EKARREN_VIZ_IP2="$EKARREN_VIZ_IP2" \
     ros2_dev_container bash -c "source /root/ros2/l4t/start-ros.bash && bash"
 

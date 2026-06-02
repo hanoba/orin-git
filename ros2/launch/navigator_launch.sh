@@ -21,6 +21,9 @@ trap cleanup SIGINT SIGTERM
 export ROS_DOMAIN_ID=15
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export CYCLONEDDS_URI=/home/harald/orin-git/ros2/wsl2/cyclonedds_wsl2_local.xml
+export EKARREN_VIZ_IP1="192.168.178.104"    # IP Laptop Wohnung
+export EKARREN_VIZ_IP2="127.0.0.1"          # IP Desktop Wohnung
+
 #unset CYCLONEDDS_URI CYCLONE_DDS_URI
 #export ROS_LOCALHOST_ONLY=1
 
