@@ -11,7 +11,6 @@ udpIp1 = os.environ.get('EKARREN_VIZ_IP1')
 udpIp2 = os.environ.get('EKARREN_VIZ_IP2')
 assert udpIp1 is not None
 
-
 def sendto(packet):
     # Sicherheits-Block fängt "[Errno 101] Network is unreachable" ab
     try:

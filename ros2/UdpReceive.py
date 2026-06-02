@@ -3,7 +3,7 @@ import struct
 import sys
 from params import Udp
 
-listen_ip="127.0.0.1"
+listen_ip="0.0.0.0" # lausche auf alle Netzwerk-Interfaces
 buffer_size=2048
 
 
