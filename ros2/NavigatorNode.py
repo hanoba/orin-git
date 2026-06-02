@@ -291,23 +291,27 @@ class Navigator(Node):
     def cb_Stop(self, request, response):
         self.Reset()
         self.RvizPrint("Reset")
+        self.DeleteAllMarkers()
+        response.success = True 
+        response.message = "Ein Reset wurde durchgeführt"
+        return response
 
+    def DeleteAllMarkers(self):
         # rviz Markers löschen
-        # 1. Erstelle den einzelnen Marker für das Löschen
+        # Erstelle den einzelnen Marker für das Löschen
         single_marker = Marker()
         single_marker.header.frame_id = "map"  # Sicherhaltshalber setzen (z. B. "map" oder "odom")
         single_marker.action = Marker.DELETEALL
 
-        # 2. Verpacke ihn in ein MarkerArray
+        # Verpacke ihn in ein MarkerArray
         clear_all_array = MarkerArray()
         clear_all_array.markers.append(single_marker)  # Füge den Marker der Liste hinzu
 
-        # 3. Sende das Array über deinen Publisher
+        # Sende das Array über deinen Publisher
         self.marker_pub.publish(clear_all_array)
 
-        response.success = True 
-        response.message = "Ein Reset wurde durchgeführt"
-        return response
+        # Alle Markers von viz.py löschen
+        UdpSend(Udp.MARKER_DELETEALL)
 
     def Service(self, request, response, taskList):
         # 1. Das Signal ist angekommen! Hier führst du deine Aktion aus.
@@ -359,14 +363,16 @@ class Navigator(Node):
             self.get_logger().error(f"[GotoTask] Illegal task index: {taskIndex}")
 
     def RvizPrint(self, text):
-        UdpPrint(text)
+        mtext = f"{self.taskListName}: {text}"
+        UdpPrint(mtext)
+        
         marker = Marker()
         marker.header.frame_id = "map"  # Muss mit deinem Fixed Frame in RViz übereinstimmen
         marker.type = Marker.TEXT_VIEW_FACING
         marker.action = Marker.ADD
         
         # Inhalt des Strings
-        marker.text = f"{self.taskListName}: {text}"
+        marker.text = mtext
         self.get_logger().info(text)
         
         # Position und Größe

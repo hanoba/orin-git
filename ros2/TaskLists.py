@@ -381,17 +381,17 @@ class GotoTask:
     def Init(self, node, taskIndex, retvals=None):
         node.GotoTask(taskIndex)
 
-class StopTask:
-    def Init(self, node, params, retvals=None):
-        return
-
-    def Step(self, scan_msg):
-        # rviz Marker löschen
-        clear_all_marker = Marker()
-        clear_all_marker.action = Marker.DELETEALL
-        self.node.marker_pub.publish(clear_all_marker)
-        UdpSend(Udp.MARKER_DELETEALL)
-        return TaskState.Ready, None
+#class StopTask:
+#    def Init(self, node, params, retvals=None):
+#        return
+#
+#    def Step(self, scan_msg):
+#        # rviz Marker löschen
+#        clear_all_marker = Marker()
+#        clear_all_marker.action = Marker.DELETEALL
+#        self.node.marker_pub.publish(clear_all_marker)
+#        UdpSend(Udp.MARKER_DELETEALL)
+#        return TaskState.Ready, None
         
 
 Localization_TaskList = {

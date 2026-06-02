@@ -34,6 +34,18 @@ def RemoveEquations(A, b, lineNumbers, debug=True):
     if debug: print(f"{n} equations removed")
     return np.array(Anew), np.array(bnew), infoNew
 
+
+def FindWalls(node, detectedWalls, wallNum):
+    A = []
+    b = []
+    wallNumbers = []
+    #            [ZN,ZO,ZS,ZW,SW,SS,SO,TW,TS,BO,BN,HO]
+    ignoreList = [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    assert 0 <= wallNum < 12
+    ignoreList[wallNum] = 0
+    detectedWallsValid = Localization(node.theta, detectedWalls, A, b, wallNumbers, ignore=ignoreList, debug=False)
+    return detectedWallsValid
+
  
 def ComputePosition(node, detectedWalls):
     A = []
@@ -80,29 +92,32 @@ class MowingTask:
         self.state = self.StateAlignTheta
         self.subState = 0
 
-    def DistAngleClosestWall(self, walls):
-        """ Berechnet den Abstand zur nähesten Wand """
+    def DistAngleWallToFollow(self, walls, wallToFollow):
+        """ Berechnet den Abstand zur Wand, der gefolgt werden soll """
         minDist = np.inf
         minAngle = 0.0
         minWorldAngle = 0.0
+        
+        wallFound = FindWalls(self.node, walls, wallToFollow)
         # A und B sind die Endpunkte der Wand
-        for A, B in walls:
-            # Richtungsvektor der Geraden (AB) und Vektor zum Nullpunkt (AP)
-            ab = B - A
-            ap = -A
-            abLen = np.linalg.norm(ab)
-            
-            # Berechnung des Abstands
-            # Wir berechnen die Norm des Kreuzprodukts geteilt durch die Norm von AB
-            # Für 2D simulieren wir das Kreuzprodukt durch eine Hilfsfunktion
-            dist = np.abs(np.cross(ab, ap)) / abLen
-            if dist < minDist and abLen > 3.0:    # 3.0
-                angle = np.arctan2(ab[1], ab[0])
-                worldAngle = angle + self.node.theta
-                if CheckAngle(self.wallAngle, worldAngle):       
-                    minDist = dist
-                    minAngle = angle
-                    minWorldAngle = worldAngle
+        for i, (A, B) in enumerate(walls):
+            if wallFound[i]:
+                # Richtungsvektor der Geraden (AB) und Vektor zum Nullpunkt (AP)
+                ab = B - A
+                ap = -A
+                abLen = np.linalg.norm(ab)
+                
+                # Berechnung des Abstands
+                # Wir berechnen die Norm des Kreuzprodukts geteilt durch die Norm von AB
+                # Für 2D simulieren wir das Kreuzprodukt durch eine Hilfsfunktion
+                dist = np.abs(np.cross(ab, ap)) / abLen
+                if dist < minDist and abLen > 3.0:    # 3.0
+                    angle = np.arctan2(ab[1], ab[0])
+                    worldAngle = angle + self.node.theta
+                    if CheckAngle(self.wallAngle, worldAngle):       
+                        minDist = dist
+                        minAngle = angle
+                        minWorldAngle = worldAngle
         return float(minDist), float(minAngle), float(minWorldAngle)
 
     def Step(self, scan_msg):
@@ -131,7 +146,12 @@ class MowingTask:
 
             # Filtern der Wände, die die Bedingung erfüllen
             matchingWalls = walls[mask]        
-            dist, angle, worldAngle = self.DistAngleClosestWall(matchingWalls)
+            
+            # Berechne Abstand und Winkel zur Wand, der gefolgt werden soll
+            ZAUN_OST = 1
+            dist, angle, worldAngle = self.DistAngleWallToFollow(matchingWalls, ZAUN_OST)
+            
+            # Berechne Position
             ok, x, y, res = ComputePosition(self.node, walls)
             
             if (0.0 < dist < np.inf) and ok:
@@ -147,7 +167,9 @@ class MowingTask:
                 self.node.SetVelocities(0.0, 0.0)                
 
             if ok:
-                yMin = -2.0
+                pos = np.array([x, y])   
+                self.node.odom.SetPos(pos, self.node.theta)
+                yMin =  2.0   #-2.0
                 yMax =  10.5
                 RepeatDist = 2.0
                 repeatMode = True

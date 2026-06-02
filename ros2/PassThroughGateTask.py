@@ -8,7 +8,8 @@ from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
 
 import params
-from params import TaskState
+from params import TaskState, Udp
+from UdpSend import UdpSend
 
 # Zustände der einfachen Zustandsmaschine
 STATE_SEARCH = 0                     # Suchen / „patrouillieren“
@@ -373,6 +374,7 @@ class PassThroughGateTask:
         self.node = node
         self.robotController.Reset(node)
         self.gate.vonRechts = params=="Wald"
+        self.node.DeleteAllMarkers()
 
     def PublishMarkers(self, xPoints, yPoints):
         pub = self.node.marker_pub
@@ -394,10 +396,23 @@ class PassThroughGateTask:
         m_spheres.color.b = 1.0
         m_spheres.color.a = 1.0
 
+        # UDP Kommando zum Zeichen von Punkten
+        udp_header = Udp.MARKER_POINTS
+        udp_data = [
+            Udp.FRAME_LIDAR,    # Frame (FRAME_LIDAR oder FRAME_MAP)
+            Udp.BLUE]           # Für Punkte blaue Kreise zeichnen (NONE = keine Kreise)
+            # Es folgen die Punkte px1, py1, px2, py2 ...
+        cm = 100.0
+
         for i in range(len(xPoints)):
             # Punkt zur Sphärenliste hinzufügen
             point = Point(x=float(xPoints[i]), y=float(yPoints[i]), z=z_height)            
             m_spheres.points.append(point)
+
+            px, py = round(xPoints[i]*cm), round(yPoints[i]*cm)
+            udp_data.extend([px, py])
+
+        UdpSend(udp_header, udp_data)
 
         markers.markers.append(m_spheres)
         

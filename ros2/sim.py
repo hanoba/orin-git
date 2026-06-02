@@ -503,7 +503,7 @@ class Simulation:
         # Perflags=pygame.SRCALPHA macht sie transparent
         self.traceSurface = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
         
-        pygame.display.set_caption("NumPy Optimized LiDAR Bot")
+        pygame.display.set_caption("E-Karren Simulator")
         self.clock = pygame.time.Clock()
     
         
