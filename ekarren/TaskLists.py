@@ -213,11 +213,11 @@ class FollowPathTask:
         text = f"Waypoint {self.pathIndex}: Theta={np.rad2deg(self.theta):.0f} Grad  Dist={self.wdist:.2f}m"
         self.node.RvizPrint(text)
 
-    def ComputePosition(self, ranges, ignoreList, debug=False):
+    def ComputePosition(self, scan_msg, ignoreList, debug=False):
         A = []
         b = []
         wallNumbers = []
-        detectedWalls = self.node.Walldetector(ranges, -np.pi/2, np.pi/2)        
+        detectedWalls = self.node.Walldetector(scan_msg, -np.pi/2, np.pi/2)        
         detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, wallNumbers, ignore=ignoreList, debug=False)
         PublishMarkers(self.node.marker_pub, detectedWalls, detectedWallsValid)
         A, b, wallNumbers = RemoveEquations(A, b, wallNumbers, debug=False)
@@ -233,7 +233,7 @@ class FollowPathTask:
                 return x
         return None
 
-    def Step(self, ranges):
+    def Step(self, scan_msg):
         setStartPoint = False
         if self.State == self.StateAlignTheta:
             if self.node.wantedThetaReached:
@@ -246,7 +246,7 @@ class FollowPathTask:
                 self.node.SetDirection(self.theta, vLinear)
                 self.ShowInfo()
         if self.State == self.StateGotoWall:
-            #ranges = np.array(scan_msg.ranges)
+            ranges = np.array(scan_msg.ranges)
             if type(self.modeParam) == int:
                 if isinstance(self.dist, list):
                     if setStartPoint:
@@ -280,7 +280,7 @@ class FollowPathTask:
                 locMode = mode & LocMask
                 targetReached = False
                 
-                x = self.ComputePosition(ranges, ignoreList)
+                x = self.ComputePosition(scan_msg, ignoreList)
                 if x is not None:
                     if locMode == LocXLT:
                         targetReached = x[0] < self.wdist
@@ -347,9 +347,9 @@ class LocalizationTask:
         self.wantedTheta = int(self.node.theta/self.thetaStep + 1)*self.thetaStep
         self.node.SetWantedTheta(self.wantedTheta)
 
-    def Step(self, ranges):
+    def Step(self, scan_msg):
         #self.simTimeSec = self.node.get_clock().now().nanoseconds / 1e9
-        detectedWalls = self.node.Walldetector(ranges)        
+        detectedWalls = self.node.Walldetector(scan_msg)        
         if self.node.wantedThetaReached:
             detectedWallsValid = Localization(self.node.theta, detectedWalls, self.A, self.b, self.wallNumbers)
             PublishMarkers(self.node.marker_pub, detectedWalls, detectedWallsValid)
@@ -380,7 +380,19 @@ class LocalizationTask:
 class GotoTask:
     def Init(self, node, taskIndex, retvals=None):
         node.GotoTask(taskIndex)
-      
+
+#class StopTask:
+#    def Init(self, node, params, retvals=None):
+#        return
+#
+#    def Step(self, scan_msg):
+#        # rviz Marker löschen
+#        clear_all_marker = Marker()
+#        clear_all_marker.action = Marker.DELETEALL
+#        self.node.marker_pub.publish(clear_all_marker)
+#        UdpSend(Udp.MARKER_DELETEALL)
+#        return TaskState.Ready, None
+        
 
 Localization_TaskList = {
     "name": "Localization_TaskList",

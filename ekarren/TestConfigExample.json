@@ -1,0 +1,10 @@
+{
+  "OmegaMeasFlag": false,
+  "OmegaMeasDuration": 3.0,
+  "OmegaValue": 1.0,
+  "WantedYaw_deg": 0.0,
+  "GotoWallFlag": true,
+  "StopDist": 2.0,
+  "LinearSpeed": 0.5,
+  "ReturnFlag": true
+}
