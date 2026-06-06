@@ -11,11 +11,12 @@ if [ -n "$_SSID" ]; then
     # CYCLONEDDS_URI setzen
     if [ "$WLAN_NAME" == "AndroidHanoba" ]; then
         export CYCLONEDDS_URI=/root/ros2/l4t/cdds_orin_garten.xml
-        export EKARREN_VIZ_IP1="192.168.20.41"      # IP Laptop Garten
+        export EKARREN_VIZ_IP1="192.168.20.41"      # IP LEGION Garten
+        export EKARREN_VIZ_IP2="192.168.20.101"     # IP HBA004 Garten
     else
         export CYCLONEDDS_URI=/root/ros2/l4t/cdds_orin_wohnung.xml
-        export EKARREN_VIZ_IP1="192.168.178.104"    # IP Laptop Wohnung
-        export EKARREN_VIZ_IP2="192.168.178.42"     # IP Desktop Wohnung
+        export EKARREN_VIZ_IP1="192.168.178.104"    # IP LEGION Wohnung
+        export EKARREN_VIZ_IP2="192.168.178.42"     # IP AZ-KENKO Wohnung
     fi
 else
     echo "Fehler: SSID konnte nicht gefunden werden."
