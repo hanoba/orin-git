@@ -10,8 +10,6 @@ import params
 from params import TaskState, Udp
 from UdpSend import UdpSend
 
-from visualization_msgs.msg import Marker
-
 
 LocXLT =    0   # Endkriterium: xPos < dist
 LocXGE =    1   # Endkriterium: xPos >= dist

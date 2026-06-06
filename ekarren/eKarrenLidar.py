@@ -48,11 +48,11 @@ class Lidar:
         if ret:
             ret = self.laser.turnOn()
             if ret:
-                self.get_logger().info(f"YDLidar TG30 erfolgreich auf {PORT} gestartet!")
+                print(f"YDLidar TG30 erfolgreich auf {PORT} gestartet!")
             else:
-                self.get_logger().error("Lidar Motor konnte nicht gestartet werden.")
+                print("ERROR Lidar Motor konnte nicht gestartet werden.")
         else:
-            self.get_logger().error(f"Lidar auf {PORT} nicht gefunden. Rechte geprüft (dialout)?")
+            printr(f"ERROR Lidar auf {PORT} nicht gefunden. Rechte geprüft (dialout)?")
 
         self.scan_data = ydlidar.LaserScan()
 

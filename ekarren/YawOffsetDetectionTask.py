@@ -1,7 +1,4 @@
 import numpy as np
-from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Point
-from std_msgs.msg import ColorRGBA
 import Ransac
 from params import TaskState, Udp
 from params import ReadYawOffset, WriteYawOffset
@@ -90,34 +87,6 @@ class YawOffsetDetectionTask:
 
 
     def PublishMarkers(self, walls, punkte):
-        pub = self.node.marker_pub
-        markers = MarkerArray()
-        frame_id = "lidar"
-        z_height = +0.1
-        
-        # 1. Ein Marker für ALLE Linien
-        m_lines = Marker()
-        m_lines.header.frame_id = frame_id
-        m_lines.header.stamp.sec = 0
-        m_lines.header.stamp.nanosec = 0
-        m_lines.ns = "walls_lines"
-        m_lines.id = 0
-        m_lines.type = Marker.LINE_LIST 
-        m_lines.action = Marker.ADD
-        m_lines.scale.x = 0.15
-        m_lines.color.g = 1.0; m_lines.color.a = 0.8
-        m_lines.pose.orientation.w = 1.0
-
-        # 2. Ein Marker für ALLE Endpunkte (Sphären)
-        m_spheres = Marker()
-        m_spheres.header = m_lines.header
-        m_spheres.ns = "walls_endpoints"
-        m_spheres.id = 0
-        m_spheres.type = Marker.SPHERE_LIST # <--- EXTREM EFFIZIENT
-        m_spheres.action = Marker.ADD
-        m_spheres.scale.x = m_spheres.scale.y =  m_spheres.scale.z = 0.25*2
-        m_spheres.color.b = 1.0; m_spheres.color.a = 1.0
-
         num_lines = len(walls)
     
         # UDP Kommando zum Zeichen von Linien
@@ -131,22 +100,10 @@ class YawOffsetDetectionTask:
         udp_line_colors = []
     
         for start, end in walls:
-            p_start = Point(x=float(start[0]), y=float(start[1]), z=z_height)
-            p_end = Point(x=float(end[0]), y=float(end[1]), z=z_height)
-
-            wall_color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8) # if isDetectedWallValid[i] else ColorRGBA(r=0.0, g=1.0, b=0.0, a=0.8)      
-            udp_line_colors.append(Udp.RED)
+            udp_line_colors.append(Udp.GREEN)
             sx, sy, ex, ey = round(start[0]*cm), round(start[1]*cm), round(end[0]*cm), round(end[1]*cm)
             udp_data.extend([sx, sy, ex, ey])
-            
-            # Punkte zur Linienliste hinzufügen
-            m_lines.points.append(p_start)
-            m_lines.points.append(p_end)
-
-            # Farbe zweimal hinzufügen (für beide Enden des Segments)
-            m_lines.colors.append(wall_color)
-            m_lines.colors.append(wall_color)
-    
+                
         if num_lines > 0:
             udp_data.extend(udp_line_colors)
             UdpSend(udp_header, udp_data)
@@ -159,17 +116,8 @@ class YawOffsetDetectionTask:
             # Es folgen die Punkte px1, py1, px2, py2 ...
 
         for p in punkte:
-            # Punkt zur Sphärenliste hinzufügen
-            sphere = Point(x=float(p[0]), y=float(p[1]), z=z_height)
-            m_spheres.points.append(sphere)
-
             px, py = round(p[0]*cm), round(p[1]*cm)
             udp_data.extend([px, py])
 
         UdpSend(udp_header, udp_data)
-        
-        markers.markers.append(m_lines)
-        markers.markers.append(m_spheres)
-        
-        pub.publish(markers)
         

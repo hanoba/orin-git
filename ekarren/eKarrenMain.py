@@ -175,12 +175,13 @@ try:
 except KeyboardInterrupt:
     # Wird ausgelöst, wenn du Ctrl+C drückst
     print("eKarren wurde durch Benutzer abgebrochen.")
-except Exception as e:
-    # Fängt unerwartete Fehler ab
-    print(f"Unerwarteter Fehler: {e}")
+#except Exception as e:
+#    # Fängt unerwartete Fehler ab
+#    print(f"Unerwarteter Fehler: {e}")
 finally:
     # Dieser Block wird IMMER ausgeführt, egal ob Fehler oder Ctrl+C
     print("Bereinige Ressourcen...")
+    lidar.StopLidar()
     
     # Optional: Komplettes Beenden erzwingen (hilft bei WSL2-Hängern)
     sys.exit(0)
