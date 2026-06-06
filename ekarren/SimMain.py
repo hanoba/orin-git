@@ -10,7 +10,7 @@ from UdpSend import UdpSend
 lidarCounter = 0
         
 
-def PublishLidarData(dist):
+def SendLidarData(dist):
     # # --- PUBLISH SCAN ---
     # scan = LaserScan()
     # # 2. Zur Sicherheit: time_increment nullen
@@ -41,7 +41,7 @@ def PublishLidarData(dist):
     UdpSend(Udp.LIDAR_DATA, dist_cm.tolist())
 
             
-def PublishPositionAndTime(posX, posY, theta):
+def SendPositionAndTime(posX, posY, theta):
     global lidarCounter
     if not params.PublishEstimatedPosition:
         # POSE an Visualizer senden
@@ -57,7 +57,7 @@ def PublishPositionAndTime(posX, posY, theta):
         UdpSend(udp_header, udp_data)
 
     # Kleine Erfolgsmeldung alle 100 Pakete
-    if lidarCounter % 10 == 0:
+    if lidarCounter % 100 == 0:
         theta_deg = int(np.rad2deg(theta))
         #print(f"[{self.sim.sim_time_sec:.3f}] Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°")
         print(f" Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°")
@@ -70,19 +70,13 @@ def main():
     try:
         # Die Schleife läuft nur, solange sim.running UND ROS okay ist
         while sim.running:
-
-            # B. Simulations-Schritt
-            x, y, theta, radius = sim.Step()
-            
-            # C. Nur publizieren, wenn wir nicht gerade herunterfahren
+            x, y, theta, radius = sim.Step()        # Simulations-Schritt
             if not sim.pause:
-                # Publish Theta
-                navigator.CompassCallback(theta)
-                PublishPositionAndTime(x, y, theta)
+                navigator.CompassCallback(theta)    # Publish Theta
+                SendPositionAndTime(x, y, theta)    # Send Pose to viz.py
                 if len(radius) > 0: 
-                    navigator.ScanCallback(radius)
-                    PublishLidarData(radius)
-            
+                    navigator.ScanCallback(radius)  # Publish lidar data
+                    SendLidarData(radius)           # Send lidar data to viz.py
     except KeyboardInterrupt:
         # Wird ausgelöst, wenn du Ctrl+C drückst
         print("Simulation wird durch Benutzer abgebrochen...")
@@ -92,8 +86,6 @@ def main():
     finally:
         # Dieser Block wird IMMER ausgeführt, egal ob Fehler oder Ctrl+C
         print("Bereinige Ressourcen...")
-        
-        # Wichtig: Zuerst die Simulation (Fenster zu), dann ROS
         sim.Quit() 
         
         # Optional: Komplettes Beenden erzwingen (hilft bei WSL2-Hängern)
