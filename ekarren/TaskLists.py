@@ -200,11 +200,11 @@ class FollowPathTask:
             else:
                 self.wdist = self.dist
             self.pathIndex += 1
-            self.node.get_logger().info(f"Starting FollowPathTask for {target}. First node: Theta={self.theta:.3f}  Dist={self.wdist}m")
+            print(f"Starting FollowPathTask for {target}. First node: Theta={self.theta:.3f}  Dist={self.wdist}m")
             self.node.SetWantedTheta(self.theta)
             self.State = self.StateAlignTheta
         else:
-            self.node.get_logger().error(f"No path found for target {target}")
+            print(f"ERROR No path found for target {target}")
             self.State = self.StateIdle
         
     def ShowInfo(self):
@@ -364,7 +364,7 @@ class LocalizationTask:
                     err = x[0]*A[i,0] + x[1]*A[i,1] - b[i]
                     print(f"{b[i]:6.2f} = {A[i,0]:6.2f}*x + {A[i,1]:6.2f}*y   {err=:6.2f}  # {lineNames[wallNumbers[i]]}")
                 if (residuals.size > 0 and residuals > 0.5) or rank < 2:
-                    self.node.get_logger().error("LocalizationTask failed")
+                    print("ERROR LocalizationTask failed")
                 else:
                     self.node.odom.SetPos(x, self.node.theta)
                 return TaskState.Ready, (x, A, b, wallNumbers)

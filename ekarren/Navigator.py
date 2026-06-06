@@ -187,7 +187,7 @@ class Navigator:
             UdpSend(udp_header, udp_data)
 
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
-        #self.get_logger().info(
+        #print(
         #    f"[ScanCallback] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  "
         #    f"Missed Scans: {self.missedScans}  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=10.0)
 

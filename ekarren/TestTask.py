@@ -80,10 +80,10 @@ class TestTask:
         self.node = node
         self.yaw = np.radians(WantedYaw_deg)
         if OmegaMeasFlag:
-            self.node.get_logger().info("Starting TestTask - Omega Measurement")
+            print("Starting TestTask - Omega Measurement")
             self.State = self.StateOmegaMeasurement
         else:
-            self.node.get_logger().info(f"Starting TestTask. Wanted Yaw: {WantedYaw_deg}°. Stop Distance: {StopDist:.2f}m")
+            print(f"Starting TestTask. Wanted Yaw: {WantedYaw_deg}°. Stop Distance: {StopDist:.2f}m")
             self.node.SetWantedTheta(self.yaw)
             self.State = self.StateAlignTheta
         self.counter = 0
