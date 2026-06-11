@@ -202,30 +202,32 @@ class Navigator:
 
     def Reset(self):
         self.taskListName = "None"
-        self.taskList = None
+        self.taskListTasks = None
         self.taskIndex = 0
         self.SetVelocities(0.0, 0.0)
         print("Reset() called")
 
     def NewTaskList(self, taskList):
         self.taskListName = taskList["name"]
-        self.taskList = taskList["tasks"]
+        tasks = taskList["tasks"]
         self.taskIndex = 0
-        if self.taskIndex < len(self.taskList):
-            task, params = self.taskList[self.taskIndex]
+        if self.taskIndex < len(tasks):
+            task, params = tasks[self.taskIndex]
             task.Init(self, params, self.retvals)
         print(f"TaskList {self.taskListName} wird gestartet")
+        # Die folgende Zuweisung darf erst erfolgen, nachdem task.Init() ausgeführt wurde!
+        self.taskListTasks = tasks
 
     def TaskStep(self, ranges):
-        if self.taskList is not None:
-            if self.taskIndex >= len(self.taskList):
+        if self.taskListTasks is not None:
+            if self.taskIndex >= len(self.taskListTasks):
                 self.Reset()
             else:
-                task, params = self.taskList[self.taskIndex]
+                task, params = self.taskListTasks[self.taskIndex]
                 status, self.retvals = task.Step(ranges)
                 if status == TaskState.Ready:
                     nextTaskIndex = self.taskIndex+1
-                    if nextTaskIndex < len(self.taskList):
+                    if nextTaskIndex < len(self.taskListTasks):
                         self.GotoTask(nextTaskIndex)
                     else:
                         self.Reset()
@@ -235,8 +237,8 @@ class Navigator:
 
     def GotoTask(self, taskIndex):
         self.taskIndex = taskIndex
-        if self.taskIndex < len(self.taskList):
-            task, params = self.taskList[self.taskIndex]
+        if self.taskIndex < len(self.taskListTasks):
+            task, params = self.taskListTasks[self.taskIndex]
             task.Init(self, params, self.retvals)
         else:
             print(f"ERROR [GotoTask] Illegal task index: {taskIndex}")

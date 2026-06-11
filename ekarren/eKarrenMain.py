@@ -20,7 +20,7 @@ DEV_EKARREN = 1         # send UDP commands to eKarren
 DEV_EKARREN_PC = 2      # send UDP commands to PC (AZ-KENKO)
 DEV_EKARREN_EMU = 3     # send UDP commands to Rosmaster
 
-deviceName = "eKarren"
+deviceName = "eKarrenPC"
 if deviceName=="eKarren": deviceNum = DEV_EKARREN
 elif deviceName=="eKarrenPC": deviceNum = DEV_EKARREN_PC
 elif deviceName=="eKarrenEmulator": deviceNum = DEV_EKARREN_EMU
@@ -124,6 +124,7 @@ class eKarren:
         send_data = f"AT+#,{vLinearQ},{vAngularQ},{self.rcKeyStatus}"
         send_data += f",0x{self.CheckSum(send_data):02X}"
         self.sock.sendto(send_data.encode('utf-8'), self.clientAddr)
+        #print(send_data)
  
     def Close(self):
         #sock.sendto(MESSAGE, (UDP_IP, UDP_PORT))
@@ -132,7 +133,6 @@ class eKarren:
 
 vLinear = 0.0
 omega = 0.0
-compassCalibrationRunning = False
 
 def CmdVelCallback(angular, linear):
     """Wird aufgerufen, wenn ROS2 einen Fahrbefehl sendet."""
@@ -143,23 +143,10 @@ def CmdVelCallback(angular, linear):
 
 
 def TimerCallback():
-    # Sendet theta und Fahrbefehle (50Hz)
-    if not compassCalibrationRunning:
-        PublishTheta()
-    ekarren.SetSpeed(vLinear, omega)
-
-
-def PublishTheta(self):
+    """ Sendet theta und Fahrbefehle (30Hz) """
     theta = compass.ReadYaw()
-    #if theta is not None: 
-    #    lastTheta = theta
     navigator.CompassCallback(theta)
-
-def CalibCallback(isCompassCalibrationRunning):
-    # Wird automatisch aufgerufen, wenn der CompassCalibrationNode publiziert
-    global compassCalibrationRunning
-    compassCalibrationRunning = isCompassCalibrationRunning
-    print(f"Neuer Status empfangen: compassCalibrationRunning={compassCalibrationRunning}")
+    ekarren.SetSpeed(vLinear, omega)
 
 
 # Tasklist dictionary
@@ -195,7 +182,8 @@ ekarren = eKarren(device=deviceNum, debug=False)
 navigator = Navigator(CmdVelCallback)
 lidar = Lidar(navigator.ScanCallback)
 compass = Compass()
-timer = Timer(30, TimerCallback)    # 30Hz-Timer ruft selbstständig TimerCallback() auf
+timer = Timer(10, TimerCallback)    # 30Hz-Timer ruft selbstständig TimerCallback() auf
+timer.start()
 
 if taskList is not None:
     navigator.NewTaskList(taskList)

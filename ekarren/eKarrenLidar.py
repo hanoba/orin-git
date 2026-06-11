@@ -26,14 +26,18 @@ class Lidar:
         # ordnungsgemäßen Zustand ist und das Programm normal weiterlaufen kann.
         first = True
         while ydlidar.os_isOk():
-            # doProcessSimple blockiert hier solange, bis ein 360° Scan fertig ist
-            if self.laser.doProcessSimple(self.scan_data):
-                self.PublishLidarData()
-                if first:
-                    first = False
-                    print(f"{self.scan_data.config.min_range=}")
-                    print(f"{self.scan_data.config.max_range=}")
- 
+            try:
+                # doProcessSimple blockiert hier solange, bis ein 360° Scan fertig ist
+                if self.laser.doProcessSimple(self.scan_data):
+                    self.PublishLidarData()
+                    if first:
+                        first = False
+                        print(f"{self.scan_data.config.min_range=}")
+                        print(f"{self.scan_data.config.max_range=}")
+            except Exception as e:
+                print("Error in MainLoop!", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+                break # Exit the loop if it crashes 
                     
     def LidarInit(self):
         # === Parameter anpassen ===
