@@ -24,10 +24,16 @@ class Lidar:
         
         # ydlidar.os_isOk() prüft, ob die Laufzeitumgebung des Treibers noch im 
         # ordnungsgemäßen Zustand ist und das Programm normal weiterlaufen kann.
+        first = True
         while ydlidar.os_isOk():
             # doProcessSimple blockiert hier solange, bis ein 360° Scan fertig ist
             if self.laser.doProcessSimple(self.scan_data):
                 self.PublishLidarData()
+                if first:
+                    first = False
+                    print(f"{self.scan_data.config.min_range=}")
+                    print(f"{self.scan_data.config.max_range=}")
+ 
                     
     def LidarInit(self):
         # === Parameter anpassen ===
@@ -55,6 +61,7 @@ class Lidar:
             printr(f"ERROR Lidar auf {PORT} nicht gefunden. Rechte geprüft (dialout)?")
 
         self.scan_data = ydlidar.LaserScan()
+
 
     def StopLidar(self):
         # Den Scan-Vorgang stoppen (schaltet Laser und Motor ab)

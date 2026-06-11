@@ -39,8 +39,8 @@ class Udp(IntEnum):
 
 # angle range = -(LidarMaxAngle-1) ... LidarMaxAngle
 LidarMaxAngle = 180  # 120
-LidarRangeMin = 0.1
-LidarRangeMax = 20.0
+LidarRangeMin = 0.01    # from YDLIDAR (old 0.1)
+LidarRangeMax = 64.0    # from YDLIDAR (old 20.0)
 LidarFreq_Hz = 10
 LidarAngleMin = math.radians(1-LidarMaxAngle)
 LidarAngleMax = math.radians(LidarMaxAngle)

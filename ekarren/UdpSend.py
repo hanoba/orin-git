@@ -10,6 +10,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 udpIp1 = os.environ.get('EKARREN_VIZ_IP1')
 udpIp2 = os.environ.get('EKARREN_VIZ_IP2')
 assert udpIp1 is not None
+print(f"{udpIp1=}  {udpIp2=}")
 
 def sendto(packet):
     # Sicherheits-Block fängt "[Errno 101] Network is unreachable" ab

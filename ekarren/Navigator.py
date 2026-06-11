@@ -8,16 +8,6 @@ import params
 from params import TaskState, Udp
 from UdpSend import UdpSend, UdpPrint
 
-# Set initial tasklist
-#InitialTaskList = TaskLists.Localization_TaskList
-InitialTaskList = TaskLists.Mowing_TaskList
-#InitialTaskList = TaskLists.Fahre_zum_Schuppen_TaskList
-#InitialTaskList = TaskLists.Fahre_in_den_Wald_TaskList
-#InitialTaskList = TaskLists.Fahre_in_den_Garten_TaskList
-#InitialTaskList = TaskLists.Fahre_hinters_Haus_TaskList
-#InitialTaskList = TaskLists.Bestimme_YawOffset_TaskList
-#InitialTaskList = TaskLists.Test_TaskList
-
 def NormalizeAngle(angle_rad):
     return (angle_rad + math.pi) % math.tau - np.pi
 
@@ -101,10 +91,6 @@ class Navigator:
         # Set empty task list
         self.Reset()
         self.missedScans = 0
-
-        taskListName = InitialTaskList["name"]
-        print(f"TaskList {taskListName} wird gestartet")
-        self.NewTaskList(InitialTaskList)
 
     def SetVelocities(self, omega, vLinear):
         self.angular = 0.0
@@ -228,6 +214,7 @@ class Navigator:
         if self.taskIndex < len(self.taskList):
             task, params = self.taskList[self.taskIndex]
             task.Init(self, params, self.retvals)
+        print(f"TaskList {self.taskListName} wird gestartet")
 
     def TaskStep(self, ranges):
         if self.taskList is not None:

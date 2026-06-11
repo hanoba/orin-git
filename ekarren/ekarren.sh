@@ -10,4 +10,4 @@ echo "🚀 Starte E-Karren-Software..."
 source GenerateVizIpAddr.sh
 
 # E-Karren Hauptprogramm starten
-python3 eKarrenMain.py
+python3 eKarrenMain.py $1 $2

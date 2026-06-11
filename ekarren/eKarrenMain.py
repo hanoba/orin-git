@@ -5,6 +5,7 @@ from eKarrenLidar import Lidar
 import threading
 import time
 from Navigator import Navigator
+import TaskLists
 
 # Constants for eKarren
 rcMaxValue = 2048
@@ -160,13 +161,44 @@ def CalibCallback(isCompassCalibrationRunning):
     compassCalibrationRunning = isCompassCalibrationRunning
     print(f"Neuer Status empfangen: compassCalibrationRunning={compassCalibrationRunning}")
 
+
+# Tasklist dictionary
+TaskListDict = {
+    "Localization":           TaskLists.Localization_TaskList,
+    "Mowing":                 TaskLists.Mowing_TaskList,
+    "Fahre_zum_Schuppen":     TaskLists.Fahre_zum_Schuppen_TaskList,
+    "Fahre_in_den_Wald":      TaskLists.Fahre_in_den_Wald_TaskList,
+    "Fahre_in_den_Garten":    TaskLists.Fahre_in_den_Garten_TaskList,
+    "Fahre_hinters_Haus":     TaskLists.Fahre_hinters_Haus_TaskList,
+    "Bestimme_YawOffset":     TaskLists.Bestimme_YawOffset_TaskList,
+    "Test":                   TaskLists.Test_TaskList
+}
+
+def Usage():
+    print("Usage: ekarren <taskName>")
+    print("<taskName>:")
+    for taskName in TaskListDict:
+        print(f"    {taskName}")
+    sys.exit(0)
+
+# command line parameter handling
+argc = len(sys.argv)
+taskList = None
+if argc == 2:
+    taskList = TaskListDict.get(sys.argv[1])
+    if taskList is None: 
+        Usage()
+elif argc > 2: Usage()
+
 # Roboter initialisieren
 ekarren = eKarren(device=deviceNum, debug=False)
 navigator = Navigator(CmdVelCallback)
 lidar = Lidar(navigator.ScanCallback)
 compass = Compass()
-timer = Timer(50, TimerCallback)    # 50Hz-Timer ruft selbstständig TimerCallback() auf
+timer = Timer(30, TimerCallback)    # 30Hz-Timer ruft selbstständig TimerCallback() auf
 
+if taskList is not None:
+    navigator.NewTaskList(taskList)
 
 try:
     # Das Publizieren von Lidardaten und Theta erfolgt in Hintergrund-Threads
