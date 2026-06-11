@@ -114,10 +114,10 @@ class MowingTask:
                 if dist < minDist and abLen > 3.0:    # 3.0
                     angle = np.arctan2(ab[1], ab[0])
                     worldAngle = angle + self.node.theta
-                    if CheckAngle(self.wallAngle, worldAngle):       
-                        minDist = dist
-                        minAngle = angle
-                        minWorldAngle = worldAngle
+                    #if CheckAngle(self.wallAngle, worldAngle):       
+                    minDist = dist
+                    minAngle = angle
+                    minWorldAngle = worldAngle
         return float(minDist), float(minAngle), float(minWorldAngle)
 
     def Step(self, ranges):

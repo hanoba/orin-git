@@ -8,6 +8,16 @@ import params
 from params import TaskState, Udp
 from UdpSend import UdpSend, UdpPrint
 
+# Set initial tasklist
+#InitialTaskList = TaskLists.Localization_TaskList
+InitialTaskList = TaskLists.Mowing_TaskList
+#InitialTaskList = TaskLists.Fahre_zum_Schuppen_TaskList
+#InitialTaskList = TaskLists.Fahre_in_den_Wald_TaskList
+#InitialTaskList = TaskLists.Fahre_in_den_Garten_TaskList
+#InitialTaskList = TaskLists.Fahre_hinters_Haus_TaskList
+#InitialTaskList = TaskLists.Bestimme_YawOffset_TaskList
+#InitialTaskList = TaskLists.Test_TaskList
+
 def NormalizeAngle(angle_rad):
     return (angle_rad + math.pi) % math.tau - np.pi
 
@@ -92,19 +102,9 @@ class Navigator:
         self.Reset()
         self.missedScans = 0
 
-        # Set initial tasklist
-        #taskList = TaskLists.Localization_TaskList
-        taskList = TaskLists.Mowing_TaskList
-        #taskList = TaskLists.Fahre_zum_Schuppen_TaskList
-        #taskList = TaskLists.Fahre_in_den_Wald_TaskList
-        #taskList = TaskLists.Fahre_in_den_Garten_TaskList
-        #taskList = TaskLists.Fahre_hinters_Haus_TaskList
-        #taskList = TaskLists.Bestimme_YawOffset_TaskList
-        #taskList = TaskLists.Test_TaskList
-
-        taskListName = taskList["name"]
-        print(f"Trigger empfangen für {taskListName}")
-        self.NewTaskList(taskList)
+        taskListName = InitialTaskList["name"]
+        print(f"TaskList {taskListName} wird gestartet")
+        self.NewTaskList(InitialTaskList)
 
     def SetVelocities(self, omega, vLinear):
         self.angular = 0.0

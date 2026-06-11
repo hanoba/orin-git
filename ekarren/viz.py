@@ -604,10 +604,15 @@ class Visualizer:
     
 if __name__ == "__main__":
     viz = Visualizer()
-    #try:
-    while viz.running:
-        viz.Step()
-    #except Exception as e:
-    #    print("Error:", e, file=sys.stderr)
-    viz.Quit()
-    sys.exit()
+    try:
+        while viz.running:
+            viz.Step()
+    except KeyboardInterrupt:
+        # Wird exakt dann ausgeführt, wenn du Ctrl-C im Terminal drückst
+        print("\n🛑 Abbruch durch Benutzer (Ctrl-C). Beende Visualizer...")    #except Exception as e:
+    finally:
+        # Der finally-Block ist die Lebensversicherung deines Skripts!
+        # Er wird IMMER ausgeführt – egal ob die Schleife normal endet, 
+        # du Ctrl-C drückst oder das Skript mit einem Fehler abstürzt.
+        viz.Quit()
+        sys.exit()

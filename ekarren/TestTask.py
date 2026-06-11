@@ -129,7 +129,7 @@ class TestTask:
         self.counter += 1
         return False
 
-    def Step(self, scan_msg):
+    def Step(self, ranges):
         #setStartPoint = False
         if self.State == self.StateOmegaMeasurement:
             ready = self.MeasureOmega()
@@ -148,7 +148,7 @@ class TestTask:
                     self.State = self.StateIdle
 
         if self.State == self.StateGotoWall:
-            ranges = np.array(scan_msg.ranges)
+            #ranges = np.array(scan_msg.ranges)
             LsAngleRange = 10       # Lidar angle range (in deg) for distance check
             start_deg = params.LidarMaxAngle - LsAngleRange // 2
             end_deg = start_deg + LsAngleRange
@@ -174,10 +174,9 @@ class TestTask:
             A = []
             b = []
             wallNumbers = []
-            #detectedWalls = self.node.Walldetector(scan_msg, -np.pi/2, np.pi/2)        
-            detectedWalls = self.node.Walldetector(scan_msg)        
+            detectedWalls = self.node.Walldetector(ranges)        
             detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, wallNumbers, debug=False)    #, ignore=ignoreList, debug=False)
-            PublishMarkers(self.node.marker_pub, detectedWalls, detectedWallsValid)
+            PublishMarkers(detectedWalls, detectedWallsValid)
                  #return TaskState.Ready, None
             
         return TaskState.Running, None

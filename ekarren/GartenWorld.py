@@ -4,9 +4,12 @@
 
 import numpy as np
 import math
-#import pygame
 from dataclasses import dataclass
 import params
+
+# Toleranz für Wanderkennung
+MAX_ANGLE_DIFF_RAD = np.deg2rad(5.0)
+
 
 # Weltgeometrie
 BORDER_MARGIN = 10      # 40                   
@@ -137,10 +140,9 @@ def NormalizeAngle(angle_rad):
 
 def CheckAngle(num, angle_rad):
     value_rad = lineTheta[num]
-    MaxDiff = np.deg2rad(2.5)
     diff1 = NormalizeAngle(angle_rad - value_rad)
     diff2 = NormalizeAngle(angle_rad + math.pi - value_rad)
-    return abs(diff1) < MaxDiff or abs(diff2) < MaxDiff 
+    return abs(diff1) < MAX_ANGLE_DIFF_RAD or abs(diff2) < MAX_ANGLE_DIFF_RAD 
 
 def CheckAngleResult_deg(num, angle_rad):
     value_rad = lineTheta[num]

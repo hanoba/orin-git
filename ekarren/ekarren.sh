@@ -1,10 +1,10 @@
 #!/bin/bash
 # File: ekarren.sh
-# Startet E-Karren auf Orin-NX  (echte Hardware)
+# Startet E-Karren-Software auf Orin-NX  (echte Hardware)
 
 cd /home/harald/orin-git/ekarren/
 clear
-echo "🚀 Starte E-Karren..."
+echo "🚀 Starte E-Karren-Software..."
 
 # IP-Adressen setzen
 source GenerateVizIpAddr.sh

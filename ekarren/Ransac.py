@@ -20,7 +20,6 @@ def get_lines_with_gap_check(points):
     pts = points.astype(np.float32)
     best_mask = None
     best_count = 0
-    dist_thresh = DIST_THRESH
 
     # 1. RANSAC wie gehabt
     for _ in range(40):
@@ -31,7 +30,7 @@ def get_lines_with_gap_check(points):
         if norm < 0.01: continue 
         normal = np.array([-vec[1], vec[0]]) / norm
         dists = np.abs(np.dot(pts - p1, normal))
-        mask = dists < dist_thresh
+        mask = dists < DIST_THRESH
         count = np.sum(mask)
         if count > best_count:
             best_count = count
@@ -82,7 +81,6 @@ def get_lines_without_gap_check(points):
     pts = points.astype(np.float32)
     best_mask = None
     best_count = 0
-    dist_thresh = DIST_THRESH
 
     # 1. RANSAC (unverändert)
     for _ in range(40):
@@ -93,7 +91,7 @@ def get_lines_without_gap_check(points):
         if norm < 0.01: continue 
         normal = np.array([-vec[1], vec[0]]) / norm
         dists = np.abs(np.dot(pts - p1, normal))
-        mask = dists < dist_thresh
+        mask = dists < DIST_THRESH
         count = np.sum(mask)
         if count > best_count:
             best_count = count
