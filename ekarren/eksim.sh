@@ -28,6 +28,6 @@ cd /home/harald/orin-git/ekarren
 python3 viz.py &
 
 # PyGame-Simulator
-python3 SimMain.py &
+python3 SimMain.py $1 $2 &
 
 wait

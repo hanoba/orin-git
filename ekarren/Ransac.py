@@ -3,7 +3,7 @@ from UdpSend import UdpSend
 from params import Udp
 
 MAX_GAP = 1.5  #0.50      # 1.0
-DIST_THRESH = 0.05   # 0.05
+DIST_THRESH = 0.05*2   # 0.05
 
 def find_intersection(line1, line2):
     p1, p2 = line1; p3, p4 = line2

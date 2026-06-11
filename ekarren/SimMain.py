@@ -5,6 +5,7 @@ from Navigator import Navigator
 import params
 from params import Udp
 from UdpSend import UdpSend
+import TaskLists
 
 
 lidarCounter = 0
@@ -65,8 +66,40 @@ def SendPositionAndTime(posX, posY, theta):
 
 
 def main():
+    # Tasklist dictionary
+    TaskListDict = {
+        "Localization":           TaskLists.Localization_TaskList,
+        "Mowing":                 TaskLists.Mowing_TaskList,
+        "Fahre_zum_Schuppen":     TaskLists.Fahre_zum_Schuppen_TaskList,
+        "Fahre_in_den_Wald":      TaskLists.Fahre_in_den_Wald_TaskList,
+        "Fahre_in_den_Garten":    TaskLists.Fahre_in_den_Garten_TaskList,
+        "Fahre_hinters_Haus":     TaskLists.Fahre_hinters_Haus_TaskList,
+        "Bestimme_YawOffset":     TaskLists.Bestimme_YawOffset_TaskList,
+        "Test":                   TaskLists.Test_TaskList
+    }
+
+    def Usage():
+        print("Usage: ekarren <taskName>")
+        print("<taskName>:")
+        for taskName in TaskListDict:
+            print(f"    {taskName}")
+        sys.exit(0)
+
+    # command line parameter handling
+    argc = len(sys.argv)
+    taskList = None
+    if argc == 2:
+        taskList = TaskListDict.get(sys.argv[1])
+        if taskList is None: 
+            Usage()
+    elif argc > 2: Usage()
+
     sim = Simulation()
     navigator = Navigator(sim.SetRobotSpeed)
+
+    if taskList is not None:
+        navigator.NewTaskList(taskList)
+    
     try:
         # Die Schleife läuft nur, solange sim.running UND ROS okay ist
         while sim.running:

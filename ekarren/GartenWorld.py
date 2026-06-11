@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import params
 
 # Toleranz für Wanderkennung
-MAX_ANGLE_DIFF_RAD = np.deg2rad(5.0)
+MAX_ANGLE_DIFF_RAD = np.deg2rad(5.0*2)
 
 
 # Weltgeometrie
