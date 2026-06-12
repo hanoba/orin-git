@@ -111,8 +111,10 @@ class Compass:
         #self.yawOffset = np.radians(54-4)
         self.yawOffset = ReadYawOffset()
         print(f"YawOffset={np.degrees(self.yawOffset)}°")
+        self.gyro_z_bias = 0.0
 
-        # Gyro-Bias kalibrieren
+    def GyroBiasCalibration(self):
+        """ Gyro-Bias kalibrieren """
         calibration_samples = 100
         bias_sum = 0.0
         for _ in range(calibration_samples):
@@ -167,11 +169,12 @@ class Compass:
     def run(self):
         while True:
             start_t = time.time()
-            
             heading = math.degrees(self.ReadYaw())
+            end_t = time.time()
             
             if self.counter % 10 == 0:
-                print(f"{self.counter:5d} Kurs:{heading:3.0f}°")
+                duration_ms = (end_t - start_t)*1000.0
+                print(f"{self.counter:5d} Kurs:{heading:3.0f}°  {duration_ms=}")
             self.counter += 1
             
             # Exakt auf 50 Hz abregeln
