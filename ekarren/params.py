@@ -67,40 +67,14 @@ def WriteYawOffset(yawOffset_rad):
     with open("YawOffsetNew_deg.txt", "w") as file:
         file.write(str(np.degrees(yawOffset_rad)))
 
-config = 0
-if config==0:
-    RobotInitX = 15.00      # Im Garten beim Gartentor
-    RobotInitY =  9.00
-    RobotInitTheta = np.pi
-elif config==1:
-    RobotInitX = -13.60     # unterhalb des Schuppen
-    RobotInitY =   4.20
-    RobotInitTheta = 0.0
-elif config==2:
-    RobotInitX = 12.00      # unterhalb der Terrasse
-    RobotInitY = -3.00
-    RobotInitTheta = 0.0
-elif config==3:
-    RobotInitX =  4.10      # links vor der Terrasse
-    RobotInitY =  4.50
-    RobotInitTheta = 0.0
-elif config==4:
-    RobotInitX =   -2.00    # rechts vom Schuppen 
-    RobotInitY =   10.50
-    RobotInitTheta = 0.0
-elif config==5:         # für Mow Test
-    RobotInitX = 18.0  # 19.0
-    RobotInitY =  0.00
-    RobotInitTheta = 0.0
-elif config==6:
-    RobotInitX = 19.00      # Im Wald beim Gartentor
-    RobotInitY = 15.00
-    RobotInitTheta =  -np.pi/2
-elif config==7:
-    RobotInitX =   -9.00    # vor der Schuppentür
-    RobotInitY =    9.00
-    RobotInitTheta = np.pi/2
-else:
-    RobotInitX = 0.0
-    RobotInitY = 0.0
-    RobotInitTheta = 0.0  # -np.pi
+# config = 0
+# if config==0:   pose = (15.00, 9.00, np.pi)         # Im Garten beim Gartentor
+# elif config==1: pose = (-13.60, 4.20, 0.0)          # unterhalb des Schuppen
+# elif config==2: pose = (12.00, -3.00, 0.0)          # unterhalb der Terrasse
+# elif config==3: pose = (4.10, 4.50, 0.0)            # links vor der Terrasse
+# elif config==4: pose = (-2.00, 10.50, 0.0)          # rechts vom Schuppen 
+# elif config==5: pose = (18.0, 0.00, 0.0)            # für Mow Test
+# elif config==6: pose = (19.00,  15.00, -np.pi/2)    # Im Wald beim Gartentor
+# elif config==7: pose = (-9.00, 9.00, np.pi/2)       # vor der Schuppentür
+# else:           pose = (0.00, 0.00, 0.0)
+# (RobotInitX, RobotInitY, RobotInitTheta) = pose

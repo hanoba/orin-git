@@ -7,8 +7,7 @@ from PassGateRansacTask import PassGateRansacTask
 from YawOffsetDetectionTask import YawOffsetDetectionTask
 from TestTask import TestTask
 import params
-from params import TaskState, Udp
-from UdpSend import UdpSend
+from params import TaskState
 
 
 LocXLT =    0   # Endkriterium: xPos < dist
@@ -346,7 +345,6 @@ class LocalizationTask:
         self.node.SetWantedTheta(self.wantedTheta)
 
     def Step(self, ranges):
-        #self.simTimeSec = self.node.get_clock().now().nanoseconds / 1e9
         detectedWalls = self.node.Walldetector(ranges)        
         if self.node.wantedThetaReached:
             detectedWallsValid = Localization(self.node.theta, detectedWalls, self.A, self.b, self.wallNumbers)
@@ -375,6 +373,42 @@ class LocalizationTask:
         return TaskState.Running, None
 
 
+class FastLocalizationTask:
+    def Init(self, node, params, retvals=None):
+        self.node = node
+        self.wallNumbers = []
+        self.locCounter = 1
+        self.errorCounter = 0
+        self.debug = False
+
+    def Step(self, ranges):
+        detectedWalls = self.node.Walldetector(ranges)        
+        A = []
+        b = []
+        detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, self.wallNumbers, debug=self.debug)
+        PublishMarkers(detectedWalls, detectedWallsValid)
+
+        A, b, wallNumbers = RemoveEquations(A, b, self.wallNumbers, debug=self.debug)
+        numEq = len(wallNumbers)
+        if numEq < 2:
+            return TaskState.Error, None
+        x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
+        if self.debug:
+            print(f"Lösung: ({x[0]:.2f}, {x[1]:.2f})    Rang:{rank}   Fehlerquadratsumme: {residuals}")                
+            for i in range(numEq):
+                err = x[0]*A[i,0] + x[1]*A[i,1] - b[i]
+                print(f"{b[i]:6.2f} = {A[i,0]:6.2f}*x + {A[i,1]:6.2f}*y   {err=:6.2f}  # {lineNames[wallNumbers[i]]}")
+        if (residuals.size > 0 and residuals > 0.5) or rank < 2:
+            self.errorCounter += 1
+            print("ERROR LocalizationTask failed")
+        else:
+            self.node.odom.SetPos(x, self.node.theta)
+        if self.locCounter % 10 == 0:
+            self.node.RvizPrint(f"{self.errorCounter}/{self.locCounter} errors")
+        self.locCounter += 1
+        return TaskState.Running, None
+
+
 class GotoTask:
     def Init(self, node, taskIndex, retvals=None):
         node.GotoTask(taskIndex)
@@ -397,6 +431,11 @@ Localization_TaskList = {
     "tasks": [  (LocalizationTask(), None),
                 (GotoTask(), 0)
              ]
+}
+
+FastLocalization_TaskList = {
+    "name": "FastLocalization_TaskList",
+    "tasks": [  (FastLocalizationTask(), None) ]
 }
 
 Mowing_TaskList = {

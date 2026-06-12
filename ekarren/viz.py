@@ -249,9 +249,9 @@ class Visualizer:
     def __init__(self):
         self.numSteps = 0
         self.robot = DiffDriveRobot(
-            x=params.RobotInitX,
-            y=params.RobotInitY,
-            theta=params.RobotInitTheta)
+            x=0.0,
+            y=0.0,
+            theta=0.0)
         self.robot.SetSpeed(0.0,0.0)
     
         pygame.init()

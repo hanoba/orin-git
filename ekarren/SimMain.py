@@ -12,30 +12,7 @@ lidarCounter = 0
         
 
 def SendLidarData(dist):
-    # # --- PUBLISH SCAN ---
-    # scan = LaserScan()
-    # # 2. Zur Sicherheit: time_increment nullen
-    # scan.time_increment = 0.0
-    # #current_sim_time = Time(seconds=self.sim.sim_time_sec)
-    # #scan.header.stamp = current_sim_time.to_msg()
-    # scan.header.stamp = self.get_clock().now().to_msg()
-    # scan.header.frame_id = 'lidar'      # wenn Lidar vor der Achsenmitte montiert ist
-    # #scan.header.frame_id = 'base_link'  # wenn Lidar direkt in Achsenmitte montiert ist
-    # #scan.time_increment = self.scanTimeInc
-    # scan.angle_min = math.radians(1-params.LidarMaxAngle)
-    # scan.angle_max = math.radians(params.LidarMaxAngle)
-    # #scan.angle_min = math.radians(1-params.LidarMaxAngle)  HB old version
-    # #scan.angle_max = math.radians(params.LidarMaxAngle)
-    # num_readings = 2*params.LidarMaxAngle
-    # scan.angle_increment = (scan.angle_max - scan.angle_min) / (num_readings - 1)
-    # scan.angle_max = scan.angle_min + (scan.angle_increment * (num_readings - 1))
-    # 
-    # scan.range_min = params.LidarRangeMin
-    # scan.range_max = params.LidarRangeMax
-    
     dist = np.clip(dist, params.LidarRangeMin, params.LidarRangeMax)
-    # scan.ranges = dist.tolist()
-    
     cm = 100.0
     dist_cm = dist*cm
     dist_cm = dist_cm.astype(np.int16)
@@ -58,25 +35,27 @@ def SendPositionAndTime(posX, posY, theta):
         UdpSend(udp_header, udp_data)
 
     # Kleine Erfolgsmeldung alle 100 Pakete
-    if lidarCounter % 100 == 0:
-        theta_deg = int(np.rad2deg(theta))
-        #print(f"[{self.sim.sim_time_sec:.3f}] Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°")
-        print(f" Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°")
-    lidarCounter += 1
+    # if lidarCounter % 100 == 0:
+    #     theta_deg = int(np.rad2deg(theta))
+    #     #print(f"[{self.sim.sim_time_sec:.3f}] Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°")
+    #     print(f" Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°")
+    # lidarCounter += 1
 
 
 def main():
     # Tasklist dictionary
     TaskListDict = {
-        "Localization":           TaskLists.Localization_TaskList,
-        "Mowing":                 TaskLists.Mowing_TaskList,
-        "Fahre_zum_Schuppen":     TaskLists.Fahre_zum_Schuppen_TaskList,
-        "Fahre_in_den_Wald":      TaskLists.Fahre_in_den_Wald_TaskList,
-        "Fahre_in_den_Garten":    TaskLists.Fahre_in_den_Garten_TaskList,
-        "Fahre_hinters_Haus":     TaskLists.Fahre_hinters_Haus_TaskList,
-        "Bestimme_YawOffset":     TaskLists.Bestimme_YawOffset_TaskList,
-        "Test":                   TaskLists.Test_TaskList
+        "Localization":           (TaskLists.Localization_TaskList,        15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
+        "FastLocalization":       (TaskLists.FastLocalization_TaskList,    15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
+        "Mowing":                 (TaskLists.Mowing_TaskList,              18.00,  0.00,   0.0   ), # für Mow Test
+        "Fahre_zum_Schuppen":     (TaskLists.Fahre_zum_Schuppen_TaskList,  15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
+        "Fahre_in_den_Wald":      (TaskLists.Fahre_in_den_Wald_TaskList,   15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
+        "Fahre_in_den_Garten":    (TaskLists.Fahre_in_den_Garten_TaskList, 19.00, 15.00, -np.pi/2), # Im Wald beim Gartentor
+        "Fahre_hinters_Haus":     (TaskLists.Fahre_hinters_Haus_TaskList,  -2.00, 10.50,   0.0   ), # rechts vom Schuppen 
+        "Bestimme_YawOffset":     (TaskLists.Bestimme_YawOffset_TaskList,  -9.00,  9.00,  np.pi/2), # vor der Schuppentür
+        "Test":                   (TaskLists.Test_TaskList,                12.00, -3.00,   0.0   )  # unterhalb der Terrasse
     }
+
 
     def Usage():
         print("Usage: ekarren <taskName>")
@@ -87,14 +66,14 @@ def main():
 
     # command line parameter handling
     argc = len(sys.argv)
-    taskList = None
+    (taskList, x, y, yaw) = (None, 0.0, 0.0, 0.0)
     if argc == 2:
-        taskList = TaskListDict.get(sys.argv[1])
-        if taskList is None: 
-            Usage()
+        parameters = TaskListDict.get(sys.argv[1])
+        if parameters is None: Usage()
+        (taskList, x, y, yaw) = parameters
     elif argc > 2: Usage()
 
-    sim = Simulation()
+    sim = Simulation(x, y, yaw)
     navigator = Navigator()
 
     if taskList is not None:

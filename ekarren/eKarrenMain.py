@@ -135,68 +135,71 @@ class eKarren:
         if not self.device==DEV_ROSMASTER: self.sock.close()
 
 
-def TimerCallback():
-    """ Sendet theta und Fahrbefehle (30Hz) """
-    theta = compass.ReadYaw()
-    vLinear, omega = navigator.CompassCallback(theta)
-    ekarren.SetSpeed(vLinear, omega)
+def main():
+    # Tasklist dictionary
+    TaskListDict = {
+        "Localization":           TaskLists.Localization_TaskList,
+        "FastLocalization":       TaskLists.FastLocalization_TaskList,
+        "Mowing":                 TaskLists.Mowing_TaskList,
+        "Fahre_zum_Schuppen":     TaskLists.Fahre_zum_Schuppen_TaskList,
+        "Fahre_in_den_Wald":      TaskLists.Fahre_in_den_Wald_TaskList,
+        "Fahre_in_den_Garten":    TaskLists.Fahre_in_den_Garten_TaskList,
+        "Fahre_hinters_Haus":     TaskLists.Fahre_hinters_Haus_TaskList,
+        "Bestimme_YawOffset":     TaskLists.Bestimme_YawOffset_TaskList,
+        "Test":                   TaskLists.Test_TaskList
+    }
 
+    def TimerCallback():
+        """ Sendet theta und Fahrbefehle (30Hz) """
+        theta = compass.ReadYaw()
+        vLinear, omega = navigator.CompassCallback(theta)
+        ekarren.SetSpeed(vLinear, omega)
 
-# Tasklist dictionary
-TaskListDict = {
-    "Localization":           TaskLists.Localization_TaskList,
-    "Mowing":                 TaskLists.Mowing_TaskList,
-    "Fahre_zum_Schuppen":     TaskLists.Fahre_zum_Schuppen_TaskList,
-    "Fahre_in_den_Wald":      TaskLists.Fahre_in_den_Wald_TaskList,
-    "Fahre_in_den_Garten":    TaskLists.Fahre_in_den_Garten_TaskList,
-    "Fahre_hinters_Haus":     TaskLists.Fahre_hinters_Haus_TaskList,
-    "Bestimme_YawOffset":     TaskLists.Bestimme_YawOffset_TaskList,
-    "Test":                   TaskLists.Test_TaskList
-}
+    def Usage():
+        print("Usage: ekarren <taskName>")
+        print("<taskName>:")
+        for taskName in TaskListDict:
+            print(f"    {taskName}")
+        sys.exit(0)
 
-def Usage():
-    print("Usage: ekarren <taskName>")
-    print("<taskName>:")
-    for taskName in TaskListDict:
-        print(f"    {taskName}")
-    sys.exit(0)
+    # command line parameter handling
+    argc = len(sys.argv)
+    taskList = None
+    if argc == 2:
+        taskList = TaskListDict.get(sys.argv[1])
+        if taskList is None: 
+            Usage()
+    elif argc > 2: Usage()
 
-# command line parameter handling
-argc = len(sys.argv)
-taskList = None
-if argc == 2:
-    taskList = TaskListDict.get(sys.argv[1])
-    if taskList is None: 
-        Usage()
-elif argc > 2: Usage()
+    # Roboter initialisieren
+    ekarren = eKarren(device=deviceNum, debug=False)
+    navigator = Navigator()
+    lidar = Lidar(navigator.ScanCallback)
+    compass = Compass()
+    freq_Hz = 10
+    timer = Timer(freq_Hz, TimerCallback)    # Timer ruft selbstständig TimerCallback() auf
+    timer.start()
 
-# Roboter initialisieren
-ekarren = eKarren(device=deviceNum, debug=False)
-navigator = Navigator()
-lidar = Lidar(navigator.ScanCallback)
-compass = Compass()
-freq_Hz = 10
-timer = Timer(freq_Hz, TimerCallback)    # Timer ruft selbstständig TimerCallback() auf
-timer.start()
+    if taskList is not None:
+        navigator.NewTaskList(taskList)
 
-if taskList is not None:
-    navigator.NewTaskList(taskList)
+    try:
+        # Das Publizieren von Lidardaten und Theta erfolgt in Hintergrund-Threads
+        while True:
+            time.sleep(1.0)
+    except KeyboardInterrupt:
+        # Wird ausgelöst, wenn du Ctrl+C drückst
+        print("eKarren wurde durch Benutzer abgebrochen.")
+    #except Exception as e:
+    #    # Fängt unerwartete Fehler ab
+    #    print(f"Unerwarteter Fehler: {e}")
+    finally:
+        # Dieser Block wird IMMER ausgeführt, egal ob Fehler oder Ctrl+C
+        print("Bereinige Ressourcen...")
+        lidar.StopLidar()
+        
+        # Optional: Komplettes Beenden erzwingen (hilft bei WSL2-Hängern)
+        sys.exit(0)
 
-try:
-    # Das Publizieren von Lidardaten und Theta erfolgt in Hintergrund-Threads
-    while True:
-        time.sleep(1.0)
-except KeyboardInterrupt:
-    # Wird ausgelöst, wenn du Ctrl+C drückst
-    print("eKarren wurde durch Benutzer abgebrochen.")
-#except Exception as e:
-#    # Fängt unerwartete Fehler ab
-#    print(f"Unerwarteter Fehler: {e}")
-finally:
-    # Dieser Block wird IMMER ausgeführt, egal ob Fehler oder Ctrl+C
-    print("Bereinige Ressourcen...")
-    lidar.StopLidar()
-    
-    # Optional: Komplettes Beenden erzwingen (hilft bei WSL2-Hängern)
-    sys.exit(0)
-
+if __name__ == '__main__':
+    main()

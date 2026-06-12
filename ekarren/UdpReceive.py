@@ -17,7 +17,7 @@ sock.setblocking(False)
 print(f"Warte auf UDP-Pakete auf {listen_ip}:{Udp.PORT}...")
     
 
-def UdpReceive():
+def UdpReceive(debug=False):
     """Startet einen UDP-Server, der Daten empfängt und dekodiert."""
 
     try:
@@ -44,7 +44,7 @@ def UdpReceive():
     
     if header == Udp.TEXT:
         text = data_bytes.decode('utf-8')
-        print(text)
+        if debug: print(f"[UdpReceive] {text}")
         return header, text
         
     # Daten-Array entpacken

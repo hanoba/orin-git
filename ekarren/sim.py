@@ -480,12 +480,12 @@ def draw_lidar_rays(surf, robot: DiffDriveRobot, hits):
             pygame.draw.circle(surf, LIDAR_HIT_COLOR, ((hx), (hy)), 2)
 
 class Simulation:
-    def __init__(self):
+    def __init__(self, robotInitX, robotInitY, robotInitTheta):
         self.numSteps = 0
         self.robot = DiffDriveRobot(
-            x=params.RobotInitX,
-            y=params.RobotInitY,
-            theta=params.RobotInitTheta)
+            x=robotInitX,
+            y=robotInitY,
+            theta=robotInitTheta)
         self.robot.SetSpeed(0.0,0.0)
     
         pygame.init()
