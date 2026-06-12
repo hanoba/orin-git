@@ -2,6 +2,7 @@ import numpy as np
 import Ransac
 from params import TaskState, Udp
 from params import ReadYawOffset, WriteYawOffset
+import params
 from UdpSend import UdpSend
 
 class YawOffsetDetectionTask:
@@ -13,11 +14,11 @@ class YawOffsetDetectionTask:
         self.sumAngle_rad = 0.0
         self.yawOffsetOld = ReadYawOffset()
 
-    def Step(self, scan_msg):
+    def Step(self, ranges):
         if not self.node.wantedThetaReached:
             return TaskState.Running, None
 
-        all_detected_walls = self.Walldetector(scan_msg) 
+        all_detected_walls = self.Walldetector(ranges) 
         walls = np.array(all_detected_walls)
 
         linie, laenge, w_rad = self.ComputeLongestLine(walls)
@@ -50,11 +51,12 @@ class YawOffsetDetectionTask:
         print(f"YawOffsetNewMean (Grad):   {np.degrees(yawOffsetNew):.2f}°")
         return TaskState.Ready, None
     
-    def Walldetector(self, msg):
-        ranges = np.array(msg.ranges)
-        angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
+    def Walldetector(self, ranges):
+        #ranges = np.array(msg.ranges)
+        #angles = msg.angle_min + np.arange(len(ranges)) * msg.angle_increment
+        angles = params.LidarAngles
         anglesMask = (angles > -np.pi/2) & (angles < np.pi/2)
-        rangesMask = np.isfinite(ranges) & (ranges > msg.range_min + 0.01) & (ranges < msg.range_max - 0.1)
+        rangesMask = np.isfinite(ranges) & (ranges > params.LidarRangeMin + 0.01) & (ranges < params.LidarRangeMax - 0.1)
         points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[anglesMask & rangesMask]
         allDetectedWalls = Ransac.LineDetection(points)
         return allDetectedWalls

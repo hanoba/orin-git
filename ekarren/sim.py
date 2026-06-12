@@ -33,7 +33,7 @@ import cmath
 import sys
 import numpy as np  # WICHTIG: NumPy importieren
 import pygame
-from GartenWorld import World, WIN_W, WIN_H, X, Y, V, Xm, Ym, MetersPerPixel
+from GartenWorld import world, WIN_W, WIN_H, X, Y, V, Xm, Ym, MetersPerPixel
 import os
 
 # Setzt den Audio-Treiber auf 'dummy'. 
@@ -246,7 +246,7 @@ def G(x):
 # -------------------------
 # LiDAR‑Simulation (NumPy Optimized)
 # -------------------------
-def cast_lidar(world: World, robot: DiffDriveRobot):
+def cast_lidar(world, robot: DiffDriveRobot):
     """
     Berechnet LiDAR-Schnittpunkte vektorisiert mit NumPy.
     FIX: Shape-Mismatch bei 'out' Parameter behoben.
@@ -495,7 +495,7 @@ class Simulation:
         # Für Fenstermodus (besser zum Debuggen):
         self.screen = pygame.display.set_mode((WIN_W, WIN_H))
         self.map = pygame.Surface((WIN_W, WIN_H))
-        self.world = World()
+        self.world = world #World()
         self.DrawWorld(self.world)
         #self.world.draw(self.map)
 

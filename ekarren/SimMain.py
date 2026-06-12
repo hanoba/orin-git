@@ -83,7 +83,7 @@ def main():
         print("<taskName>:")
         for taskName in TaskListDict:
             print(f"    {taskName}")
-        sys.exit(0)
+        sys.exit(1)
 
     # command line parameter handling
     argc = len(sys.argv)
@@ -101,7 +101,6 @@ def main():
         navigator.NewTaskList(taskList)
     
     try:
-        # Die Schleife läuft nur, solange sim.running UND ROS okay ist
         while sim.running:
             x, y, theta, radius = sim.Step()        # Simulations-Schritt
             if not sim.pause:

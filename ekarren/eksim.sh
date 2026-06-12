@@ -20,14 +20,15 @@ export EKARREN_VIZ_IP1="192.168.178.104"    # IP Laptop Wohnung
 export EKARREN_VIZ_IP2="127.0.0.1"          # IP Desktop Wohnung
 
 clear
-echo "🚀 Starte Host-Simulation des E-Karren..."
+echo "🚀 Starte Host-Simulation des E-Karrens..."
 
 cd /home/harald/orin-git/ekarren
 
 # Pygame-Visualizer (ersetzt rviz2)
 python3 viz.py &
 
-# PyGame-Simulator
-python3 SimMain.py $1 $2 &
+sleep 0.2 
 
-wait
+# PyGame-Simulator
+python3 SimMain.py $1 $2 
+

@@ -67,7 +67,7 @@ def WriteYawOffset(yawOffset_rad):
     with open("YawOffsetNew_deg.txt", "w") as file:
         file.write(str(np.degrees(yawOffset_rad)))
 
-config = 5
+config = 0
 if config==0:
     RobotInitX = 15.00      # Im Garten beim Gartentor
     RobotInitY =  9.00

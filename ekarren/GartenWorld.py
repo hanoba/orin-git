@@ -59,6 +59,7 @@ P_SIGN = [ 1, 1, -1, -1 ]
 
 def GetWallPosY(wallNum, x=0):
     """ Berechnet den Y-Wert für die Wand/Linie wallNum """
+    print(wallNum, x)
     a=lineMatrix[wallNum][0]
     b=lineMatrix[wallNum][1]
     c=lineMatrix[wallNum][2]
@@ -521,6 +522,6 @@ def Schuppen():
     Move(schuppen,mx,my)
     return schuppen
 
-# if __name__ == '__main__':
+#if __name__ == '__main__':
 world = World()
 PrintLineMatrix()
