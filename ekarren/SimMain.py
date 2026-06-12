@@ -95,7 +95,7 @@ def main():
     elif argc > 2: Usage()
 
     sim = Simulation()
-    navigator = Navigator(sim.SetRobotSpeed)
+    navigator = Navigator()
 
     if taskList is not None:
         navigator.NewTaskList(taskList)
@@ -105,7 +105,8 @@ def main():
         while sim.running:
             x, y, theta, radius = sim.Step()        # Simulations-Schritt
             if not sim.pause:
-                navigator.CompassCallback(theta)    # Publish Theta
+                vLinear, omega = navigator.CompassCallback(theta)    # Publish Theta
+                sim.SetRobotSpeed(vLinear, omega)
                 SendPositionAndTime(x, y, theta)    # Send Pose to viz.py
                 if len(radius) > 0: 
                     navigator.ScanCallback(radius)  # Publish lidar data

@@ -20,7 +20,10 @@ DEV_EKARREN = 1         # send UDP commands to eKarren
 DEV_EKARREN_PC = 2      # send UDP commands to PC (AZ-KENKO)
 DEV_EKARREN_EMU = 3     # send UDP commands to Rosmaster
 
+#deviceName = "eKarren"
 deviceName = "eKarrenPC"
+#deviceName = "eKarrenEmulator"
+
 if deviceName=="eKarren": deviceNum = DEV_EKARREN
 elif deviceName=="eKarrenPC": deviceNum = DEV_EKARREN_PC
 elif deviceName=="eKarrenEmulator": deviceNum = DEV_EKARREN_EMU
@@ -131,21 +134,11 @@ class eKarren:
         self.SetSpeed(0, 0)
         if not self.device==DEV_ROSMASTER: self.sock.close()
 
-vLinear = 0.0
-omega = 0.0
-
-def CmdVelCallback(angular, linear):
-    """Wird aufgerufen, wenn ROS2 einen Fahrbefehl sendet."""
-    global vLinear, omega
-    vLinear = linear
-    omega = angular
-
-
 
 def TimerCallback():
     """ Sendet theta und Fahrbefehle (30Hz) """
     theta = compass.ReadYaw()
-    navigator.CompassCallback(theta)
+    vLinear, omega = navigator.CompassCallback(theta)
     ekarren.SetSpeed(vLinear, omega)
 
 
@@ -179,10 +172,11 @@ elif argc > 2: Usage()
 
 # Roboter initialisieren
 ekarren = eKarren(device=deviceNum, debug=False)
-navigator = Navigator(CmdVelCallback)
+navigator = Navigator()
 lidar = Lidar(navigator.ScanCallback)
 compass = Compass()
-timer = Timer(10, TimerCallback)    # 30Hz-Timer ruft selbstständig TimerCallback() auf
+freq_Hz = 10
+timer = Timer(freq_Hz, TimerCallback)    # Timer ruft selbstständig TimerCallback() auf
 timer.start()
 
 if taskList is not None:

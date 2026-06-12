@@ -7,7 +7,8 @@ import socket
 import time
 from datetime import datetime
 
-UDP_IP = "192.168.178.75" # 81 ESP32 RC IP Address
+#UDP_IP = "192.168.178.75" # 81 ESP32 RC IP Address
+UDP_IP = "0.0.0.0"
 UDP_PORT = 4215  #4210
 bufsize = 256
 

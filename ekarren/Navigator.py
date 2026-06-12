@@ -67,11 +67,7 @@ class Odometry:
 
 
 class Navigator:
-    def __init__(self, pubVelocities):
-
-        # Funktion zum setzen von Omega und vLinear
-        self.PubVelocities = pubVelocities
-
+    def __init__(self):
         # Odometrie-Funktionen
         self.odom = Odometry()
 
@@ -93,11 +89,11 @@ class Navigator:
         self.missedScans = 0
 
     def SetVelocities(self, omega, vLinear):
-        self.angular = 0.0
-        self.linear = 0.0
+        self.angular = omega    #0.0
+        self.linear = vLinear   #0.0
         self.wantedThetaReached = True
         self.directionFlag = False
-        self.PubVelocities(vLinear, omega)
+        #self.PubVelocities(vLinear, omega)
 
     def SetWantedTheta(self, wantedTheta):
         self.wantedTheta = wantedTheta
@@ -123,7 +119,7 @@ class Navigator:
             e = (e + math.pi) % math.tau - np.pi
             e = np.clip(e, -self.angularMax, self.angularMax)
             self.angular = e * self.K_head
-            self.PubVelocities(self.linear, self.angular)
+            #self.PubVelocities(self.linear, self.angular)
         elif not self.wantedThetaReached:
             e = self.wantedTheta - self.theta
             e = (e + math.pi) % math.tau - np.pi
@@ -136,7 +132,8 @@ class Navigator:
                 self.angular = 0.0
             else:
                 self.angular = e * self.K_head
-            self.PubVelocities(self.linear, self.angular)
+            #self.PubVelocities(self.linear, self.angular)
+        return self.linear, self.angular
 
     def ScanCallback(self, ranges):
         if self.is_processing:
