@@ -101,7 +101,7 @@ class GY801_Fast:
 
 
 class Compass:
-    def __init__(self, gyroBiasCalibration=True):
+    def __init__(self):
         self.imu = GY801_Fast(I2C_BUS)
         # Falls der Kompass mit alpha=0.98 (98% Gyro, 2% Mag) zu träge reagiert, dann setze alpha auf 0.95 oder 0.90.
         # Das gibt dem Magnetometer wieder etwas mehr Gewicht.
@@ -111,16 +111,17 @@ class Compass:
         #self.yawOffset = np.radians(54-4)
         self.yawOffset = ReadYawOffset()
         print(f"YawOffset={np.degrees(self.yawOffset)}°")
+        self.gyro_z_bias = 0.0
 
-        # Gyro-Bias kalibrieren
+    def GyroBiasCalibration(self):
+        """ Gyro-Bias kalibrieren """
         calibration_samples = 100
         bias_sum = 0.0
-        if gyroBiasCalibration:
-            for _ in range(calibration_samples):
-                _, _, gyro = self.imu.read_all()
-                # In rad/s umrechnen!
-                bias_sum += np.radians(gyro[2] * 0.0175)
-                time.sleep(0.02)
+        for _ in range(calibration_samples):
+            _, _, gyro = self.imu.read_all()
+            # In rad/s umrechnen!
+            bias_sum += np.radians(gyro[2] * 0.0175)
+            time.sleep(0.02)
             
         self.gyro_z_bias = bias_sum / calibration_samples
         print(f"Gyro-Bias-Kalibrierung fertig! Gyro-Bias: {self.gyro_z_bias:+.4f} rad/s")        
