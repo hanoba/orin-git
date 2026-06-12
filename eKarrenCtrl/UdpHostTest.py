@@ -129,6 +129,8 @@ while True:
     #data = sock.recv(2048)
     data = ReceiveRaw()
     if data != "": 
+        tNow = time.perf_counter()
+        if printCnt == 0: tStart = tNow
         fields = data.split(",")
         vLinearQ = int(fields[1])
         vAngularQ = int(fields[2])
@@ -136,6 +138,7 @@ while True:
         vLinear, f = eKarrenSimulation(vLinearQ, vAngularQ, rcKeyStatus)
         printCnt += 1
         if printCnt > 30:
+            f_sample = 30.0 / (tNow - tStart)
             printCnt = 0
-            print(f"{datetime.now()}  vLinear = {vLinear:4.2f} m/s,   f = {f:4.2f} Hz  raw:{data}")
+            print(f"{datetime.now()}  vLinear={vLinear:4.2f} m/s,   vAngular={f:4.2f} U/s  {f_sample=:4.2f} Hz  raw:{data}  ")
     #time.sleep(0.05)
