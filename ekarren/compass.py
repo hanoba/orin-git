@@ -101,7 +101,7 @@ class GY801_Fast:
 
 
 class Compass:
-    def __init__(self):
+    def __init__(self, gyroBiasCalibration=True):
         self.imu = GY801_Fast(I2C_BUS)
         # Falls der Kompass mit alpha=0.98 (98% Gyro, 2% Mag) zu träge reagiert, dann setze alpha auf 0.95 oder 0.90.
         # Das gibt dem Magnetometer wieder etwas mehr Gewicht.
@@ -115,11 +115,12 @@ class Compass:
         # Gyro-Bias kalibrieren
         calibration_samples = 100
         bias_sum = 0.0
-        for _ in range(calibration_samples):
-            _, _, gyro = self.imu.read_all()
-            # In rad/s umrechnen!
-            bias_sum += np.radians(gyro[2] * 0.0175)
-            time.sleep(0.02)
+        if gyroBiasCalibration:
+            for _ in range(calibration_samples):
+                _, _, gyro = self.imu.read_all()
+                # In rad/s umrechnen!
+                bias_sum += np.radians(gyro[2] * 0.0175)
+                time.sleep(0.02)
             
         self.gyro_z_bias = bias_sum / calibration_samples
         print(f"Gyro-Bias-Kalibrierung fertig! Gyro-Bias: {self.gyro_z_bias:+.4f} rad/s")        
@@ -167,11 +168,12 @@ class Compass:
     def run(self):
         while True:
             start_t = time.time()
-            
             heading = math.degrees(self.ReadYaw())
+            end_t = time.time()
             
             if self.counter % 10 == 0:
-                print(f"{self.counter:5d} Kurs:{heading:3.0f}°")
+                duration_ms = (end_t - start_t)*1000.0
+                print(f"{self.counter:5d} Kurs:{heading:3.0f}°  {duration_ms=}")
             self.counter += 1
             
             # Exakt auf 50 Hz abregeln

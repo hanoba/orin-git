@@ -1,9 +1,12 @@
 import sys
-from compass import Compass
 import socket
-from eKarrenLidar import Lidar
-import threading
 import time
+import multiprocessing  # <--- NEU
+import psutil           # <--- NEU
+import os               # <--- NEU
+
+from compass import Compass
+from eKarrenLidar import Lidar
 from Navigator import Navigator
 import TaskLists
 
@@ -33,26 +36,41 @@ else:
 print(f"Device: {deviceName}")
 
 
-class Timer(threading.Thread):
-    def __init__(self, hz, callback):
-        super().__init__(daemon=True) # Daemon = Beendet sich automatisch mit dem Hauptskript
+# ==========================================
+# NEU: Kompass-Prozess
+# ==========================================
+class CompassProcess(multiprocessing.Process):
+    def __init__(self, hz, core_id, device_num, compassCallback):
+        super().__init__(daemon=True) 
         self.interval = 1.0 / hz
-        self.callback = callback
-        self.stop_event = threading.Event()
+        self.core_id = core_id
+        self.stop_event = multiprocessing.Event() # Event muss aus multiprocessing kommen!
+        self.ekarren = eKarren(device=device_num, debug=False)
+        self.compass = Compass(gyroBiasCalibration=False)
+        self.CompassCallback = compassCallback
 
     def run(self):
-        # Das ist die unsichtbare Hintergrundschleife
+        # 1. Den Prozess auf einen spezifischen CPU-Kern pinnen
+        try:
+            aktueller_prozess = psutil.Process(os.getpid())
+            aktueller_prozess.cpu_affinity([self.core_id])
+            print(f"[{os.getpid()}] TimerProcess läuft fest auf CPU-Kern: {aktueller_prozess.cpu_affinity()}")
+        except AttributeError:
+            print("Warnung: CPU Affinity wird auf diesem System nicht unterstützt.")
+
+        # 2. Die unsichtbare Hintergrundschleife
         naechster_aufruf = time.perf_counter() + self.interval
         
         while not self.stop_event.is_set():
-            self.callback() # Deine Funktion aufrufen
+            theta = self.compass.ReadYaw()
+            vLinear, omega = self.CompassCallback(theta)
+            self.ekarren.SetSpeed(vLinear, omega)
             
             # Drift-Kompensation
             jetzt = time.perf_counter()
             schlafenszeit = naechster_aufruf - jetzt
             
             if schlafenszeit > 0:
-                # wait() ist besser als sleep(), da es sofort abbricht, wenn stop() aufgerufen wird
                 self.stop_event.wait(schlafenszeit) 
                 
             naechster_aufruf += self.interval
@@ -61,8 +79,6 @@ class Timer(threading.Thread):
         self.stop_event.set()
 
 
-# Die Klasse eKarren stellt im wesentlichen ein Interface zum Setzen der Geschwindigkeit bereit.
-# Weiterhin erlaubt die KLasse eine Emulation des eKarrens mit dem RosMaster X3 Plus. 
 class eKarren:
     def __init__(self, device=DEV_EKARREN, debug=False):
         self.device = device
@@ -74,7 +90,7 @@ class eKarren:
         elif self.device==DEV_EKARREN:
             self.clientAddr = ("192.168.20.100", 4211)       # E-Karren
         else:
-            print("Wrong device: {self.device}")
+            print(f"Wrong device: {self.device}")
             sys.exit(1)
 
         self.rosmaster = None            
@@ -110,12 +126,8 @@ class eKarren:
         elif y <= -rcMaxValue: y = -rcMaxValue + 1
         return y
     
-    # vLinear = linear Geschwindigkeit in m/s
-    # omega = winkelgeschwindigkeit in rad/sec
     def SetSpeed(self, vLinear, omega):
         if self.device==DEV_ROSMASTER:
-            # Steuerbefehl an RosMaster senden (Vorwärts-/Rückwärts- und Drehbewegung)
-            # v_x=[-0.7, 0.7] m/s, v_y=[-0.7, 0.7] m/s, v_z=[-3.2, 3.2] rad/sec
             self.rosmaster.set_car_motion(v_x=-vLinear, v_y=0, v_z=-omega)
             return
 
@@ -123,20 +135,18 @@ class eKarren:
         vAngular = omega*radAbstand/2
         vAngularQ = self.Quantize(vAngular / vAngularMax * rcMaxValue)
         
-        #print(f"{vLinear=}m/s  {vAngular=}m/s  {vLinearQ=}  {vAngularQ=}")
         send_data = f"AT+#,{vLinearQ},{vAngularQ},{self.rcKeyStatus}"
         send_data += f",0x{self.CheckSum(send_data):02X}"
         self.sock.sendto(send_data.encode('utf-8'), self.clientAddr)
-        #print(send_data)
  
     def Close(self):
-        #sock.sendto(MESSAGE, (UDP_IP, UDP_PORT))
         self.SetSpeed(0, 0)
         if not self.device==DEV_ROSMASTER: self.sock.close()
 
 
+
+
 def main():
-    # Tasklist dictionary
     TaskListDict = {
         "Localization":           TaskLists.Localization_TaskList,
         "FastLocalization":       TaskLists.FastLocalization_TaskList,
@@ -148,13 +158,6 @@ def main():
         "Bestimme_YawOffset":     TaskLists.Bestimme_YawOffset_TaskList,
         "Test":                   TaskLists.Test_TaskList
     }
-
-    def TimerCallback():
-        """ Sendet theta und Fahrbefehle (30Hz) """
-        theta = compass.ReadYaw()
-        #vLinear, omega = navigator.CompassCallback(theta)
-        vLinear, omega = 0.0, 0.0
-        ekarren.SetSpeed(vLinear, omega)
 
     def Usage():
         print("Usage: ekarren <taskName>")
@@ -172,34 +175,35 @@ def main():
             Usage()
     elif argc > 2: Usage()
 
-    # Roboter initialisieren
-    ekarren = eKarren(device=deviceNum, debug=False)
-    #navigator = Navigator()
-    #lidar = Lidar(navigator.ScanCallback)
-    compass = Compass(gyroBiasCalibration=False)
-    freq_Hz = 20
-    timer = Timer(freq_Hz, TimerCallback)    # Timer ruft selbstständig TimerCallback() auf
-    timer.start()
-
-    #if taskList is not None:
-    #    navigator.NewTaskList(taskList)
+    # Hardware, die im HAUPTPROGRAMM gebraucht wird, kann hier bleiben
+    navigator = Navigator()
+    lidar = Lidar(navigator.ScanCallback)
+    
+    # ----------------------------------------------------
+    # PROZESS STARTEN
+    # ----------------------------------------------------
+    freq_Hz = 30
+    core_id = 1  # Wähle hier den Kern aus (Zählung beginnt bei 0)
+    
+    # Wir übergeben die Ziel-Funktion und die geräte-Nummer als Argument
+    compassProcess = CompassProcess(freq_Hz, core_id, deviceNum, navigator.CompassCallback)    
+    compassProcess.start()
 
     try:
-        # Das Publizieren von Lidardaten und Theta erfolgt in Hintergrund-Threads
+        # Das Publizieren von Lidardaten und Theta erfolgt jetzt
+        # auf einem komplett separaten CPU-Kern!
         while True:
             time.sleep(1.0)
     except KeyboardInterrupt:
-        # Wird ausgelöst, wenn du Ctrl+C drückst
-        print("eKarren wurde durch Benutzer abgebrochen.")
-    #except Exception as e:
-    #    # Fängt unerwartete Fehler ab
-    #    print(f"Unerwarteter Fehler: {e}")
+        print("\neKarren wurde durch Benutzer abgebrochen.")
     finally:
-        # Dieser Block wird IMMER ausgeführt, egal ob Fehler oder Ctrl+C
         print("Bereinige Ressourcen...")
+        compassProcess.stop()
+        compassProcess.join()  # Warten, bis der Kern sauber freigegeben wurde
+        
+        # Falls Lidar aktiv war, hier stoppen (nur wenn definiert)
         lidar.StopLidar()
         
-        # Optional: Komplettes Beenden erzwingen (hilft bei WSL2-Hängern)
         sys.exit(0)
 
 if __name__ == '__main__':
