@@ -26,15 +26,18 @@ class Udp(IntEnum):
     FRAME_MAP = 11
     
     # UDP-Headers           # Parameters (short) - All x/y coordinates in cm
+    #-----------------------#------------------------------------------------------------------------------------------------
     MARKER_LINES = 20       # frame_id, point_color, sx1, sy1, ex1, ey1, ... sxN, syN, exN, eyN, line_color1, ... line_colorN
     MARKER_POINTS = 21      # frame_id, point_color, x1, x2, ... xN
     MARKER_DELETEALL = 22   # None
     LIDAR_DATA = 30         # range1, range2, ... rangeN
     POSE = 31               # x_cm, y_cm, yaw_deg
     TEXT = 32               # text_bytes
+    TELEOP = 40             # vLinear*1000, vAngular*1000
     
     # UDP port für Visualisierung auf Laptop
-    PORT = 5006
+    PORT_VIZ = 5006
+    PORT_TELEOP = 5007
 
 
 # angle range = -(LidarMaxAngle-1) ... LidarMaxAngle

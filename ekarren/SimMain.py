@@ -4,45 +4,17 @@ from sim import Simulation
 from Navigator import Navigator
 import params
 from params import Udp
-from UdpSend import UdpSend
+from UdpReceive import UdpReceive
 import TaskLists
 
 
 lidarCounter = 0
         
 
-def SendLidarData(dist):
-    dist = np.clip(dist, params.LidarRangeMin, params.LidarRangeMax)
-    cm = 100.0
-    dist_cm = dist*cm
-    dist_cm = dist_cm.astype(np.int16)
-    UdpSend(Udp.LIDAR_DATA, dist_cm.tolist())
-
-            
-def SendPositionAndTime(posX, posY, theta):
-    global lidarCounter
-    if not params.PublishEstimatedPosition:
-        # POSE an Visualizer senden
-        cm = 100.0
-        theta_deg = np.degrees(theta)
-        udp_header = Udp.POSE
-        udp_data = [
-            # round(x) gibt in Python 3 automatisch einen Integer zurück
-            round(posX*cm),       # X-Koordinate in cm
-            round(posY*cm),       # Y-Koordinate in cm
-            round(theta_deg)      # Yaw in Grad
-        ]
-        UdpSend(udp_header, udp_data)
-
-    # Kleine Erfolgsmeldung alle 100 Pakete
-    # if lidarCounter % 100 == 0:
-    #     theta_deg = int(np.rad2deg(theta))
-    #     #print(f"[{self.sim.sim_time_sec:.3f}] Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°")
-    #     print(f" Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°")
-    # lidarCounter += 1
-
 
 def main():
+    udp_rx = UdpReceive(Udp.PORT_TELEOP)
+    
     # Tasklist dictionary
     TaskListDict = {
         "Localization":           (TaskLists.Localization_TaskList,        15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
@@ -64,6 +36,37 @@ def main():
             print(f"    {taskName}")
         sys.exit(1)
 
+    def SendLidarData(dist):
+        dist = np.clip(dist, params.LidarRangeMin, params.LidarRangeMax)
+        cm = 100.0
+        dist_cm = dist*cm
+        dist_cm = dist_cm.astype(np.int16)
+        navigator.udp.Send(Udp.LIDAR_DATA, dist_cm.tolist())
+
+                
+    def SendPositionAndTime(posX, posY, theta):
+        global lidarCounter
+        if not params.PublishEstimatedPosition:
+            # POSE an Visualizer senden
+            cm = 100.0
+            theta_deg = np.degrees(theta)
+            udp_header = Udp.POSE
+            udp_data = [
+                # round(x) gibt in Python 3 automatisch einen Integer zurück
+                round(posX*cm),       # X-Koordinate in cm
+                round(posY*cm),       # Y-Koordinate in cm
+                round(theta_deg)      # Yaw in Grad
+            ]
+            navigator.udp.Send(udp_header, udp_data)
+
+        # Kleine Erfolgsmeldung alle 100 Pakete
+        # if lidarCounter % 100 == 0:
+        #     theta_deg = int(np.rad2deg(theta))
+        #     #print(f"[{self.sim.sim_time_sec:.3f}] Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°")
+        #     print(f" Sende Position & Time #  {posX=:6.2f} {posY=:6.2f} {theta_deg}°")
+        # lidarCounter += 1
+
+
     # command line parameter handling
     argc = len(sys.argv)
     (taskList, x, y, yaw) = (None, 0.0, 0.0, 0.0)
@@ -83,7 +86,9 @@ def main():
         while sim.running:
             x, y, theta, radius = sim.Step()        # Simulations-Schritt
             if not sim.pause:
-                vLinear, omega = navigator.CompassCallback(theta)    # Publish Theta
+                vLinear, omega = navigator.CompassCallback(theta)   # Publish Theta
+                vLinear, omega = udp_rx.ReceiveTeleop(vLinear, omega)   # check for teleop command
+                
                 sim.SetRobotSpeed(vLinear, omega)
                 SendPositionAndTime(x, y, theta)    # Send Pose to viz.py
                 if len(radius) > 0: 

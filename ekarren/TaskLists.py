@@ -1,5 +1,4 @@
 import numpy as np
-from Ransac import PublishMarkers
 from GartenWorld import Localization, lineNames, World, GetWallPosX, GetWallPosY, CenterY
 from MowingTask import MowingTask
 from PassThroughGateTask import PassThroughGateTask
@@ -216,7 +215,7 @@ class FollowPathTask:
         wallNumbers = []
         detectedWalls = self.node.Walldetector(ranges, -np.pi/2, np.pi/2)        
         detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, wallNumbers, ignore=ignoreList, debug=False)
-        PublishMarkers(detectedWalls, detectedWallsValid)
+        self.node.PublishMarkers(detectedWalls, detectedWallsValid)
         A, b, wallNumbers = RemoveEquations(A, b, wallNumbers, debug=False)
         numEq = len(wallNumbers)
         if numEq > 1:
@@ -348,7 +347,7 @@ class LocalizationTask:
         detectedWalls = self.node.Walldetector(ranges)        
         if self.node.wantedThetaReached:
             detectedWallsValid = Localization(self.node.theta, detectedWalls, self.A, self.b, self.wallNumbers)
-            PublishMarkers(detectedWalls, detectedWallsValid)
+            self.node.PublishMarkers(detectedWalls, detectedWallsValid)
             self.stateCounter += 1          
             self.node.RvizPrint(f"Localization Task Step {self.stateCounter}")
             if self.stateCounter >= 4:
@@ -386,7 +385,7 @@ class FastLocalizationTask:
         A = []
         b = []
         detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, self.wallNumbers, debug=self.debug)
-        PublishMarkers(detectedWalls, detectedWallsValid)
+        self.node.PublishMarkers(detectedWalls, detectedWallsValid)
 
         A, b, wallNumbers = RemoveEquations(A, b, self.wallNumbers, debug=self.debug)
         numEq = len(wallNumbers)

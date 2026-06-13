@@ -1,12 +1,13 @@
 import numpy as np
 import time
 import math
+import os
 import Ransac
 import TaskLists
 import params
 
 from params import TaskState, Udp
-from UdpSend import UdpSend, UdpPrint
+from UdpSend import UdpSend
 
 def NormalizeAngle(angle_rad):
     return (angle_rad + math.pi) % math.tau - np.pi
@@ -87,6 +88,11 @@ class Navigator:
         # Set empty task list
         self.Reset()
         self.missedScans = 0
+        self.udp = UdpSend(
+            Udp.PORT_VIZ, 
+            os.environ.get('EKARREN_VIZ_IP1'),
+            os.environ.get('EKARREN_VIZ_IP2'),
+        )
 
     def SetVelocities(self, omega, vLinear):
         self.angular = omega    #0.0
@@ -167,7 +173,7 @@ class Navigator:
                 round(posY*cm),       # Y-Koordinate in cm
                 round(theta_deg)      # Yaw in Grad
             ]
-            UdpSend(udp_header, udp_data)
+            self.udp.Send(udp_header, udp_data)
 
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
         #print(
@@ -195,7 +201,7 @@ class Navigator:
 
     def DeleteAllMarkers(self):
         # Alle Markers von viz.py löschen
-        UdpSend(Udp.MARKER_DELETEALL)
+        self.udp.Send(Udp.MARKER_DELETEALL)
 
     def Reset(self):
         self.taskListName = "None"
@@ -242,5 +248,31 @@ class Navigator:
 
     def RvizPrint(self, text):
         mtext = f"{self.taskListName}: {text}"
-        UdpPrint(mtext)
+        self.udp.Print(mtext)
         print(mtext)
+
+    def PublishMarkers(self, all_detected_walls, isDetectedWallValid):
+        num_lines = len(all_detected_walls)
+        
+        # UDP Kommando zum Zeichen von Linien
+        udp_header = Udp.MARKER_LINES
+        udp_data = [
+            Udp.FRAME_LIDAR,    # Frame (FRAME_LIDAR oder FRAME_MAP)
+            Udp.BLUE]           # Für Linien-Endpunkte blaue Kreise zeichnen (NONE = keine Kreise)
+            # Es folgen die Linien sx, sy, ex, ey ...
+            # und danach die Farben der Linien
+        cm = 100.0  # zur Umrechnung von Meter in cm
+        udp_line_colors = []
+        
+        for i, (start, end) in enumerate(all_detected_walls):
+            if isDetectedWallValid[i]:
+                udp_line_colors.append(Udp.RED)
+            else: 
+                udp_line_colors.append(Udp.GREEN)
+
+            sx, sy, ex, ey = int(start[0]*cm), int(start[1]*cm), int(end[0]*cm), int(end[1]*cm)
+            udp_data.extend([sx, sy, ex, ey])
+
+        if num_lines > 0:
+            udp_data.extend(udp_line_colors)
+            self.udp.Send(udp_header, udp_data)
