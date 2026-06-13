@@ -7,6 +7,12 @@ class UdpReceive:
     def __init__(self, port):
         self.receivedAddr = None
         self.buffer_size=2048
+        
+        # letztes Teleop-Kommando 3x wiederholen        
+        self.teleopRepeatValue=3
+        self.teleopRepeatCnt=0
+        self.vLinearLast=0.0
+        self.omegaLast=0.0
 
         listen_ip="0.0.0.0" # lausche auf alle Netzwerk-Interfaces
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -20,8 +26,6 @@ class UdpReceive:
     
     def Receive(self, debug=False):
         """Startet einen UDP-Server, der Daten empfängt und dekodiert."""
-        global receivedAddr
-
         try:
             packet, (addr, port) = self.sock.recvfrom(self.buffer_size)
         except BlockingIOError:
@@ -80,12 +84,18 @@ class UdpReceive:
     def ReceiveTeleop(self, vLinear, omega):
         data = self.Receive()
         if data is None:
+            if self.teleopRepeatCnt > 0:
+                self.teleopRepeatCnt -= 1
+                return self.vLinearLast, self.omegaLast
             return vLinear, omega
         
+        self.teleopRepeatCnt = self.teleopRepeatValue
         header, data_list = data
         assert header == Udp.TELEOP
         assert len(data_list) == 2
-        return data_list[0]/1000.0, data_list[1]/1000.0
+        self.vLinearLast = data_list[0]/1000.0
+        self.omegaLast = data_list[1]/1000.0
+        return self.vLinearLast, self.omegaLast
 
 
 # Starten

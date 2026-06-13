@@ -189,6 +189,9 @@ def main():
             Usage()
     elif argc > 2: Usage()
 
+    # UDP-Empfänger für TeleOp-Kommandos
+    udp_rx = UdpReceive(Udp.PORT_TELEOP)
+
     # Hardware, die das Gehirn (Hauptprogramm) benötigt, bleibt hier!
     navigator = Navigator()
     lidar = Lidar(navigator.ScanCallback)
@@ -216,7 +219,8 @@ def main():
             
             # 2. Berechne die neue Route (hier fließen Lidar + Kompass zusammen)
             vLinear, omega = navigator.CompassCallback(theta)
-            
+            vLinear, omega = udp_rx.ReceiveTeleop(vLinear, omega)   # check for teleop command
+          
             # 3. Sende die neuen Geschwindigkeitsbefehle zurück an den CPU-Kern
             main_pipe.send((vLinear, omega))
             
