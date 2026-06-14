@@ -8,9 +8,11 @@ from UdpSend import UdpSend
 
 
 class Lidar:
-    def __init__(self, scanCallback):
-        # ScanCallback-Funktion zum Publizieren von Lidar-Daten
-        self.ScanCallback = scanCallback
+    def __init__(self, navigator):
+        # Navigator-Objekt wird bnötigt für 
+        # - ScanCallback-Funktion zum Publizieren von Lidar-Daten
+        # - Senden von UDP-Daten zum viz.py
+        self.navigator = navigator
         
         # Lidar initialisieren
         self.LidarInit()
@@ -121,10 +123,10 @@ class Lidar:
         start_idx = 179 - (LidarMaxAngle - 1)
         end_idx = 180 + LidarMaxAngle
         limited_ranges = sorted_ranges[start_idx:end_idx]       
-        self.ScanCallback(limited_ranges)
+        self.navigator.ScanCallback(limited_ranges)
         
         cm = 100.0
         ranges_cm = limited_ranges*cm        
         ranges_cm = ranges_cm.astype(np.int16)
-        UdpSend(Udp.LIDAR_DATA, ranges_cm.tolist())
+        self.navigator.udp.Send(Udp.LIDAR_DATA, ranges_cm.tolist())
 
