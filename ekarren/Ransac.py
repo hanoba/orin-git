@@ -1,9 +1,7 @@
 import numpy as np
-from UdpSend import UdpSend
-from params import Udp
 
 MAX_GAP = 1.5  #0.50      # 1.0
-DIST_THRESH = 0.05*2   # 0.05
+DIST_THRESH = 0.05*4   # 0.05
 
 def find_intersection(line1, line2):
     p1, p2 = line1; p3, p4 = line2
@@ -136,28 +134,3 @@ def LineDetection(points):
     return all_detected_walls
 
 
-def PublishMarkers(all_detected_walls, isDetectedWallValid):
-    num_lines = len(all_detected_walls)
-    
-    # UDP Kommando zum Zeichen von Linien
-    udp_header = Udp.MARKER_LINES
-    udp_data = [
-        Udp.FRAME_LIDAR,    # Frame (FRAME_LIDAR oder FRAME_MAP)
-        Udp.BLUE]           # Für Linien-Endpunkte blaue Kreise zeichnen (NONE = keine Kreise)
-        # Es folgen die Linien sx, sy, ex, ey ...
-        # und danach die Farben der Linien
-    cm = 100.0  # zur Umrechnung von Meter in cm
-    udp_line_colors = []
-    
-    for i, (start, end) in enumerate(all_detected_walls):
-        if isDetectedWallValid[i]:
-            udp_line_colors.append(Udp.RED)
-        else: 
-            udp_line_colors.append(Udp.GREEN)
-
-        sx, sy, ex, ey = int(start[0]*cm), int(start[1]*cm), int(end[0]*cm), int(end[1]*cm)
-        udp_data.extend([sx, sy, ex, ey])
-
-    if num_lines > 0:
-        udp_data.extend(udp_line_colors)
-        UdpSend(udp_header, udp_data)

@@ -6,7 +6,6 @@ import os
 import time
 from params import TaskState
 from GartenWorld import Localization
-from Ransac import PublishMarkers
 
 # Task zum Testen des E-Karrens.
 
@@ -176,7 +175,7 @@ class TestTask:
             wallNumbers = []
             detectedWalls = self.node.Walldetector(ranges)        
             detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, wallNumbers, debug=False)    #, ignore=ignoreList, debug=False)
-            PublishMarkers(detectedWalls, detectedWallsValid)
+            self.node.PublishMarkers(detectedWalls, detectedWallsValid)
                  #return TaskState.Ready, None
             
         return TaskState.Running, None

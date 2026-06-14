@@ -1,6 +1,5 @@
 import numpy as np
 import math
-from Ransac import PublishMarkers
 from GartenWorld import Localization        #, lineNames, World, GetWallPosX, GetWallPosY
 from params import TaskState
 
@@ -55,7 +54,7 @@ def ComputePosition(node, detectedWalls):
     ignoreList = [ 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     #ignoreList = [ 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0]
     detectedWallsValid = Localization(node.theta, detectedWalls, A, b, wallNumbers, ignore=ignoreList, debug=False)
-    PublishMarkers(detectedWalls, detectedWallsValid)
+    node.PublishMarkers(detectedWalls, detectedWallsValid)
     A, b, wallNumbers = RemoveEquations(A, b, wallNumbers, debug=False)
     numEq = len(wallNumbers)
     if numEq > 1:

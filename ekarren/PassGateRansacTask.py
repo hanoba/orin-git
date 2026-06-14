@@ -4,7 +4,7 @@ import cmath
 import Ransac
 import params
 from params import TaskState, Udp
-from UdpSend import UdpSend
+#from UdpSend import UdpSend
 
 
 def G(x):
@@ -283,7 +283,7 @@ class PassGateRansacTask:
 
         if num_lines > 0:
             udp_data.extend(udp_line_colors)
-            UdpSend(udp_header, udp_data)
+            self.node.udp.send(udp_header, udp_data)
                 
         # UDP Kommando zum Zeichen von Punkten
         udp_header = Udp.MARKER_POINTS
@@ -298,4 +298,4 @@ class PassGateRansacTask:
             py = round(p.imag*cm)
             udp_data.extend([px, py])
 
-        UdpSend(udp_header, udp_data)
+        self.node.udp.Send(udp_header, udp_data)

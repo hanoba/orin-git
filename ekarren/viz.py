@@ -40,10 +40,10 @@ import os
 # Das verhindert, dass Pygame versucht, eine echte Audio-Verbindung aufzubauen.
 os.environ["SDL_AUDIODRIVER"] = "dummy"
 
-#sys.path.append('../HostSim')
 import params
 from params import Udp, LidarMaxAngle
 from UdpReceive import UdpReceive
+from UdpSend import UdpSend
 
 
 # =========================
@@ -290,8 +290,18 @@ class Visualizer:
         self.hideGreenLines = False
         self.hideBlueLines = False
         self.hideLidarPoints = False
+
+        # for teleop
+        self.manual = False
+        self.speed_linear = 0.5   
+        self.speed_angular = 1.0  
+        self.linear_step = 0.1
+        self.angular_step = 0.2
         
         self.InitLidar()
+        
+        self.udp_rx = UdpReceive(Udp.PORT_VIZ)
+        self.udp_tx = None
 
     def DrawWorld(self, world):
         surf = self.map
@@ -326,8 +336,38 @@ class Visualizer:
         pygame.draw.line(surf, (255, 0, 0), P(0, 0), P(np, 0), 3)
         pygame.draw.line(surf, (0, 255, 0), P(0, 0), P(0, np), 3)
 
-    def SetRobotSpeed(self, vLinear, omega):
-        self.robot.SetSpeed(vLinear, omega)
+    def UpdateTeleop(self, keys):
+        """Wertet den physischen Zustand der Tasten aus (ignoriert Auto-Repeat)"""
+        # Linear (Vor / Zurück)
+        if keys[pygame.K_UP] and not keys[pygame.K_DOWN]:
+            vLinear = self.speed_linear
+        elif keys[pygame.K_DOWN] and not keys[pygame.K_UP]:
+            vLinear = -self.speed_linear
+        else:
+            vLinear = 0.0
+
+        # Angular (Links / Rechts drehen)
+        if keys[pygame.K_LEFT] and not keys[pygame.K_RIGHT]:
+            omega = self.speed_angular
+        elif keys[pygame.K_RIGHT] and not keys[pygame.K_LEFT]:
+            omega = -self.speed_angular
+        else:
+            omega = 0.0
+
+        if self.udp_tx is None: 
+            udpAddr = self.udp_rx.ReceivedAddr()
+            if udpAddr is not None:
+                self.udp_tx = UdpSend(Udp.PORT_TELEOP, udpAddr)
+
+        if self.udp_tx is not None:
+            udp_header = Udp.TELEOP
+            udp_data = [
+                # round(x) gibt in Python 3 automatisch einen Integer zurück
+                round(vLinear*1000.0),
+                round(omega*1000.0)
+            ]
+            self.udp_tx.Send(udp_header, udp_data)
+            
     
     def Step(self):
         self.dt = self.clock.tick(FPS) / 1000.0 
@@ -337,9 +377,7 @@ class Visualizer:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
-                elif event.key == pygame.K_d:
-                    self.debugMode = not self.debugMode
-                elif event.key == pygame.K_s:
+                elif event.key == pygame.K_t:
                     self.traceSurface.fill((0,0,0,0))
                     self.traceMode = not self.traceMode
                 elif event.key == pygame.K_r:
@@ -350,26 +388,51 @@ class Visualizer:
                     self.hideBlueLines = not self.hideBlueLines
                 elif event.key == pygame.K_l:
                     self.hideLidarPoints = not self.hideLidarPoints
+                elif event.key == pygame.K_m:
+                    self.manual = not self.manual
+
+                # Geschwindigkeiten anpassen (soll nur 1x pro Druck passieren)
+                elif event.key == pygame.K_w:
+                    self.speed_linear += self.linear_step
+                elif event.key == pygame.K_s:
+                    self.speed_linear = max(0.0, self.speed_linear - self.linear_step)
+                elif event.key == pygame.K_a:
+                    self.speed_angular += self.angular_step
+                elif event.key == pygame.K_d:
+                    self.speed_angular = max(0.0, self.speed_angular - self.angular_step)
+
+        # HIER IST DIE MAGIE: Lese aus, welche Tasten aktuell gehalten werden
+        if self.manual:
+            keys = pygame.key.get_pressed()
+            self.UpdateTeleop(keys)
+            
                 
         #self.screen.fill(BG_COLOR)
         self.screen.blit(self.map, (0, 0))
 
-        if self.debugMode:
-            if self.first:
-                print(f"{self.robot.x=:.2f}  {self.robot.y=:.2f}")
-                self.first = False
-        else:
-            self.first = True
-            ###self.robot.step(self.dt)
-            ###resolve_collisions(self.robot, self.world)
+        # if self.debugMode:
+        #     if self.first:
+        #         print(f"{self.robot.x=:.2f}  {self.robot.y=:.2f}")
+        #         self.first = False
+        # else:
+        #     self.first = True
+        #     ###self.robot.step(self.dt)
+        #     ###resolve_collisions(self.robot, self.world)
 
         x, y, theta = self.robot.GetPose()
             
         # Textausgabe mit 3Hz
         if self.numSteps % 10 == 0:
+            mode  = "T" if self.traceMode else "t"
+            mode += "r" if self.hideRedLines else "R"
+            mode += "g" if self.hideGreenLines else "G"
+            mode += "b" if self.hideBlueLines else "B"
+            mode += "l" if self.hideLidarPoints else "L"
+            mode += "M" if self.manual else "m"
+        
             theta_deg = 360 - np.rad2deg(self.robot.theta)
             if theta_deg > 180: theta_deg -= 360
-            txt = f"theta={theta_deg:3.0f}°   {self.udp_text}"
+            txt = f"{mode}  theta={theta_deg:3.0f}°   {self.udp_text}"
             self.bitBlock = self.font.render(txt, True, (220, 220, 220))
 
         if self.traceMode: 
@@ -403,7 +466,7 @@ class Visualizer:
     def HandleUdpCommands(self):
         # Alle vorhandenen UDP-Kommandos empfangen und dekodieren
         while True:
-            udp_command = UdpReceive()
+            udp_command = self.udp_rx.Receive()
             if udp_command is None:
                 break;
                 
