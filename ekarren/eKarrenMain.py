@@ -9,6 +9,7 @@ from compass import Compass
 from eKarrenLidar import Lidar
 from Navigator import Navigator
 from UdpReceive import UdpReceive
+from params import Udp
 import TaskLists
 
 # Constants for eKarren
@@ -192,12 +193,15 @@ def main():
             if taskList is None: Usage()
     else: Usage()
 
-    # UDP-Empfänger für TeleOp-Kommandos
-    udp_rx = UdpReceive(Udp.PORT_TELEOP)
-
+    if deviceName=="eKarren": deviceNum = DEV_EKARREN
+    elif deviceName=="eKarrenPC": deviceNum = DEV_EKARREN_PC
+    elif deviceName=="eKarrenEmulator": deviceNum = DEV_EKARREN_EMU
+    else: Usage()
+    print(f"Device: {deviceName}")
+    
     # Hardware, die das Gehirn (Hauptprogramm) benötigt, bleibt hier!
     navigator = Navigator()
-    lidar = Lidar(navigator.ScanCallback)
+    lidar = Lidar(navigator)
     
     # ----------------------------------------------------
     # PROZESS STARTEN (Mit Zwei-Wege-Verbindung)
@@ -223,7 +227,7 @@ def main():
             # 2. Berechne die neue Route (hier fließen Lidar + Kompass zusammen)
             vLinear, omega = navigator.CompassCallback(theta)
             vLinear, omega = udp_rx.ReceiveTeleop(vLinear, omega)   # check for teleop command
-          
+            
             # 3. Sende die neuen Geschwindigkeitsbefehle zurück an den CPU-Kern
             main_pipe.send((vLinear, omega))
             

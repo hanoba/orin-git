@@ -171,7 +171,7 @@ class Navigator:
                 # round(x) gibt in Python 3 automatisch einen Integer zurück
                 round(posX*cm),       # X-Koordinate in cm
                 round(posY*cm),       # Y-Koordinate in cm
-                round(theta_deg)      # Yaw in Grad
+                round(theta_deg*10.0) # Yaw in 0.1 Grad-Einheiten
             ]
             self.udp.Send(udp_header, udp_data)
 
