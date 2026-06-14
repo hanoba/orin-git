@@ -167,11 +167,11 @@ def main():
     def Usage():
         print("Usage: ekarren [<deviceName> [<taskName>]]")
         print("<deviceName>:")
-        print("    eKarren")
+        print("    eKarren (default)")
         print("    eKarrenPC")
         print("    eKarrenEmulator")
         print("<taskName>:")
-        print(f"    None")
+        print(f"    None (default)")
         for taskName in TaskListDict:
             print(f"    {taskName}")
         sys.exit(0)
@@ -180,8 +180,8 @@ def main():
     taskList = None
     argc = len(sys.argv)
     if argc==1:
-        #deviceName = "eKarren"
-        deviceName = "eKarrenPC"
+        deviceName = "eKarren"
+        #deviceName = "eKarrenPC"
         #deviceName = "eKarrenEmulator"    
     elif argc==2:
         deviceName = sys.argv[1]

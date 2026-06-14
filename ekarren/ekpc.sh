@@ -1,5 +1,5 @@
 #!/bin/bash
-# File: ekarren.sh
+# File: ekpc.sh
 # Startet E-Karren-Software auf Orin-NX  (echte Hardware)
 
 cd /home/harald/orin-git/ekarren/
@@ -9,12 +9,8 @@ echo "🚀 Starte E-Karren-Software..."
 # IP-Adressen setzen
 source GenerateVizIpAddr.sh
 
-# E-Karren Hauptprogramm starten
-# Usage: ekarren [<deviceName> [<taskName>]]
-# <deviceName>:
-#     eKarren (default)
-#     eKarrenPC
-#     eKarrenEmulator
+# E-Karren-Software starten für Tests mit PC
+# Usage: ekpc [<taskName>]
 # <taskName>:
 #     None (default)
 #     Localization
@@ -26,4 +22,4 @@ source GenerateVizIpAddr.sh
 #     Fahre_hinters_Haus
 #     Bestimme_YawOffset
 #     Test
-python3 eKarrenMain.py $1 $2
+python3 eKarrenMain.py eKarrenPC $1
