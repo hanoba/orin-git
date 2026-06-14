@@ -432,7 +432,7 @@ class Visualizer:
         
             theta_deg = 360 - np.rad2deg(self.robot.theta)
             if theta_deg > 180: theta_deg -= 360
-            txt = f"{mode}  theta={theta_deg:3.0f}°   {self.udp_text}"
+            txt = f"{mode}  YAW={theta_deg:3.1f}°   {self.udp_text}"
             self.bitBlock = self.font.render(txt, True, (220, 220, 220))
 
         if self.traceMode: 
@@ -475,7 +475,7 @@ class Visualizer:
                 meter = 0.01
                 xu = udp_data[0]*meter
                 yu = udp_data[1]*meter
-                tu = math.radians(udp_data[2])
+                tu = math.radians(udp_data[2]*0.1)
                 self.robot.SetPose(xu,yu,tu)
                 #print(xu,yu,tu)    
             elif udp_header == Udp.LIDAR_DATA:
