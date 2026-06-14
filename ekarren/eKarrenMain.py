@@ -8,6 +8,7 @@ import os
 from compass import Compass
 from eKarrenLidar import Lidar
 from Navigator import Navigator
+from UdpReceive import UdpReceive
 import TaskLists
 
 # Constants for eKarren
@@ -22,19 +23,6 @@ DEV_ROSMASTER = 0       # run natively on Rosmaster
 DEV_EKARREN = 1         # send UDP commands to eKarren
 DEV_EKARREN_PC = 2      # send UDP commands to PC (AZ-KENKO)
 DEV_EKARREN_EMU = 3     # send UDP commands to Rosmaster
-
-#deviceName = "eKarren"
-deviceName = "eKarrenPC"
-#deviceName = "eKarrenEmulator"
-
-if deviceName=="eKarren": deviceNum = DEV_EKARREN
-elif deviceName=="eKarrenPC": deviceNum = DEV_EKARREN_PC
-elif deviceName=="eKarrenEmulator": deviceNum = DEV_EKARREN_EMU
-else: 
-    print(f"ERROR Illegal deviceName: {deviceName} Valid: eKarren, eKarrenPC, eKarrenEmulator")
-    sys.exit()
-print(f"Device: {deviceName}")
-
 
 # ==========================================
 # Isolierter Hardware-Prozess mit Zwei-Wege-Pipe
@@ -161,6 +149,8 @@ class eKarren:
 # HAUPTPROGRAMM
 # ==========================================
 def main():
+    udp_rx = UdpReceive(Udp.PORT_TELEOP)
+
     TaskListDict = {
         "Localization":           TaskLists.Localization_TaskList,
         "FastLocalization":       TaskLists.FastLocalization_TaskList,
@@ -174,21 +164,40 @@ def main():
     }
 
     def Usage():
-        print("Usage: ekarren <taskName>")
+        print("Usage: ekarren [<deviceName> [<taskName>]]")
+        print("<deviceName>:")
+        print("    eKarren")
+        print("    eKarrenPC")
+        print("    eKarrenEmulator")
         print("<taskName>:")
+        print(f"    None")
         for taskName in TaskListDict:
             print(f"    {taskName}")
         sys.exit(0)
 
     # command line parameter handling
-    argc = len(sys.argv)
     taskList = None
-    if argc == 2:
-        taskList = TaskListDict.get(sys.argv[1])
-        if taskList is None: 
-            Usage()
-    elif argc > 2: Usage()
+    argc = len(sys.argv)
+    if argc==1:
+        #deviceName = "eKarren"
+        deviceName = "eKarrenPC"
+        #deviceName = "eKarrenEmulator"    
+    elif argc==2:
+        deviceName = sys.argv[1]
+    elif argc==3:
+        deviceName = sys.argv[1]
+        taskListName = sys.argv[2]
+        if taskListName != "None":
+            taskList = TaskListDict.get(taskListName)
+            if taskList is None: Usage()
+    else: Usage()
 
+    if deviceName=="eKarren": deviceNum = DEV_EKARREN
+    elif deviceName=="eKarrenPC": deviceNum = DEV_EKARREN_PC
+    elif deviceName=="eKarrenEmulator": deviceNum = DEV_EKARREN_EMU
+    else: Usage()
+    print(f"Device: {deviceName}")
+    
     # Hardware, die das Gehirn (Hauptprogramm) benötigt, bleibt hier!
     navigator = Navigator()
     lidar = Lidar(navigator.ScanCallback)
@@ -216,6 +225,7 @@ def main():
             
             # 2. Berechne die neue Route (hier fließen Lidar + Kompass zusammen)
             vLinear, omega = navigator.CompassCallback(theta)
+            vLinear, omega = udp_rx.ReceiveTeleop(vLinear, omega)   # check for teleop command
             
             # 3. Sende die neuen Geschwindigkeitsbefehle zurück an den CPU-Kern
             main_pipe.send((vLinear, omega))
