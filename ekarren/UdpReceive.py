@@ -22,7 +22,7 @@ class UdpReceive:
             print(f"Fehler beim Binden des Sockets: {e}")
             sys.exit(1)
         self.sock.setblocking(False)
-        print(f"Warte auf UDP-Pakete auf {listen_ip}:{port}...")
+        print(f"[UdpReceive] Warte auf UDP-Pakete auf {listen_ip}:{port}...")
     
     def Receive(self, debug=False):
         """Startet einen UDP-Server, der Daten empfängt und dekodiert."""

@@ -378,13 +378,13 @@ class FastLocalizationTask:
         self.wallNumbers = []
         self.locCounter = 1
         self.errorCounter = 0
-        self.debug = True
+        self.debug = False
         print("--FastLocalizationTask--")
 
     def Step(self, ranges):
         if self.locCounter % 10 == 0:
             self.node.RvizPrint(f"{self.errorCounter}/{self.locCounter} errors")
-        print(f"{self.errorCounter}/{self.locCounter} errors")
+        #print(f"{self.errorCounter}/{self.locCounter} errors")
         self.locCounter += 1
 
         detectedWalls = self.node.Walldetector(ranges)        
@@ -396,7 +396,7 @@ class FastLocalizationTask:
         b = []
         detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, self.wallNumbers, debug=self.debug)
         self.node.PublishMarkers(detectedWalls, detectedWallsValid)
-        return TaskState.Running, None
+        #return TaskState.Running, None
 
         A, b, wallNumbers = RemoveEquations(A, b, self.wallNumbers, debug=self.debug)
         numEq = len(wallNumbers)
@@ -404,7 +404,7 @@ class FastLocalizationTask:
             self.errorCounter += 1
             print(f"ERROR LocalizationTask failed {numEq=}")
             return TaskState.Running, None
-        print(f"{np.shape(A)=}")
+        #print(f"{np.shape(A)=}")
         x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
         if rank < 2:
             self.errorCounter += 1

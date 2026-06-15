@@ -8,6 +8,7 @@ import params
 
 from params import TaskState, Udp
 from UdpSend import UdpSend
+from trace import Trace
 
 def NormalizeAngle(angle_rad):
     return (angle_rad + math.pi) % math.tau - np.pi
@@ -71,6 +72,9 @@ class Navigator:
     def __init__(self):
         # Odometrie-Funktionen
         self.odom = Odometry()
+        
+        # non-blocking Trace
+        self.trace = Trace()
 
         self.is_processing = False
         self.theta = 0.0
@@ -119,6 +123,8 @@ class Navigator:
         self.SetVelocities(0.0, 0.0)
 
     def CompassCallback(self, yaw):
+        self.trace.Put("[CompassCallback] START")
+        start_zeit = time.perf_counter_ns() # Zeitnahme startet
         self.theta = NormalizeAngle(yaw)
         # self.theta += np.radians(10.0)    # for test of YawOffsetDetectionTask.py
         if self.directionFlag:
@@ -140,13 +146,17 @@ class Navigator:
             else:
                 self.angular = e * self.K_head
             #self.PubVelocities(self.linear, self.angular)
+        dauer_us = (time.perf_counter_ns() - start_zeit) * 1e-3 # Umrechnung in us
+        self.trace.Put(f"[CompassCallback] END {dauer_us=:.3f}")
         return self.linear, self.angular
 
     def ScanCallback(self, ranges):
+        self.trace.Put("[ScanCallback] START")
+        start_zeit = time.perf_counter_ns() # Zeitnahme startet
         if self.is_processing:
             self.missedScans += 1
+            self.trace.Put(f"[ScanCallback] {self.missedScans=}")
             return
-        start_zeit = time.perf_counter() # Zeitnahme startet
         self.scanCallbackCounter += 1
         self.is_processing = True
         # Lidardaten umdrehen bei FrontWheelDrive
@@ -157,8 +167,6 @@ class Navigator:
         #    scan_msg.angle_max = -angle_min
         self.TaskStep(ranges)
         self.is_processing = False
-        ende_zeit = time.perf_counter() # Zeitnahme endet
-        dauer_ms = (ende_zeit - start_zeit) * 1000 # Umrechnung in Millisekunden
 
         # Publish estimated position
         if params.PublishEstimatedPosition:
@@ -178,9 +186,12 @@ class Navigator:
             self.udp.Send(udp_header, udp_data)
 
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
-        if self.scanCallbackCounter % 10 == 0: 
-            print(f"[ScanCallback] #{self.scanCallbackCounter} ⏱️ Rechenzeit: {dauer_ms:.3f} ms  "
-            f"Missed Scans: {self.missedScans}  Theta={np.rad2deg(self.theta):.0f}°")
+        #if self.scanCallbackCounter % 10 == 0: 
+        #    print(f"[ScanCallback] #{self.scanCallbackCounter} ⏱️ Rechenzeit: {dauer_us:.3f} ms  "
+        #    f"Missed Scans: {self.missedScans}  Theta={np.rad2deg(self.theta):.0f}°")
+        dauer_us = (time.perf_counter_ns() - start_zeit) * 1e-3 # Umrechnung in us
+        self.trace.Put(f"[ScanCallback] END {dauer_us=:.3f}")
+
 
     def Walldetector(self, ranges, angMin=-np.pi, angMax=np.pi):
         # ranges = np.array(msg.ranges)

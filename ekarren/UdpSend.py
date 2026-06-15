@@ -13,7 +13,7 @@ class UdpSend:
         self.udpIp1 = ip1
         self.udpIp2 = ip2
         assert self.udpIp1 is not None
-        print(f"{self.udpIp1=}  {self.udpIp2=}")
+        print(f"[UdpSend] {self.udpIp1=}  {self.udpIp2=} {self.port=}")
 
     def sendto(self, packet):
         # Sicherheits-Block fängt "[Errno 101] Network is unreachable" ab

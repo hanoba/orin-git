@@ -104,6 +104,7 @@ def main():
         # Dieser Block wird IMMER ausgeführt, egal ob Fehler oder Ctrl+C
         print("Bereinige Ressourcen...")
         sim.Quit() 
+        navigator.trace.Print()
         
         # Optional: Komplettes Beenden erzwingen (hilft bei WSL2-Hängern)
         sys.exit(0)
