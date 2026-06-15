@@ -49,7 +49,7 @@ class HardwareProcess(multiprocessing.Process):
         # 2. WICHTIG: Hardware erst HIER innerhalb des neuen Prozesses initialisieren!
         ekarren = eKarren(device=self.device_num, debug=False)
         compass = Compass()
-        compass.GyroBiasCalibration()      # skip to save time
+        #compass.GyroBiasCalibration()      # skip to save time
 
         # 3. Die Takt-Schleife
         naechster_aufruf = time.perf_counter() + self.interval
@@ -190,7 +190,7 @@ def main():
         taskListName = sys.argv[2]
         if taskListName != "None":
             taskList = TaskListDict.get(taskListName)
-            if taskList is None: Usage()
+        if taskList is None: Usage()
     else: Usage()
 
     if deviceName=="eKarren": deviceNum = DEV_EKARREN
@@ -202,11 +202,14 @@ def main():
     # Hardware, die das Gehirn (Hauptprogramm) benötigt, bleibt hier!
     navigator = Navigator()
     lidar = Lidar(navigator)
+
+    if taskList is not None:
+        navigator.NewTaskList(taskList)
     
     # ----------------------------------------------------
     # PROZESS STARTEN (Mit Zwei-Wege-Verbindung)
     # ----------------------------------------------------
-    freq_Hz = 30
+    freq_Hz = 10
     core_id = 1  # Wähle hier den Kern aus (Zählung beginnt bei 0)
     
     # Eine Zwei-Wege-Pipe erstellen
@@ -214,11 +217,11 @@ def main():
     main_pipe, hw_pipe = multiprocessing.Pipe(duplex=True)
     
     # Prozess starten
+    print("System läuft. Warte auf Daten vom Hardware-Prozess...")
     hwProcess = HardwareProcess(freq_Hz, core_id, deviceNum, hw_pipe)    
     hwProcess.start()
 
     try:
-        print("System läuft. Warte auf Daten vom Hardware-Prozess...")
         # Die Hauptschleife wartet jetzt hocheffizient (mit 0% CPU Last) auf den Pipe-Eingang
         while True:
             # 1. Empfange Theta vom separaten CPU-Kern

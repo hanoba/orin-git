@@ -93,6 +93,7 @@ class Navigator:
             os.environ.get('EKARREN_VIZ_IP1'),
             os.environ.get('EKARREN_VIZ_IP2'),
         )
+        self.scanCallbackCounter = 0
 
     def SetVelocities(self, omega, vLinear):
         self.angular = omega    #0.0
@@ -146,6 +147,7 @@ class Navigator:
             self.missedScans += 1
             return
         start_zeit = time.perf_counter() # Zeitnahme startet
+        self.scanCallbackCounter += 1
         self.is_processing = True
         # Lidardaten umdrehen bei FrontWheelDrive
         #if self.frontWheelDrive:
@@ -176,9 +178,9 @@ class Navigator:
             self.udp.Send(udp_header, udp_data)
 
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
-        #print(
-        #    f"[ScanCallback] ⏱️ Rechenzeit: {dauer_ms:.2f} ms  "
-        #    f"Missed Scans: {self.missedScans}  Theta={np.rad2deg(self.theta):.0f}°", throttle_duration_sec=10.0)
+        if self.scanCallbackCounter % 10 == 0: 
+            print(f"[ScanCallback] #{self.scanCallbackCounter} ⏱️ Rechenzeit: {dauer_ms:.3f} ms  "
+            f"Missed Scans: {self.missedScans}  Theta={np.rad2deg(self.theta):.0f}°")
 
     def Walldetector(self, ranges, angMin=-np.pi, angMax=np.pi):
         # ranges = np.array(msg.ranges)
