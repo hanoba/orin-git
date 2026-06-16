@@ -146,8 +146,8 @@ class Navigator:
             else:
                 self.angular = e * self.K_head
             #self.PubVelocities(self.linear, self.angular)
-        dauer_us = (time.perf_counter_ns() - start_zeit) * 1e-3 # Umrechnung in us
-        self.trace.Put(f"[CompassCallback] END {dauer_us=:.3f}")
+        dauer_ms = (time.perf_counter_ns() - start_zeit) * 1e-6 # Umrechnung in ms
+        self.trace.Put(f"[CompassCallback] END {dauer_ms=:.3f}")
         return self.linear, self.angular
 
     def ScanCallback(self, ranges):
@@ -187,10 +187,10 @@ class Navigator:
 
         # Ausgabe im Terminal (alle Sekunde, um das Terminal nicht zu fluten)
         #if self.scanCallbackCounter % 10 == 0: 
-        #    print(f"[ScanCallback] #{self.scanCallbackCounter} ⏱️ Rechenzeit: {dauer_us:.3f} ms  "
+        #    print(f"[ScanCallback] #{self.scanCallbackCounter} ⏱️ Rechenzeit: {dauer_ms:.3f} ms  "
         #    f"Missed Scans: {self.missedScans}  Theta={np.rad2deg(self.theta):.0f}°")
-        dauer_us = (time.perf_counter_ns() - start_zeit) * 1e-3 # Umrechnung in us
-        self.trace.Put(f"[ScanCallback] END {dauer_us=:.3f}")
+        dauer_ms = (time.perf_counter_ns() - start_zeit) * 1e-6 # Umrechnung in ms
+        self.trace.Put(f"[ScanCallback] END {dauer_ms=:.3f}")
 
 
     def Walldetector(self, ranges, angMin=-np.pi, angMax=np.pi):
@@ -204,7 +204,7 @@ class Navigator:
         angMask = (angles >=angMin) & (angles <= angMax)
         valid = rangeMask & angMask
         points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[valid]
-        all_detected_walls = Ransac.LineDetection(points)
+        all_detected_walls = Ransac.LineDetectionTrace(points, self.trace)
         return all_detected_walls
 
     def Stop(self):
@@ -240,7 +240,9 @@ class Navigator:
                 self.Reset()
             else:
                 task, params = self.taskListTasks[self.taskIndex]
+                self.trace.Put(f"[TaskStep] {task=}")
                 status, self.retvals = task.Step(ranges)
+                self.trace.Put("[TaskStep] Return")
                 if status == TaskState.Ready:
                     nextTaskIndex = self.taskIndex+1
                     if nextTaskIndex < len(self.taskListTasks):
