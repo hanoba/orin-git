@@ -3,7 +3,7 @@ import math
 import smbus2
 import time
 import json
-from eKarrenMain import eKarren, DEV_EKARREN, DEV_EKARREN_PC
+from eKarren import eKarren, DEV_EKARREN, DEV_EKARREN_PC
 
 DEVICE = DEV_EKARREN_PC
 I2C_BUS = 7
@@ -22,7 +22,7 @@ class CompassCalibration:
         zOffsetMeasurements = 100
         measCounter = 0
         time.sleep(1.0)
-        self.ekarrren.SetSpeed(vLinear=0, omega=0.2)
+        self.ekarren.SetSpeed(vLinear=0, omega=0.2)
         
         self.bus = smbus2.SMBus(I2C_BUS)
 
@@ -39,7 +39,9 @@ class CompassCalibration:
         for i in range(circleMeasurements):
             measCounter += 1
             points_xy.append(self.read_mag_raw())
-            print(f"Kalibrierung Phase 1: Kreisfahrt - Messpunkte: {measCounter}/{circleMeasurements}")
+            if measCounter%10 == 0:
+                print(f"Kalibrierung Phase 1: Kreisfahrt - Messpunkte: {measCounter}/{circleMeasurements}")
+                self.ekarren.SetSpeed(vLinear=0, omega=0.2)
             time.sleep(0.05)
 
 
@@ -52,7 +54,7 @@ class CompassCalibration:
         R = np.mean(np.linalg.norm(transformed_points, axis=1))
         
         # PHASE 2: Z-Offset (Statisches Messen)
-        self.SetVelocities(0, 0)
+        self.ekarren.SetSpeed(vLinear=0.0, omega=0.0)
         print(f"PHASE 1 beendet. Berechneter XY-Radius R: {R:.1f}")
         z_vals = []
         measCounter = 0
@@ -164,7 +166,7 @@ def main():
         # Fängt unerwartete Fehler ab
         print(f"Unerwarteter Fehler: {e}")
     finally:
-        compassCalibration
+        compassCalibration.Close()
     
 if __name__ == '__main__':
     main()
