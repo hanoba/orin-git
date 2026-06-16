@@ -172,8 +172,10 @@ def main():
         print("    eKarrenEmulator")
         print("<taskName>:")
         print(f"    None (default)")
+        index = 0
         for taskName in TaskListDict:
-            print(f"    {taskName}")
+            print(f"    {index} | {taskName}")
+            index += 1
         sys.exit(0)
 
     # command line parameter handling
@@ -189,7 +191,10 @@ def main():
         deviceName = sys.argv[1]
         taskListName = sys.argv[2]
         if taskListName != "None":
-            taskList = TaskListDict.get(taskListName)
+            if taskListName.isdigit():
+                taskList = list(TaskListDict.values())[int(taskListName)]
+            else:
+                taskList = TaskListDict.get(taskListName)
         if taskList is None: Usage()
     else: Usage()
 

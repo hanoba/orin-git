@@ -76,7 +76,6 @@ def main():
         arg = sys.argv[1]
         if arg.isdigit():
             parameters = list(TaskListDict.values())[int(arg)]
-            print(parameters)
         else:
             parameters = TaskListDict.get(arg)
         if parameters is None: Usage()
