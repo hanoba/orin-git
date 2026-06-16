@@ -46,34 +46,47 @@ class HardwareProcess(multiprocessing.Process):
         except AttributeError:
             print("Warnung: CPU Affinity wird auf diesem System nicht unterstützt.")
 
-        # 2. WICHTIG: Hardware erst HIER innerhalb des neuen Prozesses initialisieren!
-        ekarren = eKarren(device=self.device_num, debug=False)
-        compass = Compass()
-        #compass.GyroBiasCalibration()      # skip to save time
+        # --- NEU: Wir packen den Rest in einen try-Block ---
+        try:
+            # 2. WICHTIG: Hardware erst HIER innerhalb des neuen Prozesses initialisieren!
+            ekarren = eKarren(device=self.device_num, debug=False)
+            compass = Compass()
+            #compass.GyroBiasCalibration()      # skip to save time
 
-        # 3. Die Takt-Schleife
-        naechster_aufruf = time.perf_counter() + self.interval
-        
-        while not self.stop_event.is_set():
-            # A) Kompass auslesen und Theta über die Pipe an das Hauptprogramm senden
-            theta = compass.ReadYaw()
-            self.pipe_conn.send(theta)
+            # 3. Die Takt-Schleife
+            naechster_aufruf = time.perf_counter() + self.interval
             
-            # B) Prüfen, ob das Hauptprogramm berechnete Motorenbefehle zurückgeschickt hat.
-            # timeout=0.005 (5ms) verhindert, dass der Hardware-Takt ins Stocken gerät
-            if self.pipe_conn.poll(0.005): 
-                vLinear, omega = self.pipe_conn.recv()
-                ekarren.SetSpeed(vLinear, omega)
-            
-            # Drift-Kompensation für stabile 30 Hz
-            jetzt = time.perf_counter()
-            schlafenszeit = naechster_aufruf - jetzt
-            
-            if schlafenszeit > 0:
-                self.stop_event.wait(schlafenszeit) 
+            while not self.stop_event.is_set():
+                # A) Kompass auslesen und Theta über die Pipe an das Hauptprogramm senden
+                theta = compass.ReadYaw()
+                self.pipe_conn.send(theta)
                 
-            naechster_aufruf += self.interval
+                # B) Prüfen, ob das Hauptprogramm berechnete Motorenbefehle zurückgeschickt hat.
+                if self.pipe_conn.poll(0.005): 
+                    vLinear, omega = self.pipe_conn.recv()
+                    ekarren.SetSpeed(vLinear, omega)
+                
+                # Drift-Kompensation für stabile 30 Hz
+                jetzt = time.perf_counter()
+                schlafenszeit = naechster_aufruf - jetzt
+                
+                if schlafenszeit > 0:
+                    self.stop_event.wait(schlafenszeit) 
+                    
+                naechster_aufruf += self.interval
 
+        # --- NEU: Den Ctrl-C Absturz lautlos abfangen ---
+        except KeyboardInterrupt:
+            # Wird ignoriert. Das Hauptprogramm kümmert sich um den sauberen Abbruch.
+            pass
+            
+        finally:
+            # --- NEU: Socket des eKarren sauber schließen ---
+            try:
+                ekarren.Close()
+            except Exception:
+                pass
+                
     def stop(self):
         self.stop_event.set()
 
@@ -214,7 +227,7 @@ def main():
     # ----------------------------------------------------
     # PROZESS STARTEN (Mit Zwei-Wege-Verbindung)
     # ----------------------------------------------------
-    freq_Hz = 10
+    freq_Hz = 30
     core_id = 1  # Wähle hier den Kern aus (Zählung beginnt bei 0)
     
     # Eine Zwei-Wege-Pipe erstellen
