@@ -380,7 +380,6 @@ class FastLocalizationTask:
         self.errorCounter = 0
         self.debug = False
         print("--FastLocalizationTask--")
-        self.node.trace.Put("[FastLocalizationTask] Init")
 
     def Step(self, ranges):
         if self.locCounter % 10 == 0:
@@ -388,9 +387,7 @@ class FastLocalizationTask:
         #print(f"{self.errorCounter}/{self.locCounter} errors")
         self.locCounter += 1
 
-        self.node.trace.Put("[FastLocalizationTask] Step")
         detectedWalls = self.node.Walldetector(ranges)        
-        self.node.trace.Put("[FastLocalizationTask] Walldetector")
         if len(detectedWalls) < 3: 
             self.errorCounter += 1
             print(f"ERROR LocalizationTask failed {len(detectedWalls)=}")
@@ -398,25 +395,19 @@ class FastLocalizationTask:
         A = []
         b = []
         detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, self.wallNumbers, debug=self.debug)
-        self.node.trace.Put("[FastLocalizationTask] Localization")
         self.node.PublishMarkers(detectedWalls, detectedWallsValid)
-        self.node.trace.Put("[FastLocalizationTask] PublishMarkers")
-        #return TaskState.Running, None
 
         A, b, wallNumbers = RemoveEquations(A, b, self.wallNumbers, debug=self.debug)
-        self.node.trace.Put("[FastLocalizationTask] RemoveEquations")
         numEq = len(wallNumbers)
         if numEq < 2:
             self.errorCounter += 1
             print(f"ERROR LocalizationTask failed {numEq=}")
             return TaskState.Running, None
-        #print(f"{np.shape(A)=}")
         if A.ndim <= 1:
             self.errorCounter += 1
             print(f"ERROR LocalizationTask failed {A.ndim=}  {np.shape(A)=}")
             return TaskState.Running, None        
         x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
-        self.node.trace.Put("[FastLocalizationTask] np.linalg.lstsq")
         if rank < 2:
             self.errorCounter += 1
             print(f"ERROR LocalizationTask failed {rank=}")

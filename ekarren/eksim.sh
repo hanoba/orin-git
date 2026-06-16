@@ -30,5 +30,6 @@ python3 viz.py &
 sleep 0.2 
 
 # PyGame-Simulator
-python3 SimMain.py $1 $2 
+python3 SimMain.py $1 $2 &
 
+wait

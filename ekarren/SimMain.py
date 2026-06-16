@@ -32,8 +32,10 @@ def main():
     def Usage():
         print("Usage: ekarren <taskName>")
         print("<taskName>:")
+        index = 0
         for taskName in TaskListDict:
-            print(f"    {taskName}")
+            print(f"    {index} {taskName}")
+            index += 1
         sys.exit(1)
 
     def SendLidarData(dist):
@@ -71,7 +73,12 @@ def main():
     argc = len(sys.argv)
     (taskList, x, y, yaw) = (None, 0.0, 0.0, 0.0)
     if argc == 2:
-        parameters = TaskListDict.get(sys.argv[1])
+        arg = sys.argv[1]
+        if arg.isdigit():
+            parameters = list(TaskListDict.values())[int(arg)]
+            print(parameters)
+        else:
+            parameters = TaskListDict.get(arg)
         if parameters is None: Usage()
         (taskList, x, y, yaw) = parameters
     elif argc > 2: Usage()

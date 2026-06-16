@@ -204,7 +204,7 @@ class Navigator:
         angMask = (angles >=angMin) & (angles <= angMax)
         valid = rangeMask & angMask
         points = np.column_stack((ranges * np.cos(angles), ranges * np.sin(angles)))[valid]
-        all_detected_walls = Ransac.LineDetectionTrace(points, self.trace)
+        all_detected_walls = Ransac.LineDetection(points)
         return all_detected_walls
 
     def Stop(self):
@@ -240,9 +240,7 @@ class Navigator:
                 self.Reset()
             else:
                 task, params = self.taskListTasks[self.taskIndex]
-                self.trace.Put(f"[TaskStep] {task=}")
                 status, self.retvals = task.Step(ranges)
-                self.trace.Put("[TaskStep] Return")
                 if status == TaskState.Ready:
                     nextTaskIndex = self.taskIndex+1
                     if nextTaskIndex < len(self.taskListTasks):
