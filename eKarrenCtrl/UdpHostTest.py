@@ -5,6 +5,7 @@
 import math
 import socket
 import time
+import sys
 from datetime import datetime
 
 #UDP_IP = "192.168.178.75" # 81 ESP32 RC IP Address
@@ -35,8 +36,10 @@ sock.setblocking(0)
 def v(tau):
     av =  0.0176
     bv = -0.1348
-    if tau > tauStart or tau < -tauStart: 
+    if tau > tauStart:
         return tau/tauMax*100*av + bv
+    if tau < -tauStart: 
+        return -(abs(tau)/tauMax*100*av + bv)
     return 0
 
 
@@ -106,7 +109,7 @@ def eKarrenSimulation(vLinearQ, vAngularQ, rcKeyStatus):
     elif tauRight < -tauMax:
         tauRight = -tauMax
         tauRight = -tauMax + 2*tauAngular
-   
+
     return MotorSimulation(tauLeft, tauRight)
 
 
@@ -125,20 +128,24 @@ def ReceiveRaw():
 
 print("Start")
 printCnt = 0
+printPeriod = 30
+if len(sys.argv)==2:
+    printPeriod = int(sys.argv[1])
+print(f"{printPeriod=}")
+tStart = None
 while True:
     #data = sock.recv(2048)
     data = ReceiveRaw()
     if data != "": 
-        tNow = time.perf_counter()
-        if printCnt == 0: tStart = tNow
         fields = data.split(",")
         vLinearQ = int(fields[1])
         vAngularQ = int(fields[2])
         rcKeyStatus =  int(fields[3])
         vLinear, f = eKarrenSimulation(vLinearQ, vAngularQ, rcKeyStatus)
-        printCnt += 1
-        if printCnt > 30:
-            f_sample = 30.0 / (tNow - tStart)
-            printCnt = 0
+        if printCnt % printPeriod == 0:
+            tNow = time.perf_counter()
+            f_sample = printPeriod / (tNow - tStart) if tStart is not None else 0.0
+            tStart = tNow
             print(f"{datetime.now()}  vLinear={vLinear:4.2f} m/s,   vAngular={f:4.2f} U/s  {f_sample=:4.2f} Hz  raw:{data}  ")
+        printCnt += 1
     #time.sleep(0.05)
