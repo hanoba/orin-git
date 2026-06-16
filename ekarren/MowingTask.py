@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from GartenWorld import Localization        #, lineNames, World, GetWallPosX, GetWallPosY
+from GartenWorld import Localization, lineNames        #, lineNames, World, GetWallPosX, GetWallPosY
 from params import TaskState
 
 def G(x):
@@ -46,25 +46,6 @@ def FindWalls(node, detectedWalls, wallNum):
     return detectedWallsValid
 
  
-def ComputePosition(node, detectedWalls):
-    A = []
-    b = []
-    wallNumbers = []
-    #            [ZN,ZO,ZS,ZW,SW,SS,SO,TW,TS,BO,BN,HO]
-    ignoreList = [ 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    #ignoreList = [ 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0]
-    detectedWallsValid = Localization(node.theta, detectedWalls, A, b, wallNumbers, ignore=ignoreList, debug=False)
-    node.PublishMarkers(detectedWalls, detectedWallsValid)
-    A, b, wallNumbers = RemoveEquations(A, b, wallNumbers, debug=False)
-    numEq = len(wallNumbers)
-    if numEq > 1:
-        x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
-        # Falls residuals nicht leer ist, nimm das erste Element, sonst berechne es manuell
-        res = float(residuals[0]) if residuals.size > 0 else 0.0
-        if res < 0.5 and rank == 2:
-            return True, float(x[0]), float(x[1]), res
-    return False, 0.0, 0.0, 0.0
-
 def CheckAngle(value_rad, angle_rad):
     MaxDiff = np.deg2rad(2.5)
     diff1 = NormalizeAngle(angle_rad - value_rad)
@@ -90,6 +71,10 @@ class MowingTask:
         self.node.SetWantedTheta(self.wantedTheta)
         self.state = self.StateAlignTheta
         self.subState = 0
+        self.errorCounter = 0
+        self.debug = False
+        self.moterTimeOutValue = 10
+        self.moterTimeOutCounter = self.moterTimeOutValue
 
     def DistAngleWallToFollow(self, walls, wallToFollow):
         """ Berechnet den Abstand zur Wand, der gefolgt werden soll """
@@ -118,6 +103,48 @@ class MowingTask:
                     minAngle = angle
                     minWorldAngle = worldAngle
         return float(minDist), float(minAngle), float(minWorldAngle)
+
+    def ComputePosition(self, detectedWalls):
+        A = []
+        b = []
+        wallNumbers = []
+        #            [ZN,ZO,ZS,ZW,SW,SS,SO,TW,TS,BO,BN,HO]
+        ignoreList = [ 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        #ignoreList = [ 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0]
+        detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, wallNumbers, ignore=ignoreList, debug=False)
+        if len(detectedWalls) < 3: 
+            self.errorCounter += 1
+            print(f"ERROR LocalizationTask failed {len(detectedWalls)=}")
+            return False, 0.0, 0.0, 0.0
+        self.node.PublishMarkers(detectedWalls, detectedWallsValid)
+        A, b, wallNumbers = RemoveEquations(A, b, wallNumbers, debug=False)
+        numEq = len(wallNumbers)
+        if numEq < 2:
+            self.errorCounter += 1
+            print(f"ERROR LocalizationTask failed {numEq=}")
+            return False, 0.0, 0.0, 0.0
+        if A.ndim <= 1:
+            self.errorCounter += 1
+            print(f"ERROR LocalizationTask failed {A.ndim=}")
+            return False, 0.0, 0.0, 0.0
+        x, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
+        # Falls residuals nicht leer ist, nimm das erste Element, sonst berechne es manuell
+        res = float(residuals[0]) if residuals.size > 0 else 0.0
+        if rank < 2:
+            self.errorCounter += 1
+            print(f"ERROR LocalizationTask failed {rank=}")
+            return False, 0.0, 0.0, 0.0
+        if res > 0.5:
+            self.errorCounter += 1
+            print(f"ERROR LocalizationTask failed {res=}")
+            return False, 0.0, 0.0, 0.0
+        if self.debug:
+            print(f"Lösung: ({x[0]:.2f}, {x[1]:.2f})    Rang:{rank}   Fehlerquadratsumme: {residuals}")                
+            for i in range(numEq):
+                err = x[0]*A[i,0] + x[1]*A[i,1] - b[i]
+                print(f"{b[i]:6.2f} = {A[i,0]:6.2f}*x + {A[i,1]:6.2f}*y   {err=:6.2f}  # {lineNames[wallNumbers[i]]}")
+
+        return True, float(x[0]), float(x[1]), res
 
     def Step(self, ranges):
         if self.state == self.StateAlignTheta:
@@ -151,7 +178,7 @@ class MowingTask:
             dist, angle, worldAngle = self.DistAngleWallToFollow(matchingWalls, ZAUN_OST)
             
             # Berechne Position
-            ok, x, y, res = ComputePosition(self.node, walls)
+            ok, x, y, res = self.ComputePosition(walls)
             
             if (0.0 < dist < np.inf) and ok:
                 lateralError = dist - self.wantedDist
@@ -160,10 +187,13 @@ class MowingTask:
                 omega = s*self.K_lat*lateralError - self.K_head*headingError
                 print(f"{dist=:.2f}  angle={G(angle):.0f}/{G(worldAngle):.0f}°  LatErr={lateralError:.2f}"
                       f"  HeadErr={G(headingError):.0f}°  {omega=:.3f}  {x=:.2f} {y=:.2f}   {res=:.3f}")
-                self.node.SetVelocities(omega, -s*self.vLinear)                
+                self.node.SetVelocities(omega, -s*self.vLinear)           
+                self.moterTimeOutCounter = self.moterTimeOutValue
             else:
                 print(f"{dist=:.2f}")
-                self.node.SetVelocities(0.0, 0.0)                
+                self.moterTimeOutCounter -= 1
+                if self.moterTimeOutCounter <= 0:
+                    self.node.SetVelocities(0.0, 0.0)                
 
             if ok:
                 pos = np.array([x, y])   
