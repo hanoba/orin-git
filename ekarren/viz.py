@@ -390,6 +390,9 @@ class Visualizer:
                     self.hideLidarPoints = not self.hideLidarPoints
                 elif event.key == pygame.K_m:
                     self.manual = not self.manual
+                elif event.key == pygame.K_c:
+                    self.InitMarkers()
+                    self.lidarPoints = None
 
                 # Geschwindigkeiten anpassen (soll nur 1x pro Druck passieren)
                 elif event.key == pygame.K_w:
