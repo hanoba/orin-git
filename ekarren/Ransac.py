@@ -43,21 +43,22 @@ def get_lines_with_gap_check(points):
 
     inliers = pts[best_mask]
     mean = np.mean(inliers, axis=0)
-    
-    # Hier knallt es wahrscheinlich normalerweise!
-    #uu, dd, vv = np.linalg.svd(inliers - mean)
-    # 1. 2x2 Kovarianzmatrix berechnen
-    cov_matrix = np.cov(inliers.T)
-    
-    # 2. Eigenwerte und Eigenvektoren berechnen
-    eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
-    
-    # 3. Stärkster Vektor (ersetzt vv[0])
-    direction = eigenvectors[:, -1]    
-    
-    #direction = vv[0]
-    # Finale Hauptachse extrahieren
-    direction = eigenvectors[:, -1]
+
+    OldVersion = True
+    if OldVersion:
+        uu, dd, vv = np.linalg.svd(inliers - mean)
+        direction = vv[0]
+    else:
+        # Finale Korrektur: Deterministische Hauptachsen-Extraktion (SVD-Äquivalenz)
+        centered_inliers = inliers - mean
+        cov_matrix = np.cov(centered_inliers, rowvar=False)
+        eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
+        direction = eigenvectors[:, np.argmax(eigenvalues)]
+
+        # Orientierungsschutz beibehalten
+        grobe_richtung = inliers[-1] - inliers[0]
+        if np.dot(direction, grobe_richtung) < 0:
+            direction = -direction
     
     projections = np.dot(inliers - mean, direction)
     sort_idx = np.argsort(projections)

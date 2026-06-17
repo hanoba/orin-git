@@ -5,4 +5,4 @@
 cd /home/harald/orin-git/ekarren
 
 # Pygame-Visualizer (ersetzt rviz2)
-python3 viz.py 
+python3 viz.py &

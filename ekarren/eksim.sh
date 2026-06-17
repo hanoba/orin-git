@@ -2,17 +2,16 @@
 
 # eksim.sh
 
-MY_PID=$$
-
-cleanup() {
-    echo -e "\n🛑 Beende alle Prozesse..."
-    pkill -P $MY_PID
-    pkill -f "python3 SimMain.py"
-    pkill -f "python3 viz.py"
-    exit 0
-}
-
-trap cleanup SIGINT SIGTERM
+# MY_PID=$$
+# 
+# cleanup() {
+#     echo -e "\n🛑 Beende alle Prozesse..."
+#     pkill -P $MY_PID
+#     pkill -f "python3 SimMain.py"
+#     exit 0
+# }
+# 
+# trap cleanup SIGINT SIGTERM
 
 
 # --- IP Adressen für viz.py  ---
@@ -24,12 +23,5 @@ echo "🚀 Starte Host-Simulation des E-Karrens..."
 
 cd /home/harald/orin-git/ekarren
 
-# Pygame-Visualizer (ersetzt rviz2)
-python3 viz.py &
-
-sleep 0.2 
-
 # PyGame-Simulator
-python3 SimMain.py $1 $2 &
-
-wait
+python3 SimMain.py $1 $2

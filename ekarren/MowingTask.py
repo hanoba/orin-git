@@ -73,7 +73,7 @@ class MowingTask:
         self.subState = 0
         self.errorCounter = 0
         self.debug = False
-        self.moterTimeOutValue = 10
+        self.moterTimeOutValue = 1
         self.moterTimeOutCounter = self.moterTimeOutValue
 
     def DistAngleWallToFollow(self, walls, wallToFollow):
