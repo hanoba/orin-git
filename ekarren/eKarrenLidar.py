@@ -9,7 +9,7 @@ from UdpSend import UdpSend
 
 class Lidar:
     def __init__(self, navigator):
-        # Navigator-Objekt wird bnötigt für
+        # Navigator-Objekt wird benötigt für
         # - ScanCallback-Funktion zum Publizieren von Lidar-Daten
         # - Senden von UDP-Daten zum viz.py
         self.navigator = navigator
@@ -26,19 +26,17 @@ class Lidar:
 
         # ydlidar.os_isOk() prüft, ob die Laufzeitumgebung des Treibers noch im
         # ordnungsgemäßen Zustand ist und das Programm normal weiterlaufen kann.
-        first = True
         counter = 0
         while ydlidar.os_isOk():
             #try:
             # doProcessSimple blockiert hier solange, bis ein 360° Scan fertig ist
             if self.laser.doProcessSimple(self.scan_data):
                 self.PublishLidarData()
-                counter += 1
-                #if counter % 10 == 0: print(f"{counter} Lidar frames received")
-                if first:
-                    first = False
+                if counter == 0:
                     print(f"{self.scan_data.config.min_range=}")
                     print(f"{self.scan_data.config.max_range=}")
+                counter += 1
+                #if counter % 10 == 0: print(f"{counter} Lidar frames received")
         #            except Exception as e:
         #                print("Error in MainLoop!", file=sys.stderr)
         #                traceback.print_exc(file=sys.stderr)
