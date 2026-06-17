@@ -243,11 +243,13 @@ def main():
         # Die Hauptschleife wartet jetzt hocheffizient (mit 0% CPU Last) auf den Pipe-Eingang
         while True:
             # 1. Empfange Theta vom separaten CPU-Kern
+            #theta = 0
             theta = main_pipe.recv()
             
             # 2. Berechne die neue Route (hier fließen Lidar + Kompass zusammen)
             vLinear, omega = navigator.CompassCallback(theta)
             vLinear, omega = udp_rx.ReceiveTeleop(vLinear, omega)   # check for teleop command
+            #time.sleep(0.033)
             
             # 3. Sende die neuen Geschwindigkeitsbefehle zurück an den CPU-Kern
             main_pipe.send((vLinear, omega))
