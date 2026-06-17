@@ -282,7 +282,7 @@ class Visualizer:
         self.turn = 1.0
 
         self.sim_time_sec = 0.0
-        self.font = pygame.font.SysFont(None, 18)
+        self.font = pygame.font.SysFont(None, 24)
         
         self.udp_text = "Hello"
         self.InitMarkers()
