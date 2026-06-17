@@ -46,7 +46,15 @@ def get_lines_with_gap_check(points):
 
     OldVersion = True
     if OldVersion:
-        uu, dd, vv = np.linalg.svd(inliers - mean)
+        # 1. Zwingend in float64 umwandeln (verhindert ARM-Architektur-Bugs in der SVD)
+        centered = (inliers - mean).astype(np.float64)
+        
+        # 2. Denormalisierte Zahlen killen! 
+        # Alles was mikroskopisch klein ist, wird brutal auf exakt 0.0 gesetzt.
+        # Das verhindert die Endlosschleife im Prozessor.
+        centered[np.abs(centered) < 1e-7] = 0.0
+
+        uu, dd, vv = np.linalg.svd(centered)
         direction = vv[0]
     else:
         # Finale Korrektur: Deterministische Hauptachsen-Extraktion (SVD-Äquivalenz)
