@@ -1,10 +1,4 @@
 import traceback # Ganz oben im Skript importieren!
-import os
-# Verbietet Numpy/OpenBLAS das heimliche Starten von Unter-Threads.
-# Muss GANZ OBEN stehen, vor "import numpy"!
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
 import numpy as np
 
 MAX_GAP = 1.5  #0.50      # 1.0
@@ -50,89 +44,34 @@ def get_lines_with_gap_check(points):
     inliers = pts[best_mask]
     mean = np.mean(inliers, axis=0)
 
-    Version = 3
-    if Version==3:
-        # ---------------------------------------------------------
-        # STABILER SVD-ERSATZ (Über Winkelberechnung)
-        # ---------------------------------------------------------
-        centered = inliers - mean
-        
-        cov = np.dot(centered.T, centered)
-        a = cov[0, 0]
-        b = cov[0, 1]
-        d = cov[1, 1]
-        
-        angle = 0.5 * np.arctan2(2 * b, a - d)
-        direction = np.array([np.cos(angle), np.sin(angle)])
-        
-        # ---------------------------------------------------------
-        # DER NEUE, ABSOLUT DETERMINISTISCHE ORIENTIERUNGSSCHUTZ
-        # ---------------------------------------------------------
-        # 1. Wir berechnen den Normalenvektor der Wand (90 Grad gedreht zur Richtung)
-        normal = np.array([-direction[1], direction[0]])
-        
-        # 2. 'mean' ist der Vektor vom Roboter (0,0) exakt zur Mitte der Wand.
-        # Wir prüfen, ob die Normale zum Roboter zeigt oder von ihm weg.
-        # Wenn das Skalarprodukt positiv ist, zeigt sie vom Roboter weg.
-        if np.dot(normal, mean) > 0:
-            # Wir drehen die Linie um 180 Grad! 
-            # Ab jetzt ist garantiert, dass die Linie immer einheitlich relativ 
-            # zum Roboter ausgerichtet ist. Kein "Flippen" mehr möglich!
-            direction = -direction
-        # ---------------------------------------------------------
-    elif Version==0:
-        # ---------------------------------------------------------
-        # DER PANZER-CODE: 2x2 Eigenvektor analytisch berechnen
-        # (Ohne linalg-Bibliothek -> 100% Freeze-sicher!)
-        # ---------------------------------------------------------
-        centered = inliers - mean
-        
-        # 1. 2x2 Kovarianzmatrix berechnen (A^T * A)
-        cov = np.dot(centered.T, centered)
-        a = cov[0, 0]
-        b = cov[0, 1]
-        d = cov[1, 1]
-        
-        # 2. Größten Eigenwert (L) über Spur und Determinante berechnen
-        trace_val = a + d
-        det_val = a * d - b * b
-        # max(0, ...) schützt vor Mini-Rundungsfehlern im Minusbereich
-        L = trace_val / 2.0 + np.sqrt(max(0.0, (trace_val / 2.0)**2 - det_val))
-        
-        # 3. Eigenvektor zur Hauptachse bestimmen
-        if abs(b) < 1e-9:
-            # Sonderfall: Punkte liegen exakt waagerecht oder senkrecht
-            direction = np.array([1.0, 0.0]) if a >= d else np.array([0.0, 1.0])
-        else:
-            direction = np.array([b, L - a])
-            direction = direction / np.linalg.norm(direction) # Normalisieren auf Länge 1
-
-        # 4. Orientierungsschutz (Damit die Linie nicht in die falsche Lidar-Richtung zeigt)
-        grobe_richtung = inliers[-1] - inliers[0]
-        if np.dot(direction, grobe_richtung) < 0:
-            direction = -direction
-    elif Version==1:
-        # 1. Zwingend in float64 umwandeln (verhindert ARM-Architektur-Bugs in der SVD)
-        centered = (inliers - mean).astype(np.float64)
-        
-        # 2. Denormalisierte Zahlen killen! 
-        # Alles was mikroskopisch klein ist, wird brutal auf exakt 0.0 gesetzt.
-        # Das verhindert die Endlosschleife im Prozessor.
-        centered[np.abs(centered) < 1e-7] = 0.0
-
-        uu, dd, vv = np.linalg.svd(centered)
-        direction = vv[0]
-    else:
-        # Finale Korrektur: Deterministische Hauptachsen-Extraktion (SVD-Äquivalenz)
-        centered_inliers = inliers - mean
-        cov_matrix = np.cov(centered_inliers, rowvar=False)
-        eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
-        direction = eigenvectors[:, np.argmax(eigenvalues)]
-
-        # Orientierungsschutz beibehalten
-        grobe_richtung = inliers[-1] - inliers[0]
-        if np.dot(direction, grobe_richtung) < 0:
-            direction = -direction
+    # ---------------------------------------------------------
+    # STABILER SVD-ERSATZ (Über Winkelberechnung)
+    # ---------------------------------------------------------
+    centered = inliers - mean
+    
+    cov = np.dot(centered.T, centered)
+    a = cov[0, 0]
+    b = cov[0, 1]
+    d = cov[1, 1]
+    
+    angle = 0.5 * np.arctan2(2 * b, a - d)
+    direction = np.array([np.cos(angle), np.sin(angle)])
+    
+    # ---------------------------------------------------------
+    # DER NEUE, ABSOLUT DETERMINISTISCHE ORIENTIERUNGSSCHUTZ
+    # ---------------------------------------------------------
+    # 1. Wir berechnen den Normalenvektor der Wand (90 Grad gedreht zur Richtung)
+    normal = np.array([-direction[1], direction[0]])
+    
+    # 2. 'mean' ist der Vektor vom Roboter (0,0) exakt zur Mitte der Wand.
+    # Wir prüfen, ob die Normale zum Roboter zeigt oder von ihm weg.
+    # Wenn das Skalarprodukt positiv ist, zeigt sie vom Roboter weg.
+    if np.dot(normal, mean) > 0:
+        # Wir drehen die Linie um 180 Grad! 
+        # Ab jetzt ist garantiert, dass die Linie immer einheitlich relativ 
+        # zum Roboter ausgerichtet ist. Kein "Flippen" mehr möglich!
+        direction = -direction
+    # ---------------------------------------------------------
     
     projections = np.dot(inliers - mean, direction)
     sort_idx = np.argsort(projections)
