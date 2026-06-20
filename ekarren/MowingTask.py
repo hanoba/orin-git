@@ -64,7 +64,7 @@ class MowingTask:
         self.K_head = 0.8 # 0.7          # 0.5      # heading error (Winkel)
         self.node = node
         self.laneDist = 0.2
-        self.startDist = 2.6*0+0.6*1
+        self.startDist = 2.0  #2.6*0+0.6*1
         self.wantedDist = self.startDist
         self.wallAngle = np.deg2rad(85)
         self.wantedTheta = self.wallAngle

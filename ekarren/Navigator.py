@@ -80,7 +80,7 @@ class Navigator:
         self.theta = 0.0
         self.wantedTheta = 0.0
         self.wantedThetaReached = True
-        self.K_head = 0.3   #1.0
+        self.K_head = 0.3*2   #1.0
         self.angularMax = 2.0*2
         self.angular = 0.0
         self.linear = 0.0

@@ -89,7 +89,7 @@ class UdpReceive:
                 return self.vLinearLast, self.omegaLast
             return vLinear, omega
         
-        print(f"Teleop received {data}")
+        #print(f"Teleop received {data}")
         self.teleopRepeatCnt = self.teleopRepeatValue
         header, data_list = data
         assert header == Udp.TELEOP
