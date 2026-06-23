@@ -2,8 +2,8 @@
   "OmegaMeasFlag": false,
   "OmegaMeasDuration": 6.0,
   "OmegaValue": 2.0,
-  "WantedYaw_deg": 110.0,
-  "GotoWallFlag": true,
+  "WantedYaw_deg": 179.0,
+  "GotoWallFlag": false,
   "StopDist": 2.0,
   "LinearSpeed": 0.5,
   "ReturnFlag": false

@@ -633,7 +633,7 @@ class Simulation:
             if theta_deg > 180: theta_deg -= 360
             txt = (
                 f"{self.sim_time_sec:.3f}  FPS: {self.clock.get_fps():3.0f}  "
-                f"x={x:6.2f}  y={y:6.2f}  theta={theta_deg:3.0f}°"
+                f"x={x:6.2f}  y={y:6.2f}  theta={theta_deg:3.2f}°"
             )
             self.bitBlock = self.font.render(txt, True, (220, 220, 220))
 

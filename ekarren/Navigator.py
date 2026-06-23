@@ -81,7 +81,8 @@ class Navigator:
         self.wantedTheta = 0.0
         self.wantedThetaReached = True
         self.K_head = 0.3*2   #1.0
-        self.angularMax = 2.0*2
+        self.K_headFast = 10.0   
+        self.angularMax = 2.0
         self.angular = 0.0
         self.linear = 0.0
         self.directionFlag = False
@@ -106,12 +107,18 @@ class Navigator:
         self.directionFlag = False
         #self.PubVelocities(vLinear, omega)
 
-    def SetWantedTheta(self, wantedTheta):
-        self.wantedTheta = wantedTheta
+    def SetWantedTheta(self, wantedTheta, vLinear=0.0):
+        self.wantedTheta = NormalizeAngle(wantedTheta)
         self.wantedThetaReached = False
         self.directionFlag = False
-        print(f"[{self.simTimeSec:.3f}] [SetWantedTheta] wantedTheta={self.wantedTheta}")
-        self.linear = 0.0
+        print(f"[{self.simTimeSec:.3f}] [SetWantedTheta] wantedTheta={np.degrees(self.wantedTheta)}°   theta={np.degrees(self.theta)}°")
+        self.linear = vLinear
+        if wantedTheta <= self.theta:
+            self.wantedThetaSign = 1.0
+            self.angularMin = -0.1
+        else:
+            self.wantedThetaSign = -1.0
+            self.angularMin = 0.1
 
     def SetDirection(self, theta, vLinear):
         self.directionFlag = True
@@ -129,23 +136,19 @@ class Navigator:
         # self.theta += np.radians(10.0)    # for test of YawOffsetDetectionTask.py
         if self.directionFlag:
             e = self.wantedTheta - self.theta
-            e = (e + math.pi) % math.tau - np.pi
-            e = np.clip(e, -self.angularMax, self.angularMax)
+            e = (e + math.pi) % math.tau - math.pi
             self.angular = e * self.K_head
-            #self.PubVelocities(self.linear, self.angular)
         elif not self.wantedThetaReached:
             e = self.wantedTheta - self.theta
-            e = (e + math.pi) % math.tau - np.pi
-            e = np.clip(e, -self.angularMax, self.angularMax)
-            #print(f"{self.theta=}  {e=}  {self.wantedTheta=}")
-            if abs(e) < np.deg2rad(10): # 0.002:
+            e = (e + math.pi) % math.tau - math.pi
+            if e*self.wantedThetaSign > 0.0:
                 self.wantedThetaReachedTime = time.time_ns() / 1e9
                 self.wantedThetaReached = True
                 print(f"[{self.wantedThetaReachedTime:.3f}] [CompassCallback] wantedThetaReached")
                 self.angular = 0.0
             else:
-                self.angular = e * self.K_head
-            #self.PubVelocities(self.linear, self.angular)
+                #print(f"{self.theta=}  {e=}  {self.wantedTheta=}  {self.wantedThetaSign=}")
+                self.angular = np.clip(e*self.K_headFast + self.angularMin,  -self.angularMax, self.angularMax)
         dauer_ms = (time.perf_counter_ns() - start_zeit) * 1e-6 # Umrechnung in ms
         self.trace.Put(f"[CompassCallback] END {dauer_ms=:.3f}")
         return self.linear, self.angular

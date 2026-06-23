@@ -1,6 +1,7 @@
 import numpy as np
 from GartenWorld import Localization, lineNames, World, GetWallPosX, GetWallPosY, CenterY
 from MowingTask import MowingTask
+from WallFollowerTask import WallFollowerTask
 from PassThroughGateTask import PassThroughGateTask
 from PassGateRansacTask import PassGateRansacTask
 from YawOffsetDetectionTask import YawOffsetDetectionTask
@@ -457,6 +458,11 @@ FastLocalization_TaskList = {
 Mowing_TaskList = {
     "name": "Rasenmaehen",
     "tasks": [ (MowingTask(), None) ]
+}
+
+WallFollower_TaskList = {
+    "name": "WallFollower",
+    "tasks": [ (WallFollowerTask(), None) ]
 }
 
 Fahre_zum_Schuppen_TaskList = {

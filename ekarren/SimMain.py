@@ -16,10 +16,13 @@ def main():
     udp_rx = UdpReceive(Udp.PORT_TELEOP)
     
     # Tasklist dictionary
+    angMow = np.radians(80.0)
     TaskListDict = {
         "Localization":           (TaskLists.Localization_TaskList,        15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
         "FastLocalization":       (TaskLists.FastLocalization_TaskList,    15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
         "Mowing":                 (TaskLists.Mowing_TaskList,              18.00,  0.00,   0.0   ), # für Mow Test
+        "WallFollower":           (TaskLists.WallFollower_TaskList,        16.00,  0.00,  angMow ), # für Mow Test
+        #"WallFollower":           (TaskLists.WallFollower_TaskList,        16.66,  7.19,  angMow ), # für Mow Test
         "Fahre_zum_Schuppen":     (TaskLists.Fahre_zum_Schuppen_TaskList,  15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
         "Fahre_in_den_Wald":      (TaskLists.Fahre_in_den_Wald_TaskList,   15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
         "Fahre_in_den_Garten":    (TaskLists.Fahre_in_den_Garten_TaskList, 19.00, 15.00, -np.pi/2), # Im Wald beim Gartentor
