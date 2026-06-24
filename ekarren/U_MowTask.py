@@ -3,15 +3,12 @@ import numpy as np
 import math
 from params import LidarMaxAngle, TaskState
 
+# Zustände
+FOLLOW = 0
+TURN   = 1
+NONE   = 2
 
-SEARCH = 0
-FOLLOW = 1
-TURN   = 2
-TURN2  = 3
-CORNER = 4
-NONE   = 5
-
-class WallFollowerTask:
+class U_MowTask:
     def Init(self, node, params, retvals=None):
         
         self.cos45 = math.cos(45/180*math.pi)   # winkel zwischen d_wall und d_wall45
@@ -51,11 +48,8 @@ class WallFollowerTask:
         self.time = 0
 
     def GetStateText(self, newState):
-        if newState==SEARCH: return "SEARCH"
-        elif newState==FOLLOW: return "FOLLOW"
+        if newState==FOLLOW: return "FOLLOW"
         elif newState==TURN: return "TURN"
-        elif newState==TURN2: return "TURN2"
-        elif newState==CORNER: return "CORNER"
         return "Unknown"
     
     def SetState(self, newState):

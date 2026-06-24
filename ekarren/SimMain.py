@@ -20,13 +20,13 @@ def main():
     TaskListDict = {
         "Localization":           (TaskLists.Localization_TaskList,        15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
         "FastLocalization":       (TaskLists.FastLocalization_TaskList,    15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
-        "Mowing":                 (TaskLists.Mowing_TaskList,              18.00,  0.00,   0.0   ), # für Mow Test
-        "WallFollower":           (TaskLists.WallFollower_TaskList,        16.00,  0.00,  angMow ), # für Mow Test
-        #"WallFollower":           (TaskLists.WallFollower_TaskList,        16.66,  7.19,  angMow ), # für Mow Test
+        #"WallFollower":           (TaskLists.WallFollower_TaskList,        16.00,  0.00,  angMow ), # für Mow Test
+        "U_MowTask":              (TaskLists.U_MowTask_TaskList,           14.00,  0.00,   0.0   ), # für U_MowTask Test
+        "V_MowTask":              (TaskLists.V_MowTask_TaskList,           16.00,  4.00,   0.0   ), # für V_MowTask Test
         "Fahre_zum_Schuppen":     (TaskLists.Fahre_zum_Schuppen_TaskList,  15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
         "Fahre_in_den_Wald":      (TaskLists.Fahre_in_den_Wald_TaskList,   15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
         "Fahre_in_den_Garten":    (TaskLists.Fahre_in_den_Garten_TaskList, 19.00, 15.00, -np.pi/2), # Im Wald beim Gartentor
-        "Fahre_hinters_Haus":     (TaskLists.Fahre_hinters_Haus_TaskList,  -2.00, 10.50,   0.0   ), # rechts vom Schuppen 
+        "Fahre_hinters_Haus":     (TaskLists.Fahre_hinters_Haus_TaskList,  -3.00, 10.50,   0.0   ), # rechts vom Schuppen 
         "Bestimme_YawOffset":     (TaskLists.Bestimme_YawOffset_TaskList,  -9.00,  9.00,  np.pi/2), # vor der Schuppentür
         "Test":                   (TaskLists.Test_TaskList,                12.00, -3.00,   0.0   )  # unterhalb der Terrasse
     }

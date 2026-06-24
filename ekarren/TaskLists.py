@@ -1,11 +1,13 @@
 import numpy as np
 from GartenWorld import Localization, lineNames, World, GetWallPosX, GetWallPosY, CenterY
 from MowingTask import MowingTask
-from WallFollowerTask import WallFollowerTask
+from U_MowTask import U_MowTask
+from V_MowTask import V_MowTask
 from PassThroughGateTask import PassThroughGateTask
 from PassGateRansacTask import PassGateRansacTask
 from YawOffsetDetectionTask import YawOffsetDetectionTask
 from TestTask import TestTask
+from GotoLocationTask import GotoLocationTask
 import params
 from params import TaskState
 
@@ -87,11 +89,11 @@ def PathFinder(x, y, target):
             dx1 = dxSchuppenO * sign(x - xZ23)
             path = [
                 ( np.pi/2,         dy1,  LocFrontC, 0.5),     # P1: nach Norden
-                (  -np.pi,         dx1,  LocFrontR, 0.5),     # P1: nach Westen/Osten bis vor dem Schuppen
+                (   np.pi,         dx1,  LocFrontR, 0.5),     # P1: nach Westen/Osten bis vor dem Schuppen
                 (-np.pi/2,        dist,  LocFrontC, 0.5),     # P2: nach Süden
                 ( -d2r(21),       xZ45,        loc, 0.5),     # P3: nach Osten
                 ( np.pi/2,    dyZaunN7,  LocFrontC, 0.5),     # P4: nach Norden
-                (  -np.pi,     dxHausO,  LocFrontC, 0.5)      # P5: nach Westen
+                (   np.pi,     dxHausO,  LocFrontC, 0.5)      # P5: nach Westen
             ]
         elif zone == 2:
             #   ignoreList:  [ZN,ZO,ZS,ZW,SW,SS,SO,TW,TS,BO,BN,HO]
@@ -103,7 +105,7 @@ def PathFinder(x, y, target):
                 (-np.pi/2,      dy2, LocFrontC, 0.5),     # P2: nach Süden/Norden
                 (-d2r(21),     xZ45,       loc, 0.5),     # P3 nach Osten
                 ( np.pi/2, dyZaunN7, LocFrontC, 0.5),     # P4: nach Norden
-                (  -np.pi,  dxHausO, LocFrontC, 0.5)      # P5: nach Westen
+                (   np.pi,  dxHausO, LocFrontC, 0.5)      # P5: nach Westen
             ]
         elif zone in [3, 4]:
             dy1 = y - GetWallPosY(World.ZaunS, x)
@@ -112,7 +114,7 @@ def PathFinder(x, y, target):
                 (-np.pi/2,      dy2,  LocFrontL, 0.5),    # P3: nach Süden/Norden
                 (-d2r(21),     xZ45,        loc, 0.5),    # P3: nach Osten
                 ( np.pi/2, dyZaunN7,  LocFrontC, 0.5),    # P4: nach Norden
-                (  -np.pi,  dxHausO,  LocFrontC, 0.5)     # P5: nach Westen
+                (   np.pi,  dxHausO,  LocFrontC, 0.5)     # P5: nach Westen
             ]
         elif zone in [5, 6, 7]:
             dx1 = (GetWallPosX(World.ZaunO, y) - xZ45) * sign(xZ45 - x)
@@ -120,7 +122,7 @@ def PathFinder(x, y, target):
             path = [
                 (     0.0,      dx1, LocFrontC, 0.5),     # P4: nach Westen/Osten
                 ( np.pi/2,      dy1, LocFrontC, 0.5),     # P4: nach Norden/Süden
-                (  -np.pi,  dxHausO, LocFrontC, 0.5)      # P5: nach Westen
+                (   np.pi,  dxHausO, LocFrontC, 0.5)      # P5: nach Westen
             ]
     elif target=="Schuppen":
         if zone == 1:
@@ -129,7 +131,7 @@ def PathFinder(x, y, target):
             dy1 = dyZaunN1 * sign(y1 - y)
             path = [
                 ( np.pi/2, dy1, LocFrontC, 0.5),     # P1: nach Norden/Süden
-                (  -np.pi, dx1, LocFrontC, 0.5)      # P1: nach Westen/Osten bis vor dem Schuppen
+                (   np.pi, dx1, LocFrontC, 0.5)      # P1: nach Westen/Osten bis vor dem Schuppen
             ]
         elif zone == 2:
             #   ignoreList:  [ZN,ZO,ZS,ZW,SW,SS,SO,TW,TS,BO,BN,HO]
@@ -190,7 +192,11 @@ class FollowPathTask:
             x = xv[0]
             y = xv[1]
         else: x = y = 0
-        self.path = PathFinder(x, y, target)
+
+        if isinstance(target, str):
+            self.path = PathFinder(x, y, target)
+        else:
+            self.path = target
         if len(self.path) > 0:
             self.theta, self.dist, self.modeParam, self.vLinear = self.path[self.pathIndex]
             if isinstance(self.dist, list):
@@ -214,7 +220,7 @@ class FollowPathTask:
         A = []
         b = []
         wallNumbers = []
-        detectedWalls = self.node.Walldetector(ranges, -np.pi/2, np.pi/2)        
+        detectedWalls = self.node.Walldetector(ranges,  np.pi/2, np.pi/2)        
         detectedWallsValid = Localization(self.node.theta, detectedWalls, A, b, wallNumbers, ignore=ignoreList, debug=False)
         self.node.PublishMarkers(detectedWalls, detectedWallsValid)
         A, b, wallNumbers = RemoveEquations(A, b, wallNumbers, debug=False)
@@ -460,9 +466,23 @@ Mowing_TaskList = {
     "tasks": [ (MowingTask(), None) ]
 }
 
-WallFollower_TaskList = {
-    "name": "WallFollower",
-    "tasks": [ (WallFollowerTask(), None) ]
+#WallFollowerPath = [ (d2r(-10.0), -(5.6-0.8), LocFrontC, 0.5), (d2r(80.0), -12.0, LocFrontC, 0.5)]
+#WallFollower_TaskList = {
+#    "name": "WallFollower",
+#    "tasks": [  (FollowPathTask(), WallFollowerPath),
+#                (WallFollowerTask(), None) ]
+#}
+
+U_MowTask_TaskList = {
+    "name": "U_MowTask",
+    "tasks": [  (GotoLocationTask(), (5.6-0.8, 12.0)),
+                (U_MowTask(), None) ]
+}
+
+V_MowTask_TaskList = {
+    "name": "V_MowTask",
+    "tasks": [  (GotoLocationTask(), (5.6-0.8, 4.0)),
+                (V_MowTask(), None) ]
 }
 
 Fahre_zum_Schuppen_TaskList = {
