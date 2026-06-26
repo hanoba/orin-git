@@ -2,7 +2,7 @@ import queue
 from time import perf_counter_ns
 
 # Gemeinsamer FIFO-Puffer (non-blocking Trace)
-MAX_SIZE = 100
+MAX_SIZE = 1000
 
 class Trace:
     def __init__(self, traceStart=None):
@@ -22,3 +22,12 @@ class Trace:
     def Print(self):
         while not self.trace_queue.empty():
             print(self.trace_queue.get())
+
+    def Save(self, filename="trace.log"):
+        # "w" überschreibt die Datei jedes Mal neu. 
+        # Wenn du an eine bestehende Datei anhängen willst, nutze "a" (append).
+        with open(filename, "w", encoding="utf-8") as file:
+            while not self.trace_queue.empty():
+                item = self.trace_queue.get()
+                # '\n' sorgt für den Zeilenumbruch, da file.write() das nicht automatisch macht
+                file.write(f"{item}\n")
