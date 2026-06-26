@@ -60,6 +60,11 @@ class HardwareProcess(multiprocessing.Process):
                 # B) Prüfen, ob das Hauptprogramm berechnete Motorenbefehle zurückgeschickt hat.
                 if self.pipe_conn.poll(0.005): 
                     vLinear, omega = self.pipe_conn.recv()
+            
+                    # Schleife läuft weiter, solange noch neue Elemente in der Pipe warten
+                    while self.pipe_conn.poll():
+                        # Überschreibt den alten Wert mit dem jeweils neueren
+                        vLinear, omega = self.pipe_conn.recv()
                     ekarren.SetSpeed(vLinear, omega)
                 
                 # Drift-Kompensation für stabile 30 Hz
@@ -121,6 +126,25 @@ def main():
             index += 1
         sys.exit(0)
 
+    def GetLatestFromPipe(receiver):
+        """
+        Liest alle aktuell in der Pipe verfügbaren Daten und gibt das neueste Element zurück.
+        Alle älteren Elemente werden verworfen. Gibt None zurück, wenn die Pipe leer ist.
+        """
+        latest_data = None
+        
+        # Prüfen, ob überhaupt mindestens ein Element in der Pipe ist
+        while True:
+            if receiver.poll(0.005):
+                latest_data = receiver.recv()
+                
+                # Schleife läuft weiter, solange noch neue Elemente in der Pipe warten
+                while receiver.poll():
+                    # Überschreibt den alten Wert mit dem jeweils neueren
+                    latest_data = receiver.recv()
+                return latest_data
+
+
     # command line parameter handling
     taskList = None
     argc = len(sys.argv)
@@ -174,7 +198,8 @@ def main():
         while True:
             # 1. Empfange Theta vom separaten CPU-Kern
             #theta = 0
-            theta = main_pipe.recv()
+            #theta = main_pipe.recv()
+            theta = GetLatestFromPipe(main_pipe)
             
             # 2. Berechne die neue Route (hier fließen Lidar + Kompass zusammen)
             vLinear, omega = navigator.CompassCallback(theta)

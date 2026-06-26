@@ -5,11 +5,12 @@ from params import Udp
 
 class UdpReceive:
     def __init__(self, port):
+        """Startet einen UDP-Server, der Daten empfängt und dekodiert."""
         self.receivedAddr = None
         self.buffer_size=2048
         
         # letztes Teleop-Kommando 3x wiederholen        
-        self.teleopRepeatValue=3
+        self.teleopRepeatValue=3*0
         self.teleopRepeatCnt=0
         self.vLinearLast=0.0
         self.omegaLast=0.0
@@ -24,17 +25,36 @@ class UdpReceive:
         self.sock.setblocking(False)
         print(f"[UdpReceive] Warte auf UDP-Pakete auf {listen_ip}:{port}...")
     
-    def Receive(self, debug=False):
-        """Startet einen UDP-Server, der Daten empfängt und dekodiert."""
+    def Receive(self, debug=False, latestOnly=False):
+        """
+        latestOnly=True:
+        Liest alle aktuell im Socket-Puffer verfügbaren UDP-Nachrichten
+        und gibt nur die neueste (sowie die zugehörige Adresse) zurück.
+        Gibt None zurück, wenn keine Nachrichten vorhanden sind.
+        """
         try:
-            packet, (addr, port) = self.sock.recvfrom(self.buffer_size)
+            _packet, (_addr, port) = self.sock.recvfrom(self.buffer_size)
+            packet = _packet
+            addr = _addr
         except BlockingIOError:
             # Dieser Fehler tritt auf, wenn der Puffer komplett leer ist.
             return
         except Exception as e:
             print(f"UDP Recv Error: {e}")
             return
-            
+
+        while latestOnly:
+            try:
+                # Versuche, eine weitere Nachricht aus dem Puffer zu lesen
+                _packet, (_addr, port) = self.sock.recvfrom(self.buffer_size)
+                # Überschreibe alte Daten mit den soeben gelesenen (neueren)
+                packet = _packet
+                addr = _addr
+            except BlockingIOError:
+                # Dieser Fehler tritt auf, wenn der Puffer komplett leer ist.
+                # Das bedeutet, wir haben alle angestauten Nachrichten gelesen.
+                break            
+          
         # Sicherheitscheck: Hat das Paket mindestens die 2 Bytes für den Header und hat es eine gerade Anzahl von Bytes?
         packet_len = len(packet)
         assert packet_len >= 2
@@ -82,7 +102,7 @@ class UdpReceive:
         return self.receivedAddr
 
     def ReceiveTeleop(self, vLinear, omega):
-        data = self.Receive()
+        data = self.Receive(latestOnly=True)
         if data is None:
             if self.teleopRepeatCnt > 0:
                 self.teleopRepeatCnt -= 1
