@@ -96,7 +96,9 @@ def main():
     TaskListDict = {
         "Localization":           TaskLists.Localization_TaskList,
         "FastLocalization":       TaskLists.FastLocalization_TaskList,
-        "Mowing":                 TaskLists.Mowing_TaskList,
+        #"Mowing":                 TaskLists.Mowing_TaskList,
+        "U_MowTask":              TaskLists.U_MowTask_TaskList,
+        "V_MowTask":              TaskLists.V_MowTask_TaskList,
         "Fahre_zum_Schuppen":     TaskLists.Fahre_zum_Schuppen_TaskList,
         "Fahre_in_den_Wald":      TaskLists.Fahre_in_den_Wald_TaskList,
         "Fahre_in_den_Garten":    TaskLists.Fahre_in_den_Garten_TaskList,

@@ -107,7 +107,10 @@ class Navigator:
         self.directionFlag = False
         #self.PubVelocities(vLinear, omega)
 
-    def SetWantedTheta(self, wantedTheta, vLinear=0.0):
+    def SetWantedTheta(self, wantedTheta, vLinear=0.0, turnRight=False, turnLeft=False):
+        assert turnRight==False or turnLeft==False
+        self.turnRight = turnRight
+        self.turnLeft = turnLeft
         self.wantedTheta = NormalizeAngle(wantedTheta)
         self.wantedThetaReached = False
         self.directionFlag = False
@@ -141,7 +144,17 @@ class Navigator:
         elif not self.wantedThetaReached:
             e = self.wantedTheta - self.theta
             e = (e + math.pi) % math.tau - math.pi
-            if e*self.wantedThetaSign > 0.0:
+            # Handling of fixed turning direction (used for 180° u-turns)
+            ang = 0.0
+            if abs(e) > np.pi/4:
+                if self.turnRight: ang = -self.angularMax
+                elif self.turnLeft: ang = self.angularMax
+            else:
+                self.turnRight = False
+                self.turnLeft = False
+            # Normal case
+            if ang != 0.0: self.angular = ang
+            elif e*self.wantedThetaSign > 0.0:
                 self.wantedThetaReachedTime = time.time_ns() / 1e9
                 self.wantedThetaReached = True
                 print(f"[{self.wantedThetaReachedTime:.3f}] [CompassCallback] wantedThetaReached")

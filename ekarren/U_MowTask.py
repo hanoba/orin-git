@@ -9,7 +9,7 @@ TURN   = 1
 NONE   = 2
 
 class U_MowTask:
-    def Init(self, node, params, retvals=None):
+    def Init(self, navigator, params, retvals=None):
         
         self.cos45 = math.cos(45/180*math.pi)   # winkel zwischen d_wall und d_wall45
 
@@ -17,7 +17,7 @@ class U_MowTask:
         self.base_speed = 0.5
         
         self.debugFlag = True
-        self.node = node
+        self.nav = navigator
         self.subState = 0
         self.laneDist = -0.2        
         
@@ -37,13 +37,15 @@ class U_MowTask:
         self.endDist = 1.0
         self.forwardTurnDist = 1.5
         self.backwardTurnDist = 12.0
+        self.wallAngle = np.radians(85)
                 
         # Zielabstand zur rechten Wand [m]
         self.target_dist = self.startDist
         self.forward = True
 
         self.state = NONE
-        self.SetState(FOLLOW)
+        self.nav.SetWantedTheta(self.wallAngle)
+        self.SetState(TURN)
 
         self.time = 0
 
@@ -86,7 +88,7 @@ class U_MowTask:
         heading_error = 0
         omega = 0
         if self.state == TURN:
-            if self.node.wantedThetaReached:
+            if self.nav.wantedThetaReached:
                 self.SetState(FOLLOW)
                 
         elif self.state == FOLLOW:
@@ -122,7 +124,7 @@ class U_MowTask:
             elif angular <- self.max_angular: angular = -self.max_angular
             linear = self.base_speed
 
-            self.node.SetVelocities(angular, linear) 
+            self.nav.SetVelocities(angular, linear) 
 
             if self.debugFlag:
                 print(f"{self.time:6d}: fwd={self.forward} {self.GetStateText(self.state)} d(0°)={d_zaun:.2f}  d(90°)={d_wall:.2f}  d(45°)={d_wall45:.2f}  "
@@ -130,26 +132,23 @@ class U_MowTask:
 
             if self.target_dist < 1.0:
                 #self.state = self.StateIdle
-                self.node.ResetDirection()
-                self.node.RvizPrint("Mowing completed")
+                self.nav.ResetDirection()
+                self.nav.RvizPrint("Mowing completed")
                 return TaskState.Ready, None
 
             vLinear = 0.2
             if self.forward:
-                #if d_zaun < 2.0 and abs(heading_error)<0.1 and False:
                 if d_zaun < self.forwardTurnDist:   # 8
-                    self.node.SetVelocities(0.0, 0.0)
+                    self.nav.SetVelocities(0.0, 0.0)
                     self.forward = False
                     self.target_dist += self.laneDist
-                    self.theta2 = self.node.theta - np.pi
-                    self.node.SetWantedTheta(self.node.theta - np.radians(179), vLinear)
+                    self.nav.SetWantedTheta(self.nav.theta - np.pi, vLinear, turnRight=True)
                     self.SetState(TURN)
             elif d_zaun > self.backwardTurnDist:  # 12.0:
-                    self.node.SetVelocities(0.0, 0.0)
+                    self.nav.SetVelocities(0.0, 0.0)
                     self.forward = True
                     self.target_dist += self.laneDist
-                    self.theta2 = self.node.theta + np.pi
-                    self.node.SetWantedTheta(self.node.theta + np.radians(179), vLinear)
+                    self.nav.SetWantedTheta(self.nav.theta + np.pi, vLinear, turnLeft=True)
                     self.SetState(TURN)
         self.time += 1
         return TaskState.Running, None
