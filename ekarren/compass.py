@@ -47,7 +47,7 @@ class GY801_Fast:
     def __init__(self, bus_num=7):
         self.bus = smbus2.SMBus(bus_num)
         
-        print("Initialisiere Sensoren...")
+        print("Initialisiere GY-801...")
         # --- Accel (ADXL345 auf ACC_ADDR) ---
         self.bus.write_byte_data(ACC_ADDR, 0x2c, 0x0a)
         self.bus.write_byte_data(ACC_ADDR, 0x2d, 0x08)

@@ -15,6 +15,8 @@ import numpy as np # Vergiss nicht numpy zu importieren!
 import ydlidar
 from params import LidarMaxAngle, Udp
 
+
+print("After import")
 # Constants for eKarren
 rcMaxValue = 2048
 tauMax = 255
@@ -34,6 +36,7 @@ class LidarProcess(multiprocessing.Process):
     def run(self):
         # WICHTIG: Treiber-Initialisierung MUSS im run() passieren, 
         # damit sie im neuen Prozess stattfindet!
+        print("Initialize Lidar")
         PORT = "/dev/ttyUSB0"
         BAUD = 512000
 
@@ -263,18 +266,13 @@ def main():
     
     # Hardware, die das Gehirn (Hauptprogramm) benötigt, bleibt hier!
     navigator = Navigator()
-    #lidar = Lidar(navigator)
     ekarren = eKarren(device=deviceNum, debug=False)
-
-
-    if taskList is not None:
-        navigator.NewTaskList(taskList)
     
     # ----------------------------------------------------
-    # PROZESS STARTEN (Mit Zwei-Wege-Verbindung)
+    # KOMPASS-PROZESS STARTEN
     # ----------------------------------------------------
-    freq_Hz = 30
-    core_id = 1  # Wähle hier den Kern aus (Zählung beginnt bei 0)
+    freq_Hz = 30    # Kompass-Abtastfrequenz
+    core_id = 1     # Wähle hier den Kern aus (Zählung beginnt bei 0)
     
     # Eine Ein-Weg-Pipe erstellen (unidirektional)
     # compass_rx (erster Wert) kann NUR lesen und bleibt beim Hauptprogramm.
@@ -285,12 +283,18 @@ def main():
     compassProcess = CompassProcess(freq_Hz, core_id, compass_tx)    
     compassProcess.start()
     
+    # ----------------------------------------------------
     # 2. Pipe & Prozess für Lidar (ca. 10 Hz)
+    # ----------------------------------------------------
     lidar_rx, lidar_tx = multiprocessing.Pipe(duplex=False)
     lidarProcess = LidarProcess(lidar_tx)
     lidarProcess.start()
 
-    print("System läuft. Warte auf Daten vom Hardware-Prozess...")
+    time.sleep(2)
+    print("System läuft...")
+
+    if taskList is not None:
+        navigator.NewTaskList(taskList)
 
     try:
         # Die Hauptschleife wartet jetzt hocheffizient (mit 0% CPU Last) auf den Pipe-Eingang
@@ -314,7 +318,7 @@ def main():
                 # Lidar-Daten an den Navigator übergeben
                 navigator.ScanCallback(limited_ranges)
 
-                # UDP an viz.py senden (aus dem Lidar-Code hierher verschoben)
+                # Lidar-Daten via UDP an viz.py senden
                 cm = 100.0
                 ranges_cm = limited_ranges * cm
                 ranges_cm = ranges_cm.astype(np.int16)
@@ -322,10 +326,7 @@ def main():
 
             # --- MOTOREN UPDATEN ---
             vLinear, omega = udp_rx.ReceiveTeleop(vLinear, omega)   
-            ekarren.SetSpeed(vLinear, omega)
-            
-            
-            
+            ekarren.SetSpeed(vLinear, omega)            
     except KeyboardInterrupt:
         print("\neKarren wurde durch Benutzer abgebrochen.")
     finally:

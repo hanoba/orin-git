@@ -142,8 +142,8 @@ class Navigator:
             e = (e + math.pi) % math.tau - math.pi
             self.angular = e * self.K_head
         elif not self.wantedThetaReached:
-            e = self.wantedTheta - self.theta
-            e = (e + math.pi) % math.tau - math.pi
+            e1 = self.wantedTheta - self.theta
+            e = (e1 + math.pi) % math.tau - math.pi
             # Handling of fixed turning direction (used for 180° u-turns)
             ang = 0.0
             if abs(e) > np.pi/4:
@@ -157,7 +157,8 @@ class Navigator:
             elif e*self.wantedThetaSign > 0.0:
                 self.wantedThetaReachedTime = time.time_ns() / 1e9
                 self.wantedThetaReached = True
-                print(f"[{self.wantedThetaReachedTime:.3f}] [CompassCallback] wantedThetaReached")
+                print(f"[{self.wantedThetaReachedTime:.3f}] [CompassCallback] wantedThetaReached"
+                        f" {self.wantedTheta=}  {self.theta=}  {self.wantedThetaSign}  {e=}  {e1=}")
                 self.angular = 0.0
             else:
                 #print(f"{self.theta=}  {e=}  {self.wantedTheta=}  {self.wantedThetaSign=}")
