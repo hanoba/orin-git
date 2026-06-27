@@ -17,18 +17,18 @@ def main():
     
     # Tasklist dictionary
     angMow = np.radians(80.0)
-    TaskListDict = {
+    TaskListDict = {                                                                                # Ort
         "Localization":           (TaskLists.Localization_TaskList,        15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
         "FastLocalization":       (TaskLists.FastLocalization_TaskList,    15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
-        #"WallFollower":           (TaskLists.WallFollower_TaskList,        16.00,  0.00,  angMow ), # für Mow Test
-        "U_MowTask":              (TaskLists.U_MowTask_TaskList,           14.00,  0.00,   0.0   ), # für U_MowTask Test
-        "V_MowTask":              (TaskLists.V_MowTask_TaskList,           16.00,  4.00,   0.0   ), # für V_MowTask Test
+        "U_Mähen":                (TaskLists.U_MowTask_TaskList,           14.00,  0.00,   0.0   ), # unterhalb vom Bassin
+        "V_Mähen":                (TaskLists.V_MowTask_TaskList,           16.00,  4.00,   0.0   ), # rechts vom Bassin
+        "Ransac_Mähen":           (TaskLists.Mowing_TaskList,              19.00,  4.80,  np.pi/2), # rechts vom Bassin
         "Fahre_zum_Schuppen":     (TaskLists.Fahre_zum_Schuppen_TaskList,  15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
         "Fahre_in_den_Wald":      (TaskLists.Fahre_in_den_Wald_TaskList,   15.00,  9.00,  np.pi  ), # Im Garten beim Gartentor
         "Fahre_in_den_Garten":    (TaskLists.Fahre_in_den_Garten_TaskList, 19.00, 15.00, -np.pi/2), # Im Wald beim Gartentor
         "Fahre_hinters_Haus":     (TaskLists.Fahre_hinters_Haus_TaskList,  -3.00, 10.50,   0.0   ), # rechts vom Schuppen 
-        "Bestimme_YawOffset":     (TaskLists.Bestimme_YawOffset_TaskList,  -9.00,  9.00,  np.pi/2), # vor der Schuppentür
-        "Test":                   (TaskLists.Test_TaskList,                12.00, -3.00,   -2.0  )  # unterhalb der Terrasse
+        "Test":                   (TaskLists.Test_TaskList,                12.00, -3.00,   -2.5  ), # unterhalb der Terrasse
+        "Bestimme_YawOffset":     (TaskLists.Bestimme_YawOffset_TaskList,  -9.00,  9.00,  np.pi/2)  # vor der Schuppentür
     }
 
 
@@ -87,9 +87,8 @@ def main():
 
     sim = Simulation(x, y, yaw)
     navigator = Navigator()
-
-    if taskList is not None:
-        navigator.NewTaskList(taskList)
+    
+    mainLoopCounter = 0
     
     try:
         while sim.running:
@@ -103,6 +102,12 @@ def main():
                 if len(radius) > 0: 
                     navigator.ScanCallback(radius)  # Publish lidar data
                     SendLidarData(radius)           # Send lidar data to viz.py
+                    
+                mainLoopCounter += 1
+                if mainLoopCounter == 1:
+                    if taskList is not None:
+                        navigator.NewTaskList(taskList)
+                                
     except KeyboardInterrupt:
         # Wird ausgelöst, wenn du Ctrl+C drückst
         print("Simulation wird durch Benutzer abgebrochen...")

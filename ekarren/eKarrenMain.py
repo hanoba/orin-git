@@ -193,9 +193,9 @@ def main():
     TaskListDict = {
         "Localization":           TaskLists.Localization_TaskList,
         "FastLocalization":       TaskLists.FastLocalization_TaskList,
-        #"Mowing":                 TaskLists.Mowing_TaskList,
-        "U_MowTask":              TaskLists.U_MowTask_TaskList,
-        "V_MowTask":              TaskLists.V_MowTask_TaskList,
+        "U_Mähen":                TaskLists.U_MowTask_TaskList,
+        "V_Mähen":                TaskLists.V_MowTask_TaskList,
+        "Ransac_Mähen":           TaskLists.Mowing_TaskList,
         "Fahre_zum_Schuppen":     TaskLists.Fahre_zum_Schuppen_TaskList,
         "Fahre_in_den_Wald":      TaskLists.Fahre_in_den_Wald_TaskList,
         "Fahre_in_den_Garten":    TaskLists.Fahre_in_den_Garten_TaskList,
@@ -290,11 +290,9 @@ def main():
     lidarProcess = LidarProcess(lidar_tx)
     lidarProcess.start()
 
-    time.sleep(2)
     print("System läuft...")
 
-    if taskList is not None:
-        navigator.NewTaskList(taskList)
+    mainLoopCounter = 0
 
     try:
         # Die Hauptschleife wartet jetzt hocheffizient (mit 0% CPU Last) auf den Pipe-Eingang
@@ -326,7 +324,13 @@ def main():
 
             # --- MOTOREN UPDATEN ---
             vLinear, omega = udp_rx.ReceiveTeleop(vLinear, omega)   
-            ekarren.SetSpeed(vLinear, omega)            
+            ekarren.SetSpeed(vLinear, omega)      
+                    
+            mainLoopCounter += 1
+            if mainLoopCounter == 1:
+                if taskList is not None:
+                    navigator.NewTaskList(taskList)
+            
     except KeyboardInterrupt:
         print("\neKarren wurde durch Benutzer abgebrochen.")
     finally:
