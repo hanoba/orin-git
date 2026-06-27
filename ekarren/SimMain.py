@@ -28,7 +28,7 @@ def main():
         "Fahre_in_den_Garten":    (TaskLists.Fahre_in_den_Garten_TaskList, 19.00, 15.00, -np.pi/2), # Im Wald beim Gartentor
         "Fahre_hinters_Haus":     (TaskLists.Fahre_hinters_Haus_TaskList,  -3.00, 10.50,   0.0   ), # rechts vom Schuppen 
         "Bestimme_YawOffset":     (TaskLists.Bestimme_YawOffset_TaskList,  -9.00,  9.00,  np.pi/2), # vor der Schuppentür
-        "Test":                   (TaskLists.Test_TaskList,                12.00, -3.00,   0.0   )  # unterhalb der Terrasse
+        "Test":                   (TaskLists.Test_TaskList,                12.00, -3.00,   -2.0  )  # unterhalb der Terrasse
     }
 
 
@@ -113,7 +113,7 @@ def main():
         # Dieser Block wird IMMER ausgeführt, egal ob Fehler oder Ctrl+C
         print("Bereinige Ressourcen...")
         sim.Quit() 
-        navigator.trace.Print()
+        navigator.trace.Save()
         
         # Optional: Komplettes Beenden erzwingen (hilft bei WSL2-Hängern)
         sys.exit(0)

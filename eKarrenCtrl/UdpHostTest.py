@@ -128,10 +128,13 @@ def ReceiveRaw():
 
 print("Start")
 printCnt = 0
+printNonZeroVelocityOnly = False
 printPeriod = 30
 if len(sys.argv)==2:
     printPeriod = int(sys.argv[1])
-print(f"{printPeriod=}")
+    printNonZeroVelocityOnly = printPeriod < 0
+    printPeriod = abs(printPeriod)
+print(f"{printPeriod=}  {printNonZeroVelocityOnly=}")
 tStart = None
 while True:
     #data = sock.recv(2048)
@@ -146,6 +149,7 @@ while True:
             tNow = time.perf_counter()
             f_sample = printPeriod / (tNow - tStart) if tStart is not None else 0.0
             tStart = tNow
-            print(f"{datetime.now()}  vLinear={vLinear:4.2f} m/s,   vAngular={f:4.2f} U/s  {f_sample=:4.2f} Hz  raw:{data}  ")
+            if not printNonZeroVelocityOnly or vLinearQ != 0 or vAngularQ != 0:
+                print(f"{datetime.now()}  vLinear={vLinear:4.2f} m/s,   vAngular={f:4.2f} U/s  {f_sample=:4.2f} Hz  raw:{data}  ")
         printCnt += 1
     #time.sleep(0.05)
