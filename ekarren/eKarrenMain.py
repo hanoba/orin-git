@@ -13,7 +13,7 @@ import TaskLists
 
 import numpy as np # Vergiss nicht numpy zu importieren!
 import ydlidar
-from params import LidarMaxAngle, Udp
+from params import LidarMaxAngle, LidarRangeMax, Udp
 
 
 print("After import")
@@ -83,6 +83,9 @@ class LidarProcess(multiprocessing.Process):
         # und addieren pi/2 um den Einbauwinkel zu korrigieren.
         angles_rad = np.array([(np.pi/2-p.angle) % (2*np.pi) for p in self.scan_data.points])
         ranges_raw = np.array([p.range for p in self.scan_data.points])
+        
+        # Zu kleine Werte filtern
+        ranges_raw[ranges_raw < 0.05] = LidarRangeMax
 
         # 2. Winkel in Grad umrechnen und dem passenden 1°-Bucket (0-359) zuordnen
         # np.floor rundet ab (z.B. 14.8° -> 14°). Modulo 360 fängt negative Winkel/Überläufe ab.
@@ -200,8 +203,8 @@ def main():
         "Fahre_in_den_Wald":      TaskLists.Fahre_in_den_Wald_TaskList,
         "Fahre_in_den_Garten":    TaskLists.Fahre_in_den_Garten_TaskList,
         "Fahre_hinters_Haus":     TaskLists.Fahre_hinters_Haus_TaskList,
-        "Bestimme_YawOffset":     TaskLists.Bestimme_YawOffset_TaskList,
-        "Test":                   TaskLists.Test_TaskList
+        "Test":                   TaskLists.Test_TaskList,
+        "Bestimme_YawOffset":     TaskLists.Bestimme_YawOffset_TaskList
     }
 
     def Usage():
@@ -302,6 +305,10 @@ def main():
             
             # Kompass-Daten an den Navigator übergeben
             vLinear, omega = navigator.CompassCallback(theta)
+
+            # --- MOTOREN UPDATEN ---
+            vLinear, omega = udp_rx.ReceiveTeleop(vLinear, omega)   
+            ekarren.SetSpeed(vLinear, omega)      
             
             # --- LIDAR UPDATE (NON-BLOCKING) ---
             # Wir prüfen kurz, ob der Lidar-Prozess neue Daten gesendet hat.
@@ -321,10 +328,6 @@ def main():
                 ranges_cm = limited_ranges * cm
                 ranges_cm = ranges_cm.astype(np.int16)
                 navigator.udp.Send(Udp.LIDAR_DATA, ranges_cm.tolist())
-
-            # --- MOTOREN UPDATEN ---
-            vLinear, omega = udp_rx.ReceiveTeleop(vLinear, omega)   
-            ekarren.SetSpeed(vLinear, omega)      
                     
             mainLoopCounter += 1
             if mainLoopCounter == 1:

@@ -154,7 +154,7 @@ class TestTask:
             dist = np.min(ranges[start_deg:end_deg]) # + params.LidarX
             dist = float(dist)
             self.MeasureLinearSpeed(dist)
-            print(f"StateGotoWall {dist:.2f}m")
+            print(f"StateGotoWall {dist:.2f}m  yaw={math.degrees(self.node.theta):.1f}°")
             targetReached = dist < StopDist
                 
             if targetReached: 

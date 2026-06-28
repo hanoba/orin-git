@@ -128,6 +128,7 @@ class Navigator:
         self.wantedTheta = theta
         self.linear = vLinear
         self.wantedThetaReached = True
+        print(f"[{self.simTimeSec:.3f}] [SetDirection] wantedTheta ={math.degrees(theta)}°")
 
     def ResetDirection(self):
         self.SetVelocities(0.0, 0.0)
@@ -140,7 +141,7 @@ class Navigator:
         if self.directionFlag:
             e = self.wantedTheta - self.theta
             e = (e + math.pi) % math.tau - math.pi
-            self.angular = e * self.K_head
+            self.angular = e * 4.0   #self.K_head
         elif not self.wantedThetaReached:
             e1 = self.wantedTheta - self.theta
             e = (e1 + math.pi) % math.tau - math.pi
