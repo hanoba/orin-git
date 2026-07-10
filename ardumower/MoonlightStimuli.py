@@ -3,15 +3,13 @@ import serial
 import time
 import struct
 
-# Konfiguration
-SERIAL_PORT = '/dev/serial0'  # Pfad anpassen (z.B. /dev/ttyUSB0 oder /dev/ttyAMA0 beim Raspi-Header)
-BAUDRATE = 115200
-N = 3                         # Anzahl der int16_t Werte
 
 class Ardumower:
     def __init__(self):
         self.cLinear = 2048.0 / 0.5
         self.cAngular = 2048.0 / 1.0
+        SERIAL_PORT = '/dev/serial0'
+        BAUDRATE = 115200
         print(f"Öffne seriellen Port {SERIAL_PORT} mit {BAUDRATE} Baud...")
         try:
             # Seriellen Port initialisieren
@@ -22,7 +20,7 @@ class Ardumower:
 
         print("Sender aktiv. Sende synchronisierte Datenpakete (Beenden mit STRG+C)...")
         
-    def calculate_checksum(self, data_bytes):
+    def CalculateChecksum(self, data_bytes):
         """Berechnet die einfache 8-Bit-Checksumme durch Aufaddieren aller Bytes."""
         checksum = 0
         for byte in data_bytes:
@@ -41,8 +39,8 @@ class Ardumower:
         # 2. Daten-Bytes erzeugen
         # 'h' steht in Pythons struct-Bibliothek für ein 16-Bit Signed Integer (short).
         # '>' erzwingt Big-Endian (High-Byte zuerst), passend zum Arduino-Code.
-        # Da wir N Werte haben, wiederholen wir das 'h' N-mal (z.B. '>hhhhh')
-        format_string = f'>{N}h'
+        # Da wir 3 Werte haben, wiederholen wir das 'h' 3-mal (z.B. '>hhhhh')
+        format_string = f'>{3}h'
         
         try:
             data_bytes = struct.pack(format_string, *daten)
@@ -51,7 +49,7 @@ class Ardumower:
             return
 
         # 3. Checksumme über die reinen Daten-Bytes berechnen
-        checksum_byte = bytes([self.calculate_checksum(data_bytes)])
+        checksum_byte = bytes([self.CalculateChecksum(data_bytes)])
 
         # 4. Den kompletten Frame zusammenfügen
         full_frame = header + data_bytes + checksum_byte
