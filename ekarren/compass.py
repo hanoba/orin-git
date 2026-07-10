@@ -2,6 +2,7 @@
 
 # Entzerrung und Neigungskorrektur für Magnetometer MMC5883L (GY-801)
 import smbus2
+import os
 import time
 import math
 import struct
@@ -9,8 +10,6 @@ import json
 import numpy as np
 from params import ReadYawOffset, WriteYawOffset
 
-
-I2C_BUS = 7
 ACC_ADDR = 0x53
 MAG_ADDR = 0x30
 GYRO_ADDR = 0x69
@@ -102,6 +101,8 @@ class GY801_Fast:
 
 class Compass:
     def __init__(self):
+        I2C_BUS = 7     # for Orin-NX
+        if self.GetHardwarePlatform() == "RASPI": I2C_BUS = 1
         self.imu = GY801_Fast(I2C_BUS)
         # Falls der Kompass mit alpha=0.98 (98% Gyro, 2% Mag) zu träge reagiert, dann setze alpha auf 0.95 oder 0.90.
         # Das gibt dem Magnetometer wieder etwas mehr Gewicht.
@@ -112,6 +113,19 @@ class Compass:
         self.yawOffset = ReadYawOffset()
         print(f"YawOffset={np.degrees(self.yawOffset)}°")
         self.gyro_z_bias = 0.0
+
+    def GetHardwarePlatform(self):
+        """Liest das Hardware-Modell aus dem Linux Device Tree aus."""
+        try:
+            with open("/proc/device-tree/model", "r") as f:
+                model = f.read().lower()
+                if "raspberry pi" in model:
+                    return "RASPI"
+                elif "nvidia" in model or "orin" in model or "jetson" in model:
+                    return "JETSON"
+        except FileNotFoundError:
+            pass
+        return "UNKNOWN"
 
     def GyroBiasCalibration(self):
         """ Gyro-Bias kalibrieren """
