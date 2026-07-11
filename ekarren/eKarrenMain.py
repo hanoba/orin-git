@@ -8,7 +8,7 @@ from compass import Compass
 #from eKarrenLidar import Lidar
 from Navigator import Navigator
 from UdpReceive import UdpReceive
-from eKarren import eKarren, DEV_EKARREN, DEV_EKARREN_PC, DEV_EKARREN_EMU
+from eKarren import eKarren, DEV_ARDUMOWER, DEV_EKARREN, DEV_EKARREN_PC, DEV_EKARREN_EMU
 import TaskLists
 
 import numpy as np # Vergiss nicht numpy zu importieren!
@@ -62,19 +62,24 @@ class LidarProcess(multiprocessing.Process):
         self.scan_data = ydlidar.LaserScan()
 
         counter = 0
-        # Schleife bricht ab, wenn os_isOk() fehlschlägt oder das Hauptprogramm stop() ruft
-        while ydlidar.os_isOk() and not self.stop_event.is_set():
-            # Blockiert jetzt nur DIESEN isolierten Prozess
-            if self.laser.doProcessSimple(self.scan_data):
-                self.ProcessLidarData()
-                if counter == 0:
-                    print(f"{self.scan_data.config.min_range=}")
-                    print(f"{self.scan_data.config.max_range=}")
-                counter += 1
-
-        # Aufräumen beim Beenden
-        self.laser.turnOff()
-        self.laser.disconnecting()
+        try:
+            # Schleife bricht ab, wenn os_isOk() fehlschlägt oder das Hauptprogramm stop() ruft
+            while ydlidar.os_isOk() and not self.stop_event.is_set():
+                # Blockiert jetzt nur DIESEN isolierten Prozess
+                if self.laser.doProcessSimple(self.scan_data):
+                    self.ProcessLidarData()
+                    if counter == 0:
+                        print(f"{self.scan_data.config.min_range=}")
+                        print(f"{self.scan_data.config.max_range=}")
+                    counter += 1
+        except KeyboardInterrupt:
+            # Wird ignoriert. Das Hauptprogramm kümmert sich um den sauberen Abbruch.
+            pass
+            
+        finally:
+            # Aufräumen beim Beenden
+            self.laser.turnOff()
+            self.laser.disconnecting()
         
     def ProcessLidarData(self):
         # 1. Listen-Comprehension für Rohdaten (die einzige Python-Schleife, da p ein C++ Struct ist)
@@ -210,7 +215,8 @@ def main():
     def Usage():
         print("Usage: ekarren [<deviceName> [<taskName>]]")
         print("<deviceName>:")
-        print("    eKarren (default)")
+        print("    Ardumower (default)")
+        print("    eKarren")
         print("    eKarrenPC")
         print("    eKarrenEmulator")
         print("<taskName>:")
@@ -245,7 +251,8 @@ def main():
     taskList = None
     argc = len(sys.argv)
     if argc==1:
-        deviceName = "eKarren"
+        deviceName = "Ardumower"
+        #deviceName = "eKarren"
         #deviceName = "eKarrenPC"
         #deviceName = "eKarrenEmulator"    
     elif argc==2:
@@ -261,7 +268,8 @@ def main():
         if taskList is None: Usage()
     else: Usage()
 
-    if deviceName=="eKarren": deviceNum = DEV_EKARREN
+    if deviceName=="Ardumower": deviceNum = DEV_ARDUMOWER
+    elif deviceName=="eKarren": deviceNum = DEV_EKARREN
     elif deviceName=="eKarrenPC": deviceNum = DEV_EKARREN_PC
     elif deviceName=="eKarrenEmulator": deviceNum = DEV_EKARREN_EMU
     else: Usage()
@@ -338,9 +346,12 @@ def main():
         print("\neKarren wurde durch Benutzer abgebrochen.")
     finally:
         print("Bereinige Ressourcen...")
-        # Hardware-Prozess sauber stoppen
+        # Hardware-Prozesse sauber stoppen
         compassProcess.stop()
         compassProcess.join()  
+
+        lidarProcess.stop()
+        lidarProcess.join()        
         
         ekarren.Close()
         

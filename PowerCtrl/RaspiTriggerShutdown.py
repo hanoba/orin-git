@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
-# Portiert von Orin-NX für Raspberry Pi mit gpiozero (Ressourcenschonend durch Interrupts)
-# Use this in the crontab for root:
-# @reboot /usr/bin/python3 /home/harald/orin-git/PowerCtrl/RaspiTriggerShutdown.py >/dev/null 2>&1
+# Portiert von Orin-NX für Raspberry Pi mit gpiozero
 
 from gpiozero import Button
 import signal
 import time
 import subprocess
 
-# BCM Nummerierung: Physischer Board-Pin 35 entspricht GPIO 19
-PIN_SHUTDOWN_REQ = 19
-
+PIN_SHUTDOWN_REQ = 19   # GPIO19 = Header Pin 35
 running = True
+shutdown_triggered = False  # NEU: Verhindert mehrfaches Auslösen
 
 def sigterm_handler(signum, frame):
-    global running
+    global running, shutdown_triggered
+    if shutdown_triggered:
+        # WICHTIG: Wir ignorieren SIGTERM, wenn wir bereits herunterfahren!
+        # So bleibt das Skript am Leben und gpiozero behält die Kontrolle 
+        # über die Pins, bis der Kernel den Pi endgültig hart abschaltet.
+        print("SIGTERM ignoriert, Shutdown läuft bereits.", flush=True)
+        return
+        
     print("SIGTERM empfangen: Beende Service sauber.", flush=True)
     running = False
 
@@ -24,30 +28,27 @@ def sigint_handler(signum, frame):
     running = False
 
 def trigger_shutdown():
-    # Wird automatisch per Interrupt aufgerufen, wenn der Pin HIGH wird
+    global shutdown_triggered
+    # Wenn der Shutdown schon läuft, mache nichts mehr
+    if shutdown_triggered:
+        return
+        
+    shutdown_triggered = True
     print("Shutdown vom ATtiny angefordert. System fährt herunter...", flush=True)
-    # Verwende sudo, um Berechtigungsprobleme (z.B. in crontab) zu vermeiden
-    subprocess.run(["sudo", "/sbin/shutdown", "-h", "now"])
+    
+    # Verwende -P (Poweroff) statt -h, um einen echten Halt zu erzwingen
+    subprocess.run(["/sbin/shutdown", "-P", "now"])
 
 def main():
+    global running
     print("Raspberry Pi Power Manager aktiv. Warte auf Signal...", flush=True)
 
-    # Signal-Handler setzen für ein sauberes Beenden des Skripts
     signal.signal(signal.SIGTERM, sigterm_handler) 
     signal.signal(signal.SIGINT,  sigint_handler)   
 
-    global running
-
-    # Button-Klasse ist ideal für Eingänge. 
-    # pull_up=False aktiviert den internen Pull-Down. Das Signal schaltet auf HIGH.
-    # bounce_time=0.1 entprellt das Signal leicht (100ms), um Fehlauslösungen zu vermeiden.
     shutdown_pin = Button(PIN_SHUTDOWN_REQ, pull_up=False, bounce_time=0.1)
-    
-    # Interrupt-Callback registrieren: Wenn der Pin HIGH wird, rufe die Funktion auf
     shutdown_pin.when_pressed = trigger_shutdown
 
-    # Die Hauptschleife macht fast nichts mehr und hält das Skript nur am Leben.
-    # Die tatsächliche Arbeit passiert unsichtbar im Hintergrund per Interrupt.
     while running:
         time.sleep(1)
 
