@@ -5,20 +5,16 @@ from gpiozero import Button
 import signal
 import time
 import subprocess
+import sys
 
 PIN_SHUTDOWN_REQ = 19   # GPIO19 = Header Pin 35
 running = True
-shutdown_triggered = False  # NEU: Verhindert mehrfaches Auslösen
+shutdown_triggered = False  
 
 def sigterm_handler(signum, frame):
-    global running, shutdown_triggered
-    if shutdown_triggered:
-        # WICHTIG: Wir ignorieren SIGTERM, wenn wir bereits herunterfahren!
-        # So bleibt das Skript am Leben und gpiozero behält die Kontrolle 
-        # über die Pins, bis der Kernel den Pi endgültig hart abschaltet.
-        print("SIGTERM ignoriert, Shutdown läuft bereits.", flush=True)
-        return
-        
+    global running
+    # Wir setzen running immer auf False, damit die Schleife bricht
+    # und systemd nicht blockiert wird.
     print("SIGTERM empfangen: Beende Service sauber.", flush=True)
     running = False
 
@@ -29,7 +25,6 @@ def sigint_handler(signum, frame):
 
 def trigger_shutdown():
     global shutdown_triggered
-    # Wenn der Shutdown schon läuft, mache nichts mehr
     if shutdown_triggered:
         return
         
@@ -56,3 +51,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
