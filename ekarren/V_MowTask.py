@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
-from params import LidarMaxAngle, TaskState
+from params import LidarMaxAngle, LidarRangeMax, TaskState
 
 
 ALIGN = 0
@@ -22,8 +22,8 @@ class V_MowTask:
 
         # Mähbereich
         self.endDistY = 2.0
-        self.forwardTurnDist = 8.0
-        self.backwardTurnDist = 5.0
+        self.forwardTurnDist = 7.0
+        self.backwardTurnDist = 4.0
 
         self.laneAngle = 0.2 / (self.forwardTurnDist - self.backwardTurnDist)
                 
@@ -45,15 +45,45 @@ class V_MowTask:
             self.state = newState
 
     # Hilfsfunktion: Sektor mit Wraparound in Grad
-    def GetSectorMin_deg(self, ranges_np, start_deg, end_deg):
+    # Gibt Minimalradius in einen Bereich [start_deg, end_deg) zurück.
+    def GetSectorMin(self, ranges_np, start_deg, end_deg):
         start_deg += LidarMaxAngle
         end_deg += LidarMaxAngle
-        """Gibt Minimalradius in einen Bereich in [start_deg, end_deg) zurück."""
         if start_deg < end_deg: return np.nanmin(ranges_np[start_deg:end_deg]) 
-        elif start_deg < end_deg: return self.maxDist_mm
+        #elif start_deg < end_deg: return self.maxDist_mm
         min1 = np.nanmin(ranges_np[start_deg:])
         min2 = np.nanmin(ranges_np[:end_deg])
         return min(min1, min2)  
+
+    # Hilfsfunktion: Sektor mit Wraparound in Grad
+    # Gibt den Median in einen Bereich [start_deg, end_deg) zurück.
+    # Kann so interpretiert werden, dass die Hälfte der Werte kleiner oder gleich dem Median sind.
+    # Das sollte helfen einzelne Grashalme zu ignorieren.
+    def GetSectorMedian(self, ranges_np, start_deg, end_deg):
+        start_deg += LidarMaxAngle
+        end_deg += LidarMaxAngle
+        if start_deg < end_deg: return np.median(ranges_np[start_deg:end_deg]) 
+        #elif start_deg < end_deg: return self.maxDist_mm
+        new_ranges = np.append(ranges_np[start_deg:], ranges_np[:end_deg])
+        return np.median(new_ranges)
+
+    # Hilfsfunktion: Sektor mit Wraparound in Grad
+    # Berechnet den Minimalwert, der von N Range-Werten nicht überschritten wird.
+    # Das sollte helfen einzelne Grashalme zu ignorieren.
+    def GetRobustSectorMin(self, ranges_np, start_deg, end_deg, N):
+        start_deg += LidarMaxAngle
+        end_deg += LidarMaxAngle
+        if start_deg < end_deg: 
+            new_ranges = ranges_np[start_deg:end_deg]
+        else:
+            new_ranges = np.append(ranges_np[start_deg:], ranges_np[:end_deg])
+            
+        # Sicherheitscheck: Gibt es überhaupt N gültige Werte?
+        if len(valid_ranges) < N:
+            # Wenn nicht genug Daten da sind, gib den sicheren Maximalwert 
+            return LidarRangeMax
+        sorted_ranges = np.sort(new_ranges)
+        return sorted_ranges[N-1]
         
 
     def Step(self, ranges):
@@ -65,8 +95,8 @@ class V_MowTask:
         ranges[ranges <= 0.0] = np.nan
         
         a = 5
-        distX = self.GetSectorMin_deg(ranges,   0, 2*a) 
-        distY = self.GetSectorMin_deg(ranges,  90-a, 90+a)  
+        distX = self.GetSectorMedian(ranges,   0, 2*a) 
+        distY = self.GetSectorMedian(ranges,  90-a, 90+a)  
         
         if self.state == ALIGN:
             if self.nav.wantedThetaReached:
