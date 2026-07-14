@@ -293,8 +293,8 @@ class Visualizer:
 
         # for teleop
         self.manual = False
-        self.speed_linear = 0.5   
-        self.speed_angular = 1.0  
+        self.speed_linear = 0.25   
+        self.speed_angular = 0.5  
         self.linear_step = 0.1
         self.angular_step = 0.2
         
@@ -435,7 +435,7 @@ class Visualizer:
         
             theta_deg = 360 - np.rad2deg(self.robot.theta)
             if theta_deg > 180: theta_deg -= 360
-            txt = f"{mode}  YAW={theta_deg:3.1f}°   {self.udp_text}"
+            txt = f"{mode}  YAW={theta_deg:3.1f}°  vLin(w|s)={self.speed_linear:.1f}  vAng(a|d)={self.speed_angular:.1f}    {self.udp_text}"
             self.bitBlock = self.font.render(txt, True, (220, 220, 220))
 
         if self.traceMode: 
