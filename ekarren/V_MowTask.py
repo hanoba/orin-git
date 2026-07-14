@@ -101,20 +101,20 @@ class V_MowTask:
         if self.state == ALIGN:
             if self.nav.wantedThetaReached:
                 self.nav.SetDirection(0.0, -self.base_speed)
-                self.SetState(FORWARD)
+                self.SetState(BACKWARD)
                 
-        elif self.state == FORWARD:
+        elif self.state == BACKWARD:
             # --- Sektoren (Standard: 0° vorne, 90° links, 270° rechts) ---
             if distX > self.forwardTurnDist:
                 self.nav.SetDirection(self.laneAngle, self.base_speed)
-                self.SetState(BACKWARD)
-        elif self.state == BACKWARD:
+                self.SetState(FORWARD)
+        elif self.state == FORWARD:
             if distX < self.backwardTurnDist:
                 if distY < self.endDistY:
                     self.nav.ResetDirection()
                     return TaskState.Ready, None
                 self.nav.SetDirection(0.0, -self.base_speed)
-                self.SetState(FORWARD)
+                self.SetState(BACKWARD)
 
         if self.debugFlag:
             print(f"{self.time:6d}: {self.GetStateText(self.state)} {distX=:.2f}  {distY=:.2f}")
