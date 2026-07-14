@@ -1,0 +1,21 @@
+[Unit]
+Description=Raspberry Pi Power Manager (ATtiny Shutdown)
+After=multi-user.target
+
+[Service]
+Type=simple
+# Root-Rechte sind zwingend erforderlich für /sbin/shutdown
+User=root
+# Der absolute Pfad zum Python-Interpreter und zu deinem Skript
+ExecStart=/usr/bin/python3 /home/harald/orin-git/PowerCtrl/RaspiTriggerShutdown.py
+
+# Startet das Skript nach 5 Sekunden neu, falls es abstürzen sollte
+Restart=on-failure
+RestartSec=5
+
+# Zur Sicherheit: Falls das Skript sich beim Shutdown doch mal aufhängt,
+# zieht systemd nach 5 Sekunden den Stecker (verhindert den 90-Sekunden-Hänger).
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

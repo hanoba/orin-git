@@ -73,7 +73,8 @@ class Ardumower:
         full_frame = header + data_bytes + checksum_byte
 
         # Frame über UART senden
-        self.ser.write(full_frame)
+        serialEnable = True
+        if serialEnable: self.ser.write(full_frame)
         
         # Optionale Konsolenausgabe zur Kontrolle
         #print(f"Gesendet: {daten} | Frame-Hex: {full_frame.hex().upper()}")
