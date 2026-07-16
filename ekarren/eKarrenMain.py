@@ -89,7 +89,8 @@ class LidarProcess(multiprocessing.Process):
         angles_rad = np.array([(np.pi/2-p.angle) % (2*np.pi) for p in self.scan_data.points])
         ranges_raw = np.array([p.range for p in self.scan_data.points])
         
-        # Zu kleine Werte filtern
+        # Wenn der Sensor einen Punkt nicht messen kann (weil das Hindernis zu nah, zu weit weg, spiegelnd oder stark absorbierend ist), 
+        # wird trägt er eine schlichte 0.0 als Distanz (range) für diesen Winkel in das Array ein.  
         ranges_raw[ranges_raw < 0.05] = LidarRangeMax
 
         # 2. Winkel in Grad umrechnen und dem passenden 1°-Bucket (0-359) zuordnen

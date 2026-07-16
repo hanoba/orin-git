@@ -107,6 +107,9 @@ class Navigator:
         self.directionFlag = False
         #self.PubVelocities(vLinear, omega)
 
+    def SetLinearVelocity(self, vLinear):
+        self.linear = vLinear  
+
     def SetWantedTheta(self, wantedTheta, vLinear=0.0, turnRight=False, turnLeft=False):
         assert turnRight==False or turnLeft==False
         self.turnRight = turnRight
