@@ -94,8 +94,8 @@ def main():
         while sim.running:
             x, y, theta, radius = sim.Step()        # Simulations-Schritt
             if not sim.pause:
-                vLinear, omega = navigator.CompassCallback(theta)   # Publish Theta
-                vLinear, omega = udp_rx.ReceiveTeleop(vLinear, omega)   # check for teleop command
+                vLinear, omega, mode = navigator.CompassCallback(theta)   # Publish Theta
+                vLinear, omega, mode = udp_rx.ReceiveTeleop(vLinear, omega, mode)   # check for teleop command
                 
                 sim.SetRobotSpeed(vLinear, omega)
                 SendPositionAndTime(x, y, theta)    # Send Pose to viz.py

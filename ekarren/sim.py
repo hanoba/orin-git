@@ -40,7 +40,7 @@ import os
 # Das verhindert, dass Pygame versucht, eine echte Audio-Verbindung aufzubauen.
 os.environ["SDL_AUDIODRIVER"] = "dummy"
 
-sys.path.append('../HostSim')
+#sys.path.append('../HostSim')
 import params
 
 
@@ -109,28 +109,44 @@ class DiffDriveRobot:
 
     def InitRobot(self):
         # --- Grundgrößen ---
-        self.ROBOT_LENGTH =  17*2     # 60
-        self.ROBOT_WIDTH =   11*2     # 45
-        self.WHEEL_LENGTH =   4*2     # 20
-        self.WHEEL_WIDTH =    2     #  8
-        self.CASTER_RADIUS =  1     #  6
+        if params.Ardumower:
+            self.ROBOT_LENGTH =  10*2     # 60
+            self.ROBOT_WIDTH =    5*2     # 45
+            self.WHEEL_LENGTH =   4*2     # 20
+            self.WHEEL_WIDTH =    2     #  8
+            
+            # Spurweite (Abstand der Radmitten voneinander):
+            # Definiert, wie weit die Räder auseinander stehen.
+            self.WHEEL_BASE = 5*2   #50     
+            
+            # Position der Lenkrolle (X-Achse):
+            # Relativ zum Drehpunkt (0,0). 
+            self.CASTER_X = 6
+        else:
+            self.ROBOT_LENGTH =  17*2     # 60
+            self.ROBOT_WIDTH =   11*2     # 45
+            self.WHEEL_LENGTH =   4*2     # 20
+            self.WHEEL_WIDTH =    2     #  8
+            #self.CASTER_RADIUS =  1     #  6
+            
+            # Spurweite (Abstand der Radmitten voneinander):
+            # Definiert, wie weit die Räder auseinander stehen.
+            self.WHEEL_BASE = 11*2   #50     
+            
+            # Position der Lenkrolle (X-Achse):
+            # Relativ zum Drehpunkt (0,0). Bei 35 liegt sie schön weit vorne im Gehäuse.
+            self.CASTER_X = 8   #35       
+        
         
         # --- NEUE KONFIGURATION FÜR POSITIONEN ---
         
         # 1. Gehäuse-Verschiebung (X-Achse): 
         # Wenn > 0, rückt das Gehäuse nach vorne (Räder wirken weiter hinten).
         self.LIDAR_X_OFFSET = int(params.LidarX / MetersPerPixel + 0.5)
-        self.BODY_X_OFFSET = self.LIDAR_X_OFFSET - self.ROBOT_LENGTH / 2 #4*2  #15  
+        
+        self.BODY_X_OFFSET = 0 if params.Ardumower else self.LIDAR_X_OFFSET - self.ROBOT_LENGTH / 2 #4*2  #15  
         #assert self.BODY_X_OFFSET >= 0
         print(f"{self.BODY_X_OFFSET=}")
-        
-        # 2. Spurweite (Abstand der Radmitten voneinander):
-        # Definiert, wie weit die Räder auseinander stehen.
-        self.WHEEL_BASE = 11*2   #50     
-        
-        # 3. Position der Lenkrolle (X-Achse):
-        # Relativ zum Drehpunkt (0,0). Bei 35 liegt sie schön weit vorne im Gehäuse.
-        self.CASTER_X = 8   #35       
         
         # --- Lokale Geometrie definieren ---
         # (Zentrum 0,0 ist und bleibt exakt mittig zwischen den Rädern!)

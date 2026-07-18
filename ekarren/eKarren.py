@@ -1,7 +1,7 @@
 import socket
 import sys
-import serial
 import time
+import serial
 import struct
 
 # Constants for eKarren
@@ -45,8 +45,7 @@ class Ardumower:
             checksum = (checksum + byte) & 0xFF
         return checksum
 
-    def SetSpeed(self, linear, angular):
-        mode = 0
+    def SetSpeed(self, linear, angular, mode):
         iLinear = round(linear*self.cLinear)
         iAngular = round(angular*self.cAngular)
         daten = [iLinear, iAngular, mode]
@@ -135,9 +134,9 @@ class eKarren:
         elif y <= -rcMaxValue: y = -rcMaxValue + 1
         return y
     
-    def SetSpeed(self, vLinear, omega):
+    def SetSpeed(self, vLinear, omega, mode):
         if self.device==DEV_ARDUMOWER:
-            self.ardumower.SetSpeed(vLinear, omega)
+            self.ardumower.SetSpeed(vLinear, omega, mode)
             return
 
         vLinearQ = self.Quantize(vLinear / vLinearMax * rcMaxValue)
@@ -149,6 +148,8 @@ class eKarren:
         self.sock.sendto(send_data.encode('utf-8'), self.clientAddr)
  
     def Close(self):
+        self.SetMowMotor(0)
         self.SetSpeed(0, 0)
+        time.sleep(1)
         if self.device==DEV_ARDUMOWER: self.ardumower.Close()
         else: self.sock.close()

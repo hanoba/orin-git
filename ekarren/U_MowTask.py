@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 import math
-from params import LidarMaxAngle, TaskState
+from params import LidarMaxAngle, TaskState, Ardumower
 
 # Zustände
 FOLLOW = 0
@@ -11,7 +11,8 @@ NONE   = 2
 class U_MowTask:
     def Init(self, navigator, params, retvals=None):
         
-        self.cos45 = math.cos(45/180*math.pi)   # winkel zwischen d_wall und d_wall45
+        self.cos45 = math.cos(math.radians(45))   # winkel zwischen d_wall und d_wall45
+        self.SQRT_2 = math.sqrt(2.0)
 
         # Basis-Vorwärtsgeschwindigkeit
         self.base_speed = 0.5
@@ -110,14 +111,28 @@ class U_MowTask:
             # Nur wenn Wandmessung vernünftig
             assert np.isfinite(d_wall)
             assert np.isfinite(d_wall45)
+
+            if Ardumower:
+                # Lidarsensor virtuell um C nach vorne verschieben
+                A = d_wall
+                B = d_wall45
+                C = 0.5
+                #H = A / math.sqrt(2.0)
+                #alpha = math.atan(B/H - 1)
+                #beta = alpha - math.pi/4
+                #d_wall += C*math.tan(beta)
+                
+                # Ohne Trigonometrie direkt den Faktor berechnen
+                tan_beta = 1.0 - (A * self.SQRT_2/B)
+                d_wall += C * tan_beta            
             
             # Lateral-Fehler: Abstand zur Wand
-            lateral_error = self.target_dist - d_wall
+            d_wall = self.target_dist - d_wall
 
             # Heading-Fehler: Wandgeometrie (Wand schräg?)
             # Wenn right_front näher als right → Wand läuft schräg nach vorn → links drehen.
             heading_error = d_wall - d_wall45*self.cos45
-
+            
             omega = s*(self.K_lat * lateral_error - self.K_head * heading_error)
             angular = omega
             if angular > self.max_angular: angular = self.max_angular

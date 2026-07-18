@@ -248,6 +248,7 @@ def G(x):
 class Visualizer:
     def __init__(self):
         self.numSteps = 0
+        self.mode = 0
         self.robot = DiffDriveRobot(
             x=0.0,
             y=0.0,
@@ -364,7 +365,8 @@ class Visualizer:
             udp_data = [
                 # round(x) gibt in Python 3 automatisch einen Integer zurück
                 round(vLinear*1000.0),
-                round(omega*1000.0)
+                round(omega*1000.0),
+                self.mode
             ]
             self.udp_tx.Send(udp_header, udp_data)
             
@@ -390,6 +392,8 @@ class Visualizer:
                     self.hideLidarPoints = not self.hideLidarPoints
                 elif event.key == pygame.K_m:
                     self.manual = not self.manual
+                elif event.key == pygame.K_w:
+                    self.mode = self.mode ^ 8
                 elif event.key == pygame.K_c:
                     self.InitMarkers()
                     self.lidarPoints = None
@@ -432,7 +436,7 @@ class Visualizer:
             mode += "b" if self.hideBlueLines else "B"
             mode += "l" if self.hideLidarPoints else "L"
             mode += "M" if self.manual else "m"
-        
+            mode += " MOW" if (self.mode & 8)==8 else " mow"
             theta_deg = 360 - np.rad2deg(self.robot.theta)
             if theta_deg > 180: theta_deg -= 360
             txt = f"{mode}  YAW={theta_deg:3.1f}°  vLin(w|s)={self.speed_linear:.1f}  vAng(a|d)={self.speed_angular:.1f}    {self.udp_text}"

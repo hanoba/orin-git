@@ -85,6 +85,7 @@ class Navigator:
         self.angularMax = 2.0
         self.angular = 0.0
         self.linear = 0.0
+        self.mode = 0
         self.directionFlag = False
         self.simTimeSec = 0.0
 
@@ -100,6 +101,9 @@ class Navigator:
         )
         self.scanCallbackCounter = 0
 
+    def SetMode(mode):
+        self.mode = mode
+    
     def SetVelocities(self, omega, vLinear):
         self.angular = omega    #0.0
         self.linear = vLinear   #0.0
@@ -169,7 +173,7 @@ class Navigator:
                 self.angular = np.clip(e*self.K_headFast + self.angularMin,  -self.angularMax, self.angularMax)
         dauer_ms = (time.perf_counter_ns() - start_zeit) * 1e-6 # Umrechnung in ms
         self.trace.Put(f"[CompassCallback] END {dauer_ms=:.3f}")
-        return self.linear, self.angular
+        return self.linear, self.angular, self.mode
 
     def ScanCallback(self, ranges):
         self.trace.Put("[ScanCallback] START")

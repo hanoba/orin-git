@@ -14,6 +14,7 @@ class UdpReceive:
         self.teleopRepeatCnt=0
         self.vLinearLast=0.0
         self.omegaLast=0.0
+        self.modeLast=0
 
         listen_ip="0.0.0.0" # lausche auf alle Netzwerk-Interfaces
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -101,22 +102,23 @@ class UdpReceive:
     def ReceivedAddr(self):
         return self.receivedAddr
 
-    def ReceiveTeleop(self, vLinear, omega):
+    def ReceiveTeleop(self, vLinear, omega, mode):
         data = self.Receive(latestOnly=True)
         if data is None:
             if self.teleopRepeatCnt > 0:
                 self.teleopRepeatCnt -= 1
-                return self.vLinearLast, self.omegaLast
-            return vLinear, omega
+                return self.vLinearLast, self.omegaLast, self.modeLast
+            return vLinear, omega, mode
         
         #print(f"Teleop received {data}")
         self.teleopRepeatCnt = self.teleopRepeatValue
         header, data_list = data
         assert header == Udp.TELEOP
-        assert len(data_list) == 2
+        assert len(data_list) == 3
         self.vLinearLast = data_list[0]/1000.0
         self.omegaLast = data_list[1]/1000.0
-        return self.vLinearLast, self.omegaLast
+        self.modeLast = data_list[2]
+        return self.vLinearLast, self.omegaLast, self.modeLast
 
 
 # Starten

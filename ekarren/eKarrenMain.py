@@ -13,7 +13,7 @@ import TaskLists
 
 import numpy as np # Vergiss nicht numpy zu importieren!
 import ydlidar
-from params import LidarMaxAngle, LidarRangeMax, Udp
+from params import LidarMaxAngle, LidarRangeMax, Udp, Ardumower
 
 
 print("After import")
@@ -214,12 +214,15 @@ def main():
     }
 
     def Usage():
-        print("Usage: ekarren [<deviceName> [<taskName>]]")
-        print("<deviceName>:")
-        print("    Ardumower (default)")
-        print("    eKarren")
-        print("    eKarrenPC")
-        print("    eKarrenEmulator")
+        if Ardumower:
+            print("Usage: ekarren [<taskName>]")
+        else:
+            print("Usage: ekarren [<deviceName> [<taskName>]]")
+            print("<deviceName>:")
+            print("    Ardumower")
+            print("    eKarren (default)")
+            print("    eKarrenPC")
+            print("    eKarrenEmulator")
         print("<taskName>:")
         print("    None (default)")
         index = 0
@@ -250,10 +253,16 @@ def main():
 
     # command line parameter handling
     taskList = None
+    taskListName = "None"
     argc = len(sys.argv)
-    if argc==1:
+    if Ardumower:
         deviceName = "Ardumower"
-        #deviceName = "eKarren"
+        if argc==2:
+            taskListName = sys.argv[1]
+        elif argc>2: Usage()
+    elif argc==1:
+        #deviceName = "Ardumower"
+        deviceName = "eKarren"
         #deviceName = "eKarrenPC"
         #deviceName = "eKarrenEmulator"    
     elif argc==2:
@@ -261,13 +270,14 @@ def main():
     elif argc==3:
         deviceName = sys.argv[1]
         taskListName = sys.argv[2]
-        if taskListName != "None":
-            if taskListName.isdigit():
-                taskList = list(TaskListDict.values())[int(taskListName)]
-            else:
-                taskList = TaskListDict.get(taskListName)
-        if taskList is None: Usage()
     else: Usage()
+
+    if taskListName != "None":
+        if taskListName.isdigit():
+            taskList = list(TaskListDict.values())[int(taskListName)]
+        else:
+            taskList = TaskListDict.get(taskListName)
+    if taskList is None: Usage()
 
     if deviceName=="Ardumower": deviceNum = DEV_ARDUMOWER
     elif deviceName=="eKarren": deviceNum = DEV_EKARREN
@@ -313,11 +323,11 @@ def main():
             theta = GetLatestFromPipe(compass_rx)
             
             # Kompass-Daten an den Navigator übergeben
-            vLinear, omega = navigator.CompassCallback(theta)
+            vLinear, omega, mode = navigator.CompassCallback(theta)
 
             # --- MOTOREN UPDATEN ---
-            vLinear, omega = udp_rx.ReceiveTeleop(vLinear, omega)   
-            ekarren.SetSpeed(vLinear, omega)      
+            vLinear, omega, mode = udp_rx.ReceiveTeleop(vLinear, omega, mode)   
+            ekarren.SetSpeed(vLinear, omega, mode)      
             
             # --- LIDAR UPDATE (NON-BLOCKING) ---
             # Wir prüfen kurz, ob der Lidar-Prozess neue Daten gesendet hat.

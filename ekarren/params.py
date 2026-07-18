@@ -39,9 +39,10 @@ class Udp(IntEnum):
     PORT_VIZ = 5006
     PORT_TELEOP = 5007
 
+Ardumower = True
 
 # angle range = -(LidarMaxAngle-1) ... LidarMaxAngle
-LidarMaxAngle = 180  # 120
+LidarMaxAngle = 180 
 LidarRangeMin = 0.01    # from YDLIDAR (old 0.1)
 LidarRangeMax = 64.0    # from YDLIDAR (old 20.0)
 LidarFreq_Hz = 10
@@ -53,7 +54,7 @@ LidarAngles = LidarAngleMin + np.arange(2*LidarMaxAngle) * LidarAngleIncrement
 
 # Abstand des Lidar in X-Richtung vom Mittelpunkt der Achse
 #LidarX = 0.4
-LidarX = 0.8
+LidarX = -0.25 if Ardumower else 0.8
 LinearVelocity = 0.5
 
 SimPause = False        # Simulator beim Start im Pause-Modus
