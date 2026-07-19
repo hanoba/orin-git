@@ -2,6 +2,7 @@
 import numpy as np
 import math
 from params import LidarMaxAngle, TaskState, Ardumower
+from helper import GetSectorMedian
 
 # Zustände
 FOLLOW = 0
@@ -60,16 +61,16 @@ class U_MowTask:
             if self.debugFlag: print(f"State: {self.GetStateText(newState)}")
             self.state = newState
 
-    # Hilfsfunktion: Sektor mit Wraparound in Grad
-    def GetSectorMin_deg(self, ranges_np, start_deg, end_deg):
-        start_deg += LidarMaxAngle
-        end_deg += LidarMaxAngle
-        """Gibt Minimalradius in einen Bereich in [start_deg, end_deg) zurück."""
-        if start_deg < end_deg: return np.nanmin(ranges_np[start_deg:end_deg]) 
-        elif start_deg < end_deg: return self.maxDist_mm
-        min1 = np.nanmin(ranges_np[start_deg:])
-        min2 = np.nanmin(ranges_np[:end_deg])
-        return min(min1, min2)  
+    ## Hilfsfunktion: Sektor mit Wraparound in Grad
+    #def GetSectorMin_deg(self, ranges_np, start_deg, end_deg):
+    #    start_deg += LidarMaxAngle
+    #    end_deg += LidarMaxAngle
+    #    """Gibt Minimalradius in einen Bereich in [start_deg, end_deg) zurück."""
+    #    if start_deg < end_deg: return np.nanmin(ranges_np[start_deg:end_deg]) 
+    #    elif start_deg < end_deg: return self.maxDist_mm
+    #    min1 = np.nanmin(ranges_np[start_deg:])
+    #    min2 = np.nanmin(ranges_np[:end_deg])
+    #    return min(min1, min2)  
         
 
     def Step(self, ranges):
@@ -97,16 +98,16 @@ class U_MowTask:
             a = 5
             if self.forward:
                 s = 1.0
-                d_zaun   = self.GetSectorMin_deg(ranges,   0, 2*a) 
-                d_wall   = self.GetSectorMin_deg(ranges, -90-a,-90+a)  
-                d_wall45 = self.GetSectorMin_deg(ranges, -135-a, -135+a)     # Wandmessung um 45° versetzt
+                d_zaun   = GetSectorMedian(ranges,   0, 2*a) 
+                d_wall   = GetSectorMedian(ranges, -90-a,-90+a)  
+                d_wall45 = GetSectorMedian(ranges, -135-a, -135+a)     # Wandmessung um 45° versetzt
             else:
                 s = -1.0
-                #d_zaun = min(self.GetSectorMin_deg(ranges, 180-a,  180),
-                #             self.GetSectorMin_deg(ranges,  -179, -179+a))
-                d_zaun = self.GetSectorMin_deg(ranges,  -179, -179+2*a)
-                d_wall     = self.GetSectorMin_deg(ranges,  90-a, 90+a)  
-                d_wall45 = self.GetSectorMin_deg(ranges,    45-a, 45+a)  
+                #d_zaun = min(GetSectorMedian(ranges, 180-a,  180),
+                #             GetSectorMedian(ranges,  -179, -179+a))
+                d_zaun = GetSectorMedian(ranges,  -179, -179+2*a)
+                d_wall     = GetSectorMedian(ranges,  90-a, 90+a)  
+                d_wall45 = GetSectorMedian(ranges,    45-a, 45+a)  
 
             # Nur wenn Wandmessung vernünftig
             assert np.isfinite(d_wall)
