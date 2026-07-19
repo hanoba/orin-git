@@ -44,6 +44,7 @@ import params
 from params import Udp, LidarMaxAngle
 from UdpReceive import UdpReceive
 from UdpSend import UdpSend
+from helper import NormalizeAngle
 
 
 # =========================
@@ -95,10 +96,6 @@ STATE_GATE_REACHED = 3               # Distance to gate less than GATE_REACHED_T
 STATE_DONE = 4                       # hinter dem Tor angehalten
 
 
-def NormalizeAngle(angle_rad):
-    return (angle_rad + math.pi) % math.tau - np.pi
-
-    
 class DiffDriveRobot:
     """Kinematik (teilweise optimiert mit NumPy)."""
     def __init__(self, x, y, theta):

@@ -3,11 +3,16 @@ import math
 import smbus2
 import time
 import json
-from eKarren import eKarren, DEV_EKARREN, DEV_EKARREN_PC
+from eKarren import eKarren, DEV_EKARREN, DEV_EKARREN_PC, DEV_ARDUMOWER
+from params import Ardumower
 
-DEVICE = DEV_EKARREN_PC
-I2C_BUS = 7
 MAG_ADDR = 0x30
+if Ardumower:
+    DEVICE = DEV_ARDUMOWER
+    I2C_BUS = 1
+else:
+    DEVICE = DEV_EKARREN_PC
+    I2C_BUS = 7
 
 
 class CompassCalibration:

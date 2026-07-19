@@ -42,6 +42,7 @@ os.environ["SDL_AUDIODRIVER"] = "dummy"
 
 #sys.path.append('../HostSim')
 import params
+from helper import NormalizeAngle
 
 
 # =========================
@@ -91,10 +92,6 @@ STATE_GOTO_START = 1                 # Ausrichten auf Startpunkt und zufahren
 STATE_ALIGN_AND_GO = 2               # Ausrichten auf Gate und zufahren
 STATE_GATE_REACHED = 3               # Distance to gate less than GATE_REACHED_THRE
 STATE_DONE = 4                       # hinter dem Tor angehalten
-
-
-def NormalizeAngle(angle_rad):
-    return (angle_rad + math.pi) % math.tau - np.pi
 
     
 class DiffDriveRobot:

@@ -2,13 +2,10 @@ import numpy as np
 import math
 from GartenWorld import Localization, lineNames        #, lineNames, World, GetWallPosX, GetWallPosY
 from params import TaskState
+from helper import NormalizeAngle
 
 def G(x):
     return np.rad2deg(x)
-
-def NormalizeAngle(angle_rad):
-    return (angle_rad + math.pi) % math.tau - np.pi
-
 
 def RemoveEquations(A, b, lineNumbers, debug=True):
     """ Verwende nur Zäune zur Lokalisierung, wenn mindesten zwei Zäune erkannt wurden """

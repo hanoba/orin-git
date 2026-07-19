@@ -4,14 +4,12 @@ import cmath
 import Ransac
 import params
 from params import TaskState, Udp
+from helper import NormalizeAngle
 #from UdpSend import UdpSend
 
 
 def G(x):
     return np.rad2deg(x)
-
-def NormalizeAngle(angle_rad):
-    return (angle_rad + math.pi) % math.tau - np.pi
 
 class PassGateRansacTask:
     def Init(self, node, params, retvals=None):

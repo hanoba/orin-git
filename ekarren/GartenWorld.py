@@ -6,6 +6,8 @@ import numpy as np
 import math
 from dataclasses import dataclass
 import params
+from helper import NormalizeAngle
+
 
 # Toleranz für Wanderkennung
 MAX_ANGLE_DIFF_RAD = np.deg2rad(5.0*2)
@@ -135,9 +137,6 @@ def Ym(pixel):
 
 def V(meterPerSec):
     return meterPerSec*WIN_W/WIN_W_METER
-
-def NormalizeAngle(angle_rad):
-    return (angle_rad + math.pi) % math.tau - np.pi
 
 def CheckAngle(num, angle_rad):
     value_rad = lineTheta[num]

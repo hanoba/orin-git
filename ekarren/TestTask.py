@@ -6,6 +6,7 @@ import os
 import time
 from params import TaskState
 from GartenWorld import Localization
+from helper import NormalizeAngle
 
 # Task zum Testen des E-Karrens.
 
@@ -52,10 +53,6 @@ def LoadConfigJson(file_path="TestConfig.json"):
             ReturnFlag        = data.get('ReturnFlag', ReturnFlag)
         except json.JSONDecodeError as exc:
             print(f"Fehler beim Parsen der JSON: {exc}")
-
-
-def NormalizeAngle(angle_rad):
-    return (angle_rad + math.pi) % math.tau - np.pi
 
 class TestTask:
     def __init__(self):

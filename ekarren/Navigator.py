@@ -3,15 +3,12 @@ import time
 import math
 import os
 import Ransac
-import TaskLists
 import params
 
 from params import TaskState, Udp
 from UdpSend import UdpSend
 from trace import Trace
-
-def NormalizeAngle(angle_rad):
-    return (angle_rad + math.pi) % math.tau - np.pi
+from helper import NormalizeAngle
 
 def CheckAngle(angle_rad, value_rad):
     MaxDiff = np.deg2rad(5.0)
@@ -101,7 +98,7 @@ class Navigator:
         )
         self.scanCallbackCounter = 0
 
-    def SetMode(mode):
+    def SetMode(self, mode):
         self.mode = mode
     
     def SetVelocities(self, omega, vLinear):
