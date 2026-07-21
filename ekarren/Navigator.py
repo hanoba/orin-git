@@ -145,7 +145,7 @@ class Navigator:
         if self.directionFlag:
             e = self.wantedTheta - self.theta
             e = (e + math.pi) % math.tau - math.pi
-            self.angular = e * 4.0   #self.K_head
+            self.angular = e * 1.0*2   #self.K_head
         elif not self.wantedThetaReached:
             e1 = self.wantedTheta - self.theta
             e = (e1 + math.pi) % math.tau - math.pi

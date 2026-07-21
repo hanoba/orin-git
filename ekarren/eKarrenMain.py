@@ -215,7 +215,7 @@ def main():
 
     def Usage():
         if Ardumower:
-            print("Usage: ekarren [<taskName>]")
+            print("Usage: ekarren [<taskName>]   (Ardumower is selected)")
         else:
             print("Usage: ekarren [<deviceName> [<taskName>]]")
             print("<deviceName>:")
@@ -257,6 +257,7 @@ def main():
     argc = len(sys.argv)
     if Ardumower:
         deviceName = "Ardumower"
+        print(argc)
         if argc==2:
             taskListName = sys.argv[1]
         elif argc>2: Usage()
@@ -277,7 +278,7 @@ def main():
             taskList = list(TaskListDict.values())[int(taskListName)]
         else:
             taskList = TaskListDict.get(taskListName)
-    if taskList is None: Usage()
+        if taskList is None: Usage()
 
     if deviceName=="Ardumower": deviceNum = DEV_ARDUMOWER
     elif deviceName=="eKarren": deviceNum = DEV_EKARREN

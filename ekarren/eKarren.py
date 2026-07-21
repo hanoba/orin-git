@@ -148,8 +148,7 @@ class eKarren:
         self.sock.sendto(send_data.encode('utf-8'), self.clientAddr)
  
     def Close(self):
-        self.SetMowMotor(0)
-        self.SetSpeed(0, 0)
+        self.SetSpeed(0, 0, 0)
         time.sleep(1)
         if self.device==DEV_ARDUMOWER: self.ardumower.Close()
         else: self.sock.close()

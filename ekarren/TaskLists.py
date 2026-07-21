@@ -481,7 +481,7 @@ U_MowTask_TaskList = {
 
 V_MowTask_TaskList = {
     "name": "V_MowTask",
-    "tasks": [  (GotoLocationTask(), (5.6-0.8, 4.0)),
+    "tasks": [  (GotoLocationTask(), (5.6-0.8, 5.5)),
                 (V_MowTask(), None) ]
 }
 

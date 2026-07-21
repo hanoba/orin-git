@@ -16,7 +16,7 @@ class V_MowTask:
         # Speed Control
         self.speedSign = 1    # foward: +1, backward -1
         self.speedCnt = 0
-        self.speedCntMax = 10
+        self.speedCntMax = 3
         self.speedStep = 0.1    # m/s
         self.base_speed = self.speedCntMax*self.speedStep
         
@@ -29,16 +29,18 @@ class V_MowTask:
         
         # Mähbereich
         self.endDistY = 2.0
-        self.backwardTurnDist = 7.0
-        self.forwardTurnDist = 4.0
+        self.backwardTurnDist = 8.0
+        self.forwardTurnDist = 1.0
 
-        self.laneAngle = 0.2 / (self.backwardTurnDist - self.forwardTurnDist)
+        self.laneAngle = 0.4 / (self.backwardTurnDist - self.forwardTurnDist)
                 
         self.state = NONE
         self.SetState(ALIGN)
 
         self.time = 0
         self.nav.SetWantedTheta(0.0)
+        MODE_MOW = 8
+        self.nav.SetMode(MODE_MOW)
 
     def GetStateText(self, newState):
         if newState==ALIGN: return "ALIGN"
